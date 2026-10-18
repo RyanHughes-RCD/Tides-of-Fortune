@@ -11,8 +11,9 @@ These files are the whole game. Put them on GitHub Pages and anyone can open it 
 | `manifest.webmanifest` | The app's name, icon and full-screen setting |
 | `icon-180.png`, `icon-192.png`, `icon-512.png`, `icon-maskable-512.png` | App icons |
 | `README.md` | This guide |
+| `Pixeloid-font-license.txt` | License for the Pixeloid font used in the game |
 
-All the files sit side by side. There are no folders to recreate.
+All 9 files sit side by side. There are no folders to recreate.
 
 ## 1. Create the repository
 
