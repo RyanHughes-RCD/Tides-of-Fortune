@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.4.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.5.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,17 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.5: more ships and steadier screens
+
+- **Three new mid-tier ships** fill the gap between the trawler and the galleon. Each is an all-rounder rather than the best at one job:
+  - **Revenue Cutter (tier 2):** fast and armed, the first ship that can hunt pirates, and decent at treasure and exploring.
+  - **Survey Ketch (tier 3):** an explorer that also hunts treasure well.
+  - **Corsair Xebec (tier 4):** a quick raider that fights, scouts and loots.
+- **Rebalanced fleet:** the Fishing Skiff now fishes at 8 (was 9), the Fishing Trawler at 13 (was 14), and the Arcane Frigate is now the best treasure hunter. Ships already at sea finish their trip with the stats they sailed with.
+- **Collecting from many ships** now scrolls the reward list, and the button always stays on screen.
+- **Shipwright → Upgrades:** the ship strip no longer jumps back to the start while you scroll.
+- Each ship card now says what it's good at, based on its real strengths.
 
 ## What's new in 1.4: a bigger village to make your own
 
