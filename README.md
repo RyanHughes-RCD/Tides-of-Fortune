@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.3.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.4.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -64,6 +64,17 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
 
+## What's new in 1.4: a bigger village to make your own
+
+- **More land.** The map grew from 40×40 to 48×48 tiles, with a wide new peninsula to the south and roads into it. Everything you've already built stays exactly where it was.
+- **The lighthouse island** now stands much further out to sea.
+- **Lighter fog.** Foggy weather is about half as thick.
+- **Two new top-tier ships** (they need a level 3 Dockyard):
+  - **Leviathan Trawler:** the best fishing ship, with a 420-unit hold.
+  - **Star Clipper:** the fastest hull and the best explorer.
+- **Ten new decorations** to fill the extra space. Village buildings: Seaside Cottage, Windmill (sails turn), Bell Tower, Fisher's Hut, Gazebo. Village square: Market Stall, Topiary Hedge, Duck Pond, Founder's Statue, Village Well. Each gives a small bonus once, but you can build up to 12 of each to shape your village. Most come in several colours or styles: tap one in the village and press **Repaint** (free).
+- **More candy from trips, less from ghosts.** Trips find candy more often and in bigger handfuls (about 1.6 candy per hour at sea, up from 0.9). Ghosts now give 1–2 candy, up to 4 times an hour.
+
 ## What's new in 1.3: Halloween, refining for profit, and a cleaner harbor view
 
 **Halloween event (October 1 to November 12, every year).** It starts and stops by itself using the phone's date. No new game needed.
@@ -79,7 +90,7 @@ When you get a new version of the game, upload the new files to the same reposit
 
   Prizes are mostly the 12 Halloween decorations, plus chest keys, coins and bundles of goods (bigger wagers multiply coin and goods prizes). Every draw gives something. Candy is taken and the prize given in one step, so closing the app mid-brew loses nothing; the reveal shows the next time you open it.
 - **12 Halloween decorations** (won, never bought; duplicates welcome): Pumpkin Flag, Classic Jack-o'-Lantern and Crooked Tombstone (common); Ghost Flag, Silly Jack-o'-Lantern, Haunted Scarecrow and Eerie Lantern (uncommon); Witch Flag, Waving Skeleton and Bat Roost (rare); Spooky Jack-o'-Lantern and Miniature Cauldron (very rare). Each placed one adds +4% to +10% candy from trips (all jack-o'-lanterns +6%). Copies stack up to +50% in total. Tap a placed one to move it or pack it away.
-- **Friendly ghosts** float through the village at night. Tap one to pop it for 1 to 3 candy (up to 6 paid pops an hour).
+- **Friendly ghosts** float through the village at night. Tap one to pop it for 1 to 3 candy (1.4: 1 to 2 candy, up to 4 paid pops an hour).
 - **The ghost ship** drifts into the north harbor every 5 to 10 hours for about 25 minutes. Tap it to trade candy for timber, stone (iron ore), food, mixed crates and sometimes a big cargo. Each offer can be taken once.
 - **Village dressing:** some buildings get cobwebs, bats, pumpkins, tombstones and coloured lights while the event runs. It is only an overlay, so nothing blocks doors or paths, and it all disappears after the event.
 - **After November 12:** no more candy, ghosts or ghost ship, and the cauldron goes cold. Your candy and decorations stay for next year.
