@@ -5621,7 +5621,10 @@ const World = (() => {
   let staticOcc = null, getState = () => null;
   const bObjs = new Map(); // building id -> scene object
   const dObjs = new Map(); // decoration id -> scene object
-  let lighthouseObj = null, fieldDecor = [];
+  let lighthouseObj = null, fieldDecor = [], cauldronObj = null, ghostShipObj = null;
+  const CAULDRON_AT = { gx: -4, gy: 22 }, SHIP_MOOR = { gx: 25, gy: 6 };
+  let eventOn = false;
+  const ghosts = [], poofs = [];
   let placing = null;      // { type, fw, fd, gx, gy, reason }
   let roadTiles = [];
   let onTapCb = () => {};
@@ -5675,7 +5678,8 @@ const World = (() => {
     for (const b of BUILDINGS) {
       const tex = TEX[b.key];
       const p = isoTop(b.gx + b.fw, b.gy + b.fd);
-      const o = addObj({ kind: 'building', tex: b.key, x: p.x, y: p.y, depth: p.y - (b.fw + b.fd) * 2, info: b, tap: true });
+      const o = addObj({ kind: 'building', tex: b.key, x: p.x, y: p.y, depth: p.y - (b.fw + b.fd) * 2, info: b, tap: true, fw: b.fw, fd: b.fd,
+        haunt: b.key === 'chapel' ? 4 : [0, 1, null, 2, 3, null][BUILDINGS.indexOf(b) % 6] });
       occupy(b.gx, b.gy, b.fw, b.fd);
       for (const s of tex.smoke || []) emitters.push({ x: p.x + s[0], y: p.y + s[1], t: Math.random() });
       void o;
@@ -5683,6 +5687,8 @@ const World = (() => {
     // lighthouse on its islet
     const lh = tileCenter(ISLET.gx, ISLET.gy);
     lighthouseObj = addObj({ kind: 'prop', tex: 'lighthouse', x: lh.x, y: lh.y, depth: lh.y + 8, lighthouse: true, info: { name: 'Lighthouse', future: 'The old lighthouse. Its keeper has stories about what lies past the reef.' }, tap: true });
+    // Halloween: the cauldron in a clearing of the West Woods (beyond the map's west edge), shown during the event
+    { const c = tileCenter(CAULDRON_AT.gx, CAULDRON_AT.gy); cauldronObj = addObj({ kind: 'prop', tex: 'cauldron0', x: c.x, y: c.y, depth: c.y, tap: true, hidden: true, info: { cauldron: true } }); }
     // the field's fence (one rail per tile edge) and scarecrow, shown once bought
     fieldDecor = [];
     for (let i = 0; i < 4; i++) {
@@ -5722,6 +5728,7 @@ const World = (() => {
     outerBack = []; outerFront = [];
     for (let gy = -M; gy < N + M; gy++) for (let gx = -M; gx < N + M; gx++) {
       if (inMap(gx, gy) || typeAt(gx, gy) !== T.GRASS || lDist(gx, gy) < 2) continue;
+      if (Math.abs(gx - CAULDRON_AT.gx) <= 2 && Math.abs(gy - CAULDRON_AT.gy) <= 2) continue; // the cauldron's clearing
       const n = hash(gx + 100, gy + 100, 77);
       if (n > 0.34) continue;
       const c = tileCenter(gx, gy);
@@ -5757,7 +5764,7 @@ const World = (() => {
       const key = site ? `site_${fw}x${fd}` : `bld_${b.type}_${b.level}`;
       TEX[key] = tex;
       let o = bObjs.get(b.id);
-      if (!o) { o = addObj({ kind: 'building', bId: b.id, x: p.x, y: p.y, depth: p.y - (fw + fd) * 2, tap: true, info: { bId: b.id } }); bObjs.set(b.id, o); }
+      if (!o) { o = addObj({ kind: 'building', bId: b.id, x: p.x, y: p.y, depth: p.y - (fw + fd) * 2, tap: true, info: { bId: b.id }, haunt: [1, null, 0, 3, null, 2][(parseInt(b.id.replace(/\D/g, ''), 10) || 0) % 6] }); bObjs.set(b.id, o); }
       if (o.tex && o.tex !== key && !site) { o.squash = 1; splash(p.x - (fw - fd) * 4, p.y - 6); }
       o.tex = key; o.x = p.x; o.y = p.y; o.depth = p.y - (fw + fd) * 2;
       o.pending = b.pending; o.job = b.job; o.fw = fw; o.fd = fd;
@@ -5930,6 +5937,75 @@ const World = (() => {
   const splashes = [];
   function splash(x, y) { splashes.push({ x, y, t: 0 }); }
 
+  // ---------- Halloween ----------
+  // The ghost ship follows the save: it sails in when state.halloween.ship appears and away when it goes.
+  function syncGhostShip(state) {
+    const sh = eventOn && state.halloween && state.halloween.ship;
+    const moor = tileCenter(SHIP_MOOR.gx, SHIP_MOOR.gy), far = tileCenter(N + 4, SHIP_MOOR.gy);
+    if (sh && !ghostShipObj) {
+      ghostShipObj = addObj({ kind: 'ghostship', tex: 'ghostShip', x: far.x, y: far.y, depth: far.y, tap: true, alpha: 0, shipId: sh.id, info: { ghostShip: true },
+        path: { pts: [far, moor], i: 0, speed: 22 }, mode: 'arriving' });
+    } else if (!sh && ghostShipObj && ghostShipObj.mode !== 'leaving') {
+      ghostShipObj.mode = 'leaving'; ghostShipObj.tap = false; ghostShipObj.path = { pts: [{ x: ghostShipObj.x, y: ghostShipObj.y }, far], i: 0, speed: 26 };
+    }
+  }
+  function updateHalloween(dt) {
+    const st = getState();
+    // ghost ship drifting in or out, shimmering
+    const g = ghostShipObj;
+    if (g) {
+      if (g.path) {
+        const b = g.path.pts[g.path.i + 1];
+        if (!b) { g.path = null; if (g.mode === 'leaving') { removeObj(g); ghostShipObj = null; } else g.mode = 'moored'; }
+        else { const dx = b.x - g.x, dy = b.y - g.y, d = Math.hypot(dx, dy), step = g.path.speed * dt; if (d <= step) { g.x = b.x; g.y = b.y; g.path.i++; } else { g.x += dx / d * step; g.y += dy / d * step; } }
+      }
+      if (ghostShipObj) { const base = 0.72 + 0.12 * Math.sin(time * 1.7); g.alpha = g.mode === 'arriving' ? Math.min(base, (g.alpha || 0) + dt * 0.5) : g.mode === 'leaving' ? Math.max(0, g.alpha - dt * 0.35) : base; g.depth = g.y; }
+    }
+    if (cauldronObj) { cauldronObj.hidden = !eventOn; cauldronObj.tex = 'cauldron' + (Math.floor(time * 4) % 3); }
+    // friendly ghosts at night: a few at most, drifting, then fading if nobody pops them
+    for (let i = ghosts.length - 1; i >= 0; i--) {
+      const gh = ghosts[i]; gh.life += dt; gh.x += gh.vx * dt; gh.y += gh.vy * dt;
+      if (gh.life > gh.max) ghosts.splice(i, 1);
+    }
+    const night = sky.dark > 0.5;
+    ghostT -= dt;
+    if (eventOn && night && st && ghostT <= 0) {
+      ghostT = 25 + Math.random() * 35;
+      if (ghosts.length < 3 && roadTiles.length) {
+        const [gx, gy] = roadTiles[(Math.random() * roadTiles.length) | 0], c = tileCenter(gx, gy), a = Math.random() * Math.PI * 2;
+        ghosts.push({ id: 'g-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), x: c.x, y: c.y - 18, vx: Math.cos(a) * 6, vy: Math.sin(a) * 3, life: 0, max: 40 + Math.random() * 15, ph: Math.random() * 6 });
+      }
+    }
+    if (!eventOn || !night) for (const gh of ghosts) gh.max = Math.min(gh.max, gh.life + 2); // shoo at dawn
+    for (let i = poofs.length - 1; i >= 0; i--) { poofs[i].t += dt; if (poofs[i].t > 0.8) poofs.splice(i, 1); }
+    // animated Halloween decorations
+    for (const o of dObjs.values()) { const n = Art.HW_ANIM[o.decorType]; if (n) o.tex = decorKey(o.decorType, Math.floor(time * (n === 3 ? 4 : 1.5)) % n); }
+  }
+  let ghostT = 8;
+  const ghostAlpha = gh => Math.min(1, gh.life / 1.5, (gh.max - gh.life) / 2) * 0.85;
+  function drawGhosts() {
+    for (const gh of ghosts) {
+      const t = TEX[Math.floor(time * 3 + gh.ph) % 2 ? 'ghost1' : 'ghost0'], bob = Math.sin(time * 2 + gh.ph) * 3;
+      ctx.globalAlpha = ghostAlpha(gh); ctx.drawImage(t.canvas, Math.round(gh.x - t.ax), Math.round(gh.y + bob - t.ay));
+    }
+    ctx.globalAlpha = 1;
+    for (const p of poofs) {
+      const k = p.t / 0.8;
+      ctx.globalAlpha = 1 - k; ctx.fillStyle = '#f6f6f2';
+      for (let i = 0; i < 10; i++) { const a = i / 10 * Math.PI * 2, r = 4 + k * 18; ctx.fillRect(Math.round(p.x + Math.cos(a) * r), Math.round(p.y + Math.sin(a) * r * 0.7), 2, 2); }
+      ctx.fillStyle = '#ff9a3c';
+      for (let i = 0; i < 5; i++) { const a = i / 5 * Math.PI * 2 + 0.6, r = 2 + k * 12; ctx.fillRect(Math.round(p.x + Math.cos(a) * r), Math.round(p.y - 4 + Math.sin(a) * r * 0.7 - k * 6), 2, 2); }
+      ctx.strokeStyle = '#d8ffb0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(p.x, p.y, 3 + k * 14, 2 + k * 8, 0, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+  function ghostAt(wx, wy) {
+    for (let i = ghosts.length - 1; i >= 0; i--) { const gh = ghosts[i]; if (Math.abs(wx - gh.x) < 11 && wy > gh.y - 20 && wy < gh.y + 6) return i; }
+    return -1;
+  }
+  function focusCauldron() { const c = tileCenter(CAULDRON_AT.gx, CAULDRON_AT.gy); cam.x = c.x; cam.y = c.y - 16; clampCam(); }
+  function focusGhostShip() { const c = ghostShipObj || tileCenter(SHIP_MOOR.gx, SHIP_MOOR.gy); cam.x = c.x; cam.y = c.y - 20; clampCam(); }
+
   // ---------- update ----------
   function update(dt) {
     time += dt;
@@ -5992,6 +6068,7 @@ const World = (() => {
       if (o.decorType === 'fountain') o.tex = decorKey('fountain', iced ? 0 : Math.floor(time * 5) % 3, iced);
       else if (o.decorType === 'goldChest') o.tex = decorKey('goldChest', Math.floor(time * 1.2) % 2);
     }
+    updateHalloween(dt);
     // gulls
     for (const g of gulls) {
       g.x += g.vx * dt; g.y += Math.sin(time * 0.6 + g.ph) * 4 * dt;
@@ -6051,7 +6128,7 @@ const World = (() => {
         t = (o.look === 'witch' ? TEX.witch : TEX.villagers[o.look])[moving ? (Math.floor(time * 6) % 2) : 0];
       } else t = TEX[o.tex];
       let y = o.y;
-      if (o.kind === 'ship' || o.kind === 'buoy') y += Math.sin(time * 2 + o.x * 0.1) * 0.8;
+      if (o.kind === 'ship' || o.kind === 'buoy' || o.kind === 'ghostship') y += Math.sin(time * 2 + o.x * 0.1) * 0.8;
       const dx = Math.round(o.x - t.ax), dy = Math.round(y - t.ay);
       ctx.globalAlpha = o.alpha ?? 1;
       // a ship berthed behind a jetty bobs under its deck, never over it
@@ -6069,12 +6146,15 @@ const World = (() => {
       } else if (o.flip) {
         ctx.save(); ctx.translate(Math.round(o.x), 0); ctx.scale(-1, 1); ctx.drawImage(t.canvas, -t.ax, dy); ctx.restore();
       } else ctx.drawImage(t.canvas, dx, dy);
+      // Halloween dressing goes over the building, never into it, and only while the event runs
+      if (eventOn && o.kind === 'building' && o.haunt != null && !o.squash) { const ov = Art.hauntOverlay(t, o.haunt); if (ov) ctx.drawImage(ov.canvas, dx, dy); }
       // fresh snow settles on the lighthouse islet just as it does on the village
       if (o.lighthouse && snowCover > 0.01) { const sn = TEX[o.tex + 'Snow']; ctx.globalAlpha = (o.alpha ?? 1) * snowCover; ctx.drawImage(sn.canvas, dx, dy); }
       if (clip) ctx.restore();
       ctx.globalAlpha = 1;
     }
     drawScenery(outerFront);
+    if (ghosts.length || poofs.length) drawGhosts();
     // smoke
     for (const p of smoke) {
       const k = p.life / p.max, r = 1.5 + k * 3;
@@ -6191,6 +6271,8 @@ const World = (() => {
     cropT -= dt;
     if (cropT <= 0 && getState()) {
       cropT = 1;
+      const on = TOF.halloweenActive(getState(), Date.now());
+      if (on !== eventOn) { eventOn = on; syncGhostShip(getState()); }
       const c = TOF.cropState(getState(), Date.now());
       const stage = c.ripe ? 3 : c.progress < 0.15 ? 0 : c.progress < 0.55 ? 1 : 2;
       for (const o of objects) if (o.kind === 'crop') o.tex = 'crop' + stage;
@@ -6214,8 +6296,9 @@ const World = (() => {
       ctx.globalAlpha = sky.lights;
       for (const o of objects) {
         if (o.hidden || !o.tex) continue;
-        const t = TEX[o.tex]; if (!t || !t.emit) continue;
-        ctx.drawImage(t.emit, Math.round(o.x - t.ax), Math.round(o.y - t.ay));
+        const t = TEX[o.tex]; if (!t) continue;
+        if (t.emit) ctx.drawImage(t.emit, Math.round(o.x - t.ax), Math.round(o.y - t.ay));
+        if (eventOn && o.kind === 'building' && o.haunt != null) { const ov = Art.hauntOverlay(t, o.haunt); if (ov && ov.emit) ctx.drawImage(ov.emit, Math.round(o.x - t.ax), Math.round(o.y - t.ay)); }
       }
       ctx.globalCompositeOperation = 'lighter';
       const halo = (x, y, rad, a, col) => {
@@ -6228,6 +6311,11 @@ const World = (() => {
         if (o.tex === 'lamp') halo(o.x, o.y - 15, 26, 0.35 * sky.lights, '255,200,120');
         else if (o.decorType === 'harborLantern') { for (const sx of [-8, 8]) halo(o.x + sx, o.y - 33, 26, 0.4 * sky.lights, '255,214,130'); }
         else if (o.decorType === 'festoon') halo(o.x, o.y - 24, 30, 0.3 * sky.lights, '255,170,120');
+        else if (o.decorType === 'hwLantern' || o.decorType === 'hwCauldron' || o.decorType === 'hwJackSpooky') halo(o.x, o.y - (o.decorType === 'hwLantern' ? 20 : 10), 22, 0.4 * sky.lights, '150,255,110');
+        else if (o.decorType === 'hwJackClassic' || o.decorType === 'hwJackSilly') halo(o.x, o.y - 6, 18, 0.4 * sky.lights, '255,170,80');
+        else if (o === cauldronObj) { halo(o.x, o.y - 30, 50, 0.5 * sky.lights, '150,255,110'); halo(o.x, o.y - 4, 30, 0.5 * sky.lights, '255,150,60'); }
+        else if (o.kind === 'ghostship') halo(o.x, o.y - 20, 60, 0.45 * sky.lights * (o.alpha || 0), '140,255,190');
+        else if (eventOn && o.kind === 'building' && o.haunt === 2) halo(o.x - (o.fw - o.fd) * 4, o.y - 18, 34, 0.25 * sky.lights, ['255,140,60', '200,120,255', '150,255,110'][Math.floor(time / 2 + o.x) % 3]);
         else if (o.kind === 'ship' && o.alpha > 0.5) halo(o.x - 6, o.y - 8, 12, 0.3 * sky.lights, '255,190,110');
         else if (o.kind === 'building' && o.tex && o.tex.startsWith('bld_')) halo(o.x - (o.fw - o.fd) * 4, o.y - 10, 30, 0.12 * sky.lights, '255,190,120');
         else if (o.lighthouse) {
@@ -6390,6 +6478,9 @@ const World = (() => {
   function tapAt(sx, sy) {
     const w = toWorld(sx, sy);
     if (placing) { const t = tileAt(w.x, w.y); movePlacing(t.gx - (placing.fw >> 1), t.gy - (placing.fd >> 1)); return; }
+    // a friendly ghost pops when tapped (it is gone at once, so it can only pay once)
+    const gi = ghostAt(w.x, w.y);
+    if (gi >= 0) { const gh = ghosts.splice(gi, 1)[0]; poofs.push({ x: gh.x, y: gh.y - 8, t: 0 }); return onTapCb({ kind: 'ghost', ghostId: gh.id, x: gh.x, y: gh.y }); }
     // bubbles sit above ships; let them count as the ship
     for (const o of ships.values()) {
       const top = o.y - TEX[o.tex].top - 6;
@@ -6450,7 +6541,7 @@ const World = (() => {
     cam.x = p.x; cam.y = p.y - 20; clampCam();
   }
 
-  return { syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
+  return { syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
     startPlacing, movePlacing, stopPlacing, _villagers: () => villagers, _roads: () => roadTiles, isWalkable: (gx, gy) => walkable(gx, gy), setLowPower: v => { lowPower = !!v; }, _debug: { setTime: t => { time = t; }, exitPath: i => exitPath(i), islet: () => tileCenter(ISLET.gx, ISLET.gy) }, get placing() { return placing; }, isoTop, _ships: ships, _objects: () => objects, _bObjs: bObjs };
 })();
 
