@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.2.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.3.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -64,6 +64,34 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
 
+## What's new in 1.3: Halloween, refining for profit, and a cleaner harbor view
+
+**Halloween event (October 1 to November 12, every year).** It starts and stops by itself using the phone's date. No new game needed.
+
+- **Candy:** every trip, of every type and length (even 15 minutes), can bring home candy. Tap the candy counter at the top to open the Halloween panel.
+- **The West Woods cauldron:** pan left past the village to the forest clearing, or use **Show me the cauldron**. Deposit candy for a random prize:
+
+  | Wager | Candy | Common | Uncommon | Rare | Very rare |
+  |---|---|---|---|---|---|
+  | Small handful | 12 | 62% | 28% | 8.5% | 1.5% |
+  | Generous handful | 30 | 38% | 36% | 20% | 6% |
+  | Big cauldron dump | 60 | 16% | 30% | 32% | 22% |
+
+  Prizes are mostly the 12 Halloween decorations, plus chest keys, coins and bundles of goods (bigger wagers multiply coin and goods prizes). Every draw gives something. Candy is taken and the prize given in one step, so closing the app mid-brew loses nothing; the reveal shows the next time you open it.
+- **12 Halloween decorations** (won, never bought; duplicates welcome): Pumpkin Flag, Classic Jack-o'-Lantern and Crooked Tombstone (common); Ghost Flag, Silly Jack-o'-Lantern, Haunted Scarecrow and Eerie Lantern (uncommon); Witch Flag, Waving Skeleton and Bat Roost (rare); Spooky Jack-o'-Lantern and Miniature Cauldron (very rare). Each placed one adds +4% to +10% candy from trips (all jack-o'-lanterns +6%). Copies stack up to +50% in total. Tap a placed one to move it or pack it away.
+- **Friendly ghosts** float through the village at night. Tap one to pop it for 1 to 3 candy (up to 6 paid pops an hour).
+- **The ghost ship** drifts into the north harbor every 5 to 10 hours for about 25 minutes. Tap it to trade candy for timber, stone (iron ore), food, mixed crates and sometimes a big cargo. Each offer can be taken once.
+- **Village dressing:** some buildings get cobwebs, bats, pumpkins, tombstones and coloured lights while the event runs. It is only an overlay, so nothing blocks doors or paths, and it all disappears after the event.
+- **After November 12:** no more candy, ghosts or ghost ship, and the cauldron goes cold. Your candy and decorations stay for next year.
+
+**Refining for income**
+- Planks, rope and iron now sell for exactly **12 coins each**, at the Stores (no Trading Post needed) or at a Trading Post. Raw goods, food and the catch keep their old prices.
+- Batches are bigger: up to 25 per building level (25, 50, 75). Choose **1, 5, 10 or Max**. The card shows the batch's time and its value (units × 12 coins), and a batch never exceeds your storage room. Timers and input costs are unchanged.
+
+**Ships button:** the list of voyages on the main screen is replaced by one **Ships** button (it turns gold and says **Ready!** when a ship is back). It opens the Fleet view: every ship, with its status, trip type and time left.
+
+Saves from 1.2 load straight into 1.3. In **Options → Developer mode** you can force the event on or off to try it out.
+
 ## What's new in 1.2: decorations and village expansion
 
 - **Decorations** (Village → Decorations tab). Each one is placed instantly, needs no builders and gives a small, lasting bonus. You can own one of each, and the combined bonus is capped, so decorating helps without replacing the work of growing the village.
@@ -89,8 +117,6 @@ When you get a new version of the game, upload the new files to the same reposit
 - **Bigger harbor view.** The land and sea now carry on past the edges of the village, so the screen is always full and you can pan the village right to the top and bottom of the screen.
 - **Ships at the jetties** now bob behind the planks instead of drawing over them.
 - The version number is shown at the bottom of **Options**.
-
-Saves from 1.1 load straight into 1.2.
 
 ## Good to know
 

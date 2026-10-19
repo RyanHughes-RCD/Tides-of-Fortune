@@ -72,7 +72,40 @@ img.px.big { height: 34px; }
 @keyframes bump { 50% { transform: translateY(-3px); } }
 #devBanner { pointer-events: none; align-self: flex-start; padding: 3px 10px; font-size: 13px; font-weight: 600; color: #fff; border: 2px solid var(--ink); border-radius: 4px;
   background: repeating-linear-gradient(-45deg, var(--dev) 0 8px, #5d4280 8px 16px); }
-#voyages { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; pointer-events: auto; }
+.skychip.ships { font-size: 14px; min-height: 32px; padding: 3px 11px 3px 7px; }
+.skychip.ships img { height: 18px; }
+.skychip.ships.ready { background: var(--brass); color: var(--ink); animation: nudge 1.2s steps(2) infinite; }
+.skychip.ships .badge { display: inline-block; min-width: 20px; padding: 0 5px; border-radius: 999px; background: var(--ink); color: var(--sail); font-size: 12px; text-align: center; }
+.fl-status.stack { flex-direction: column; align-items: flex-end; gap: 1px; }
+.fl-status.stack small { color: var(--muted); font-size: 12px; font-weight: 600; }
+.fl-status.stack > span { display: flex; align-items: center; gap: 4px; }
+.fl-status.ready small { color: var(--ink); }
+.empty-state { text-align: center; padding: 18px 10px; color: var(--muted); }
+.rar { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 7px; border: 2px solid var(--ink); border-radius: 999px; }
+.rar-common { background: #e3ddd0; color: var(--ink); } .rar-uncommon { background: #9fdc8a; color: var(--ink); }
+.rar-rare { background: #8fc0f0; color: var(--ink); } .rar-veryRare { background: #c89af0; color: var(--ink); }
+.hw-head { display: flex; align-items: center; gap: 12px; }
+.hw-head .big-n { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.card.hw { background: linear-gradient(160deg, rgba(255,154,60,.28), rgba(162,90,208,.18) 70%), var(--sail-2); }
+.tiers { display: grid; gap: 8px; margin-top: 10px; }
+.tier { display: grid; grid-template-columns: 1fr auto; gap: 4px 10px; align-items: center; padding: 10px; border: 2px solid var(--ink); border-radius: 10px; background: var(--sail); }
+.tier b { font-size: 17px; } .tier small { grid-column: 1 / 3; color: var(--muted); font-size: 13px; line-height: 1.4; }
+.tier .btn { margin: 0; min-height: 44px; }
+.hw-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-top: 8px; }
+.hw-item { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 2px solid var(--ink); border-radius: 10px; background: var(--sail); text-align: center; font-size: 13px; }
+.hw-item.missing { opacity: .55; } .hw-item.missing img { filter: brightness(0) opacity(.45); }
+.hw-item img { height: 40px; } .hw-item b { font-size: 13px; line-height: 1.2; }
+.hw-item .btn { margin: 2px 0 0; min-height: 36px; padding: 4px 10px; font-size: 13px; }
+.brewbox { display: flex; justify-content: center; gap: 8px; margin: 4px 0 8px; }
+.brewbox img { height: 120px; image-rendering: pixelated; }
+.brewbox img.px { height: 40px; }
+.brewbox.brewing img { animation: brew .25s steps(2) infinite; }
+@keyframes brew { 50% { transform: translateY(-3px) rotate(-2deg); } }
+.reveal { text-align: center; } .reveal .prize { height: 72px; image-rendering: pixelated; margin: 6px auto; display: block; }
+.reveal h2 { margin: 6px 0 4px; }
+.offer .m-info span { white-space: normal; }
+.batch { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.batch .btn { margin: 0; min-height: 44px; padding: 4px; font-size: 14px; }
 .voyage { display: grid; grid-template-columns: auto auto auto; grid-template-rows: auto 4px; column-gap: 8px; row-gap: 3px; align-items: center; padding: 5px 10px; background: var(--hud); border: 2px solid var(--ink); border-radius: 6px; box-shadow: 0 3px 0 var(--ink); font-size: 15px; }
 .voyage .px { grid-row: 1 / 3; }
 .voyage .v-time { font-variant-numeric: tabular-nums; font-weight: 600; min-width: 4.5em; text-align: right; }
@@ -361,8 +394,7 @@ img.px.ship-img.big { height: 52px; }
   <div id="stage"><canvas id="world" aria-label="Your harbor village. Drag to look around, pinch or scroll to zoom, tap boats and buildings."></canvas></div>
   <header class="hud-top">
     <div class="res-row" id="resRow"></div>
-    <div class="hud-row2"><button id="skyChip" class="skychip" aria-label="Sky and weather settings"></button><button id="updateBtn" class="skychip update" hidden>New version ready: tap to restart</button><div id="devBanner" hidden></div></div>
-    <div id="voyages"></div>
+    <div class="hud-row2"><button id="shipsBtn" class="skychip ships" aria-label="All ships"></button><button id="skyChip" class="skychip" aria-label="Sky and weather settings"></button><button id="updateBtn" class="skychip update" hidden>New version ready: tap to restart</button><div id="devBanner" hidden></div></div>
   </header>
   <nav class="dock-nav" id="nav">
     <button data-panel="fleet" data-icon="boat" aria-pressed="false"><span class="ni"></span>Fleet</button>
@@ -3968,7 +4000,7 @@ const Art = (() => {
     timber: [['....kkkkkkk.', '..kkbbbbbbbk', '.kyykbbbbbbk', 'kyoyykbbbbbk', 'kyyoykbbbbk.', '.kyykbbbbbk.', '..kkkkkkkk..'], { k: PAL.ink, y: '#e8c48a', o: '#b0864f', b: '#8a5a33' }],
     planks: [['kkkkkkkkkkkk', 'kppppppppppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk', 'kppppppppppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk'], { k: PAL.ink, p: '#c8925a', P: '#a06c40' }],
     hemp: [['.g.g.g.g.', '.ggggggg.', '..ggggg..', '..gGgGg..', '..ggggg..', '..kyyyk..', '..ggggg..', '..gGgGg..', '..ggggg..', '..ggggg..'], { k: PAL.ink, g: '#9fbf5a', G: '#6f9a3a', y: '#d9a441' }],
-    candy: [['k........k', 'kok....kok', '.kokkkkok.', '..kpwppk..', '..kppwpk..', '.kokkkkok.', 'kok....kok', 'k........k'], { k: PAL.ink, o: '#ff9a3c', p: '#a25ad0', w: '#f4ecd8' }],
+    candy: [['kk.........kk', 'kok.kkkkk.kok', 'koökpwpppkoök', 'kooppppppppok', 'koökpppppkoök', 'kok.kkkkk.kok', 'kk.........kk'], { k: PAL.ink, o: '#ff9a3c', 'ö': '#ffd27a', p: '#a25ad0', w: '#f0d8ff' }],
     rope: [['..kkkkkk..', '.kyyyyyyk.', 'kyykkkkyyk', 'kyk....kyk', 'kyk....kyk', 'kyykkkkyyk', '.kyyyyyyk.', '..kkkkkkyk', '........kk'], { k: PAL.ink, y: '#d9b16a' }],
     ironOre: [['...kkkk...', '..kggrgk..', '.kgrggggk.', 'kggggrgggk', 'kgrggggrgk', '.kgggggk..', '..kkkkk...'], { k: PAL.ink, g: '#6b6e72', r: '#b4643c' }],
     iron: [['...kkkkkkk..', '..kwwssssk..', '.kssssssssk.', 'kssssssssssk', 'kddddddddddk', '.kkkkkkkkkk.'], { k: PAL.ink, s: '#a9b2bb', w: '#e3e8ed', d: '#6e7780' }],
@@ -4984,7 +5016,8 @@ const Art = (() => {
     return T;
   }
 
-  return { hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
+  const cauldronURL = () => _icon['cauldron-big'] || (_icon['cauldron-big'] = buildAll().cauldron1.canvas.toDataURL());
+  return { cauldronURL, hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
 })();
 
 </script>
@@ -6586,11 +6619,20 @@ const App = (() => {
     placeDecor(type, gx, gy) { return done(TOF.placeDecor(state, type, gx, gy, World.terrainCheck), 'decor'); },
     buyDecor(type) { return done(TOF.buyDecor(state, type), 'decor'); },
     moveDecor(id, gx, gy) { return done(TOF.moveDecor(state, id, gx, gy, World.terrainCheck), 'moved'); },
+    stowDecor(id) { return done(TOF.stowDecor(state, id), 'decor'); },
+    brew(tier) { return done(TOF.brew(state, tier, now()), 'brew'); },
+    brewSeen(id) { const r = TOF.brewSeen(state, id); save(); return r; },
+    popGhost(id) { return done(TOF.popGhost(state, id, now()), 'candy'); },
+    ghostTrade(id) { return done(TOF.ghostTrade(state, id, now()), 'trade'); },
+    sellRefined(res, qty) { return done(TOF.sellRefined(state, res, qty), 'trade'); },
+    setEvent(v) { state.settings.eventOverride = v; TOF.settleGhostShip(state, now()); commit('event'); },
     upgradeBuilding(id) { return done(TOF.upgradeBuilding(state, id, now()), 'bupgrade'); },
     queueJob(id, qty) { return done(TOF.queueJob(state, id, qty, now()), 'job'); },
     cancelJob(id) { return done(TOF.cancelJob(state, id, now()), 'job'); },
     trade(side, res, qty) { return done(TOF.trade(state, side, res, qty), 'trade'); },
-    settle() { const r = TOF.settle(state, now()); if (r.built.length || r.produced.length) commit('settled', r); else if (state.buildings.some(b => b.job)) emit('tickjob'); return r; },
+    settle() {
+      if (TOF.settleGhostShip(state, now()).changed) commit('ghostship');
+      const r = TOF.settle(state, now()); if (r.built.length || r.produced.length) commit('settled', r); else if (state.buildings.some(b => b.job)) emit('tickjob'); return r; },
     claim(expId) { return done(TOF.claim(state, expId, now()), 'claimed'); },
     claimAll() { const rs = TOF.claimAll(state, now()); if (rs.length) commit('claimed', rs); return rs; },
     sell(res, qty) { return done(TOF.sell(state, res, qty)); },
@@ -6681,7 +6723,8 @@ const UI = (() => {
   const HUD_ORDER = ['coins', 'fish', 'timber', 'planks', 'rope', 'iron', 'food', 'shellfish'];
   function renderResources() {
     const st = App.state, row = $('#resRow');
-    const shown = HUD_ORDER.filter(r => st.discovered.includes(r)).slice(0, 6);
+    const ev = TOF.halloweenActive(st, App.now());
+    const shown = (ev ? ['coins', 'candy', ...HUD_ORDER.filter(r => r !== 'coins')] : HUD_ORDER).filter(r => (r === 'candy' && ev) || st.discovered.includes(r)).slice(0, 6);
     if (row.dataset.keys !== shown.join()) {
       row.innerHTML = '';
       for (const r of shown) row.appendChild(el('button', { class: 'res', 'data-res': r, 'aria-label': TOF.RESOURCES[r].name }, `${icon(r)}<span class="res-n"></span>`));
@@ -6696,19 +6739,15 @@ const UI = (() => {
     $('#devBanner').textContent = `Developer mode: 1 hour = ${st.settings.devSecondsPerHour} s`;
   }
 
+  // One compact button in place of the old list of voyages: it opens the Fleet view with every ship.
   function renderVoyages() {
-    const st = App.state, box = $('#voyages'), now = App.now();
-    box.innerHTML = '';
-    const exps = [...st.expeditions].sort((a, b) => a.endAt - b.endAt);
-    const ready = exps.filter(e => now >= e.endAt).length;
-    if (ready >= 2) box.appendChild(el('button', { class: 'voyage ready all', 'data-all': '1' }, `${icon('chest')}<span class="v-name">Collect all</span><span class="v-time">${ready} ships</span>`));
-    const shown = exps.slice(0, ready >= 2 ? 2 : 3);
-    for (const e of shown) {
-      const ship = TOF.getShip(st, e.shipId);
-      box.appendChild(el('button', { class: 'voyage', 'data-exp': e.id, 'data-ship': e.shipId },
-        `${icon(TYPE_ICON[e.type])}<span class="v-name">${esc(ship.name)}</span><span class="v-time" data-timer="${e.id}"></span><span class="v-bar"><i data-bar="${e.id}"></i></span>`));
-    }
-    if (exps.length > shown.length) box.appendChild(el('button', { class: 'voyage more', 'data-more': '1' }, `<span class="v-name">+${exps.length - shown.length} more at sea</span>`));
+    const st = App.state, now = App.now(), btn = $('#shipsBtn');
+    const away = st.expeditions.filter(e => now < e.endAt).length, ready = st.expeditions.length - away;
+    const label = ready ? `${ready} ready to collect` : away ? `${away} at sea` : `${st.ships.length} in harbor`;
+    const html = `${icon('boat')}<span>${ready ? 'Ready!' : 'Ships'}</span><span class="badge">${ready || away || st.ships.length}</span>`;
+    if (btn.dataset.html !== html) { btn.innerHTML = html; btn.dataset.html = html; }
+    btn.classList.toggle('ready', ready > 0);
+    btn.setAttribute('aria-label', `All ships: ${label}`);
   }
 
   function tick(now) {
@@ -6719,7 +6758,7 @@ const UI = (() => {
       const frac = Math.min(1, (now - e.startAt) / Math.max(1, e.endAt - e.startAt));
       document.querySelectorAll(`[data-timer="${e.id}"]`).forEach(n => { const t = isDone ? 'Back!' : fmt(e.endAt - now); if (n.textContent !== t) n.textContent = t; });
       document.querySelectorAll(`[data-bar="${e.id}"]`).forEach(n => { n.style.width = (frac * 100).toFixed(1) + '%'; });
-      document.querySelectorAll(`.voyage[data-exp="${e.id}"]`).forEach(n => { if (n.classList.contains('ready') !== isDone) { n.classList.toggle('ready', isDone); readyChanged = true; } });
+      if (isDone && !$('#shipsBtn').classList.contains('ready')) readyChanged = true;
     }
     const crop = document.querySelector('[data-crop]');
     if (crop) { const c = TOF.cropState(st, now); crop.textContent = c.ripe ? 'now' : fmt(c.readyAt - now); }
@@ -6747,11 +6786,13 @@ const UI = (() => {
     market: { title: 'Stores', render: renderMarket },
     shipwright: { title: 'Shipwright', render: renderShipwright },
     settings: { title: 'Options', render: renderSettings },
+    halloween: { title: 'Halloween', render: renderHalloween },
   };
   function openPanel(name, opts = {}) {
     ui.panel = name; ui.resetArmed = false;
     if (name === 'fleet') ui.fleetShip = opts.ship || null;
     if (name === 'shipwright' && opts.tab) { ui.swTab = opts.tab; if (opts.ship) ui.swShip = opts.ship; }
+    if (name === 'halloween') { ui.hwDecor = opts.decor || null; ui.hwFocus = opts.focus || null; }
     if (name === 'village') { ui.building = opts.building || null; if (opts.decor) { ui.vTab = 'decor'; ui.decorFocus = opts.decor; } }
     $('#sheetTitle').textContent = PANELS[name].title;
     document.querySelectorAll('#nav button').forEach(b => b.setAttribute('aria-pressed', b.dataset.panel === name ? 'true' : 'false'));
@@ -6769,6 +6810,7 @@ const UI = (() => {
     body.innerHTML = PANELS[ui.panel].render(App.state, App.now());
     if (ui.panel === 'map') drawMap();
     body.scrollTop = toTop ? 0 : y;
+    if (ui.hwFocus) { const c = body.querySelector(`[data-hw="${ui.hwFocus}"]`); ui.hwFocus = null; if (c) body.scrollTop = c.offsetTop - body.offsetTop - 8; }
     if (ui.decorFocus) { const c = body.querySelector(`[data-dcard="${ui.decorFocus}"]`); ui.decorFocus = null; if (c) { body.scrollTop = c.offsetTop - body.offsetTop - 8; c.classList.add('flash'); } }
     tick(App.now());
   }
@@ -6796,16 +6838,17 @@ const UI = (() => {
     for (const ship of state.ships) {
       const st = TOF.shipStats(ship), status = TOF.shipStatus(state, ship.id, now), exp = TOF.expeditionForShip(state, ship.id);
       const right = status === 'away'
-        ? `<span class="fl-status">${icon(TYPE_ICON[exp.type], 'tiny')} <b data-timer="${exp.id}"></b></span>`
-        : status === 'returned' ? `<span class="fl-status ready">Back!</span>`
-          : ship.hp < st.hull * TOF.MIN_SAIL_HULL ? `<span class="fl-status bad">Needs repair</span>` : `<span class="fl-status">In harbor</span>`;
+        ? `<span class="fl-status stack"><small>Travelling</small><span>${icon(TYPE_ICON[exp.type], 'tiny')} <b data-timer="${exp.id}"></b></span></span>`
+        : status === 'returned' ? `<span class="fl-status ready" aria-label="Ready to collect">Ready!</span>`
+          : ship.hp < st.hull * TOF.MIN_SAIL_HULL ? `<span class="fl-status stack bad"><small>In harbor</small><span>Needs repair</span></span>` : `<span class="fl-status stack"><small>In harbor</small><span>Available</span></span>`;
       const f = ship.hp / st.hull;
       html += `<li><button class="fl-row" data-act="openship" data-ship="${ship.id}">
         <span class="fl-img">${shipImg(ship.cls)}</span>
-        <span class="fl-main"><b>${esc(ship.name)}</b><small>${st.name}</small><span class="mini-hull ${f < TOF.MIN_SAIL_HULL ? 'bad' : f < 0.6 ? 'mid' : ''}"><i style="width:${(f * 100).toFixed(0)}%"></i></span></span>
+        <span class="fl-main"><b>${esc(ship.name)}</b><small>${exp ? `${TOF.TYPES[exp.type].name} trip` : st.name}</small><span class="mini-hull ${f < TOF.MIN_SAIL_HULL ? 'bad' : f < 0.6 ? 'mid' : ''}"><i style="width:${(f * 100).toFixed(0)}%"></i></span></span>
         ${right}</button></li>`;
     }
-    html += `</ul><p class="note">${state.ships.length} of ${TOF.MAX_SHIPS} berths in use. New hulls are built at the Shipwright.</p>`;
+    html += `</ul>${state.ships.length ? '' : '<p class="empty-state">No ships in the harbor yet. The Shipwright builds new hulls.</p>'}
+      <p class="note">${state.ships.length} of ${TOF.MAX_SHIPS} berths in use${state.expeditions.length ? `, ${state.expeditions.length} at sea or back` : ', all in harbor'}. New hulls are built at the Shipwright.</p>`;
     return html;
   }
 
@@ -6824,6 +6867,7 @@ const UI = (() => {
     const finds = [];
     if (ch > 0.01) finds.push(`a chest on <b>${pct(Math.min(0.99, ch))}</b>`);
     for (const k of ['sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'salvage']) if ((est.chance[k] || 0) > 0.01) finds.push(`${resName(k)} on <b>${pct(est.chance[k])}</b>`);
+    if ((est.chance.candy || 0) > 0.005) finds.unshift(`candy on <b>${pct(est.chance.candy)}</b> (about ${num(est.avg.candy || 0)})`);
     const extra = finds.length ? `<p class="estimate risk">Rare finds: ${finds.join(', ')} of trips.</p>` : '';
     return `<p class="estimate">${line}</p>${extra}<p class="estimate risk">${risk}</p>`;
   }
@@ -6894,7 +6938,7 @@ const UI = (() => {
   }
 
   // ---------- stores ----------
-  const GROUPS = [['Catch', ['fish', 'shellfish', 'rareFish']], ['Treasure', ['pearls', 'relics', 'charts']], ['Raw materials', ['timber', 'hemp', 'ironOre']], ['Goods', ['planks', 'rope', 'iron', 'food']], ['Magic', ['moonfish', 'essence', 'salvage', 'charm']], ['Keys', ['sunkenKey', 'pirateKey', 'lostKey']]];
+  const GROUPS = [['Halloween', ['candy']], ['Catch', ['fish', 'shellfish', 'rareFish']], ['Treasure', ['pearls', 'relics', 'charts']], ['Raw materials', ['timber', 'hemp', 'ironOre']], ['Goods', ['planks', 'rope', 'iron', 'food']], ['Magic', ['moonfish', 'essence', 'salvage', 'charm']], ['Keys', ['sunkenKey', 'pirateKey', 'lostKey']]];
   function renderMarket(state) {
     const cap = TOF.storageCap(state), mkt = TOF.buildingLevel(state, 'market');
     let html = `<p class="note">Bulk goods hold up to <b>${cap}</b> each. ${TOF.buildingLevel(state, 'warehouse') ? '' : 'A Warehouse raises the limit. '}Coins, rare catch, pearls, relics and charts have no limit.</p>`;
@@ -6904,8 +6948,9 @@ const UI = (() => {
       html += `<h3 class="group">${title}</h3><div class="card">` + shown.map(r => {
         const n = state.resources[r], bulk = TOF.BULK.includes(r), sellable = TOF.SELLABLE.includes(r);
         const full = bulk && n >= cap;
-        const btns = sellable ? `<div class="m-btns"><button class="btn small" data-act="sell" data-res="${r}" data-q="10" ${n ? '' : 'disabled'}>Sell 10</button><button class="btn small" data-act="sell" data-res="${r}" data-q="${n}" ${n ? '' : 'disabled'}>Sell all</button></div>` : '';
-        const sub = sellable ? `${TOF.sellPrice(state, r)} coins each` : TOF.TRADE.sell[r] ? 'Trading Post buys' : TOF.TRADE.buy[r] ? 'Trading Post sells' : 'Not for sale';
+        const refined = TOF.REFINED.includes(r), act = refined ? 'sellref' : 'sell';
+        const btns = sellable || refined ? `<div class="m-btns"><button class="btn small" data-act="${act}" data-res="${r}" data-q="10" ${n ? '' : 'disabled'}>Sell 10</button><button class="btn small" data-act="${act}" data-res="${r}" data-q="${n}" ${n ? '' : 'disabled'}>Sell all${refined && n ? ` (${n * TOF.REFINED_PRICE})` : ''}</button></div>` : '';
+        const sub = sellable ? `${TOF.sellPrice(state, r)} coins each` : refined ? `${TOF.REFINED_PRICE} coins each at any shop` : TOF.TRADE.sell[r] ? 'Trading Post buys' : TOF.TRADE.buy[r] ? 'Trading Post sells' : 'Not for sale';
         return `<div class="mrow">${icon(r, 'mid')}<div class="m-info"><b>${TOF.RESOURCES[r].name} <span class="amt ${full ? 'full' : ''}">${n}${bulk ? `<small>/${cap}</small>` : ''}</span></b><span>${sub}</span></div>${btns}</div>`;
       }).join('') + `</div>`;
     }
@@ -6986,11 +7031,13 @@ const UI = (() => {
     if (b.storage) out.push(`+${b.storage} storage`);
     if (b.cropFood) out.push(`+${b.cropFood} food per harvest`);
     if (b.cropSpeed) out.push(`field ${pc(b.cropSpeed)} faster`);
+    if (b.candy) out.push(`+${pc(b.candy)} candy (Halloween)`);
     return out;
   }
   function renderDecor(state) {
     const have = new Set((state.decor || []).map(d => d.type)), sum = decorSummary(state);
-    let html = `<article class="card"><h3>Village charm</h3><p class="desc">Every decoration gives a small, lasting bonus. You can own one of each (${have.size} of ${TOF.DECOR_ORDER.length} so far), and the combined bonus is capped, so the village still has to grow.</p>
+    const regular = TOF.DECOR_ORDER.filter(t => !TOF.DECOR[t].hw);
+    let html = `<article class="card"><h3>Village charm</h3><p class="desc">Every decoration gives a small, lasting bonus. You can own one of each (${regular.filter(t => have.has(t)).length} of ${regular.length} so far), and the combined bonus is capped, so the village still has to grow.</p>
       ${sum.length ? `<ul class="perks">${sum.map(t => `<li>${t}</li>`).join('')}</ul>` : '<p class="note">No decorations yet. Scarecrows and fences are a cheap start.</p>'}</article>`;
     for (const [g, title] of DECOR_GROUPS) {
       html += `<h3 class="group">${title}</h3>`;
@@ -7008,6 +7055,74 @@ const UI = (() => {
     return html;
   }
 
+  // ---------- Halloween ----------
+  const RAR_ORDER = ['common', 'uncommon', 'rare', 'veryRare'];
+  const rarBadge = r => `<span class="rar rar-${r}">${TOF.RARITY[r]}</span>`;
+  function eventDays(now) {
+    const d = new Date(now), end = new Date(d.getFullYear(), TOF.HALLOWEEN.end[0] - 1, TOF.HALLOWEEN.end[1], 23, 59, 59);
+    return Math.max(0, Math.ceil((end - d) / 86400000));
+  }
+  function renderHalloween(state, now) {
+    const on = TOF.halloweenActive(state, now), candy = state.resources.candy, H = state.halloween;
+    const placed = state.decor.filter(d => TOF.DECOR[d.type].hw), bonus = TOF.decorBonus(state).candy, days = eventDays(now);
+    let html = `<article class="card hw"><div class="hw-head">${icon('candy', 'big')}<div><span class="big-n">${candy}</span> candy<br><small>${on ? `Halloween runs October 1 to November 12.${state.settings.eventOverride === 'on' ? ' (Forced on in developer mode.)' : ` <b>${days} day${days === 1 ? '' : 's'}</b> left.`}` : 'Halloween is over for this year. Your candy and decorations keep until next October.'}</small></div></div>
+      <p class="desc">${on ? 'Every trip can bring home candy, short ones too. Friendly ghosts drift through the village at night: tap one to pop it for a little candy.' : 'The cauldron has gone cold, and no more candy turns up until next Halloween.'}</p>
+      <p class="desc perk">Candy bonus: +${Math.round(bonus * 100)}% from ${placed.length} placed decoration${placed.length === 1 ? '' : 's'} (the most is +${Math.round(TOF.HALLOWEEN.candyCap * 100)}%).</p></article>`;
+    // a decoration tapped in the village
+    const sel = ui.hwDecor && state.decor.find(d => d.id === ui.hwDecor);
+    if (sel) {
+      const d = TOF.DECOR[sel.type];
+      html += `<article class="card" data-hw="sel"><header class="ship-head"><img class="px b-img big" src="${Art.decorURL(sel.type)}" alt=""><div><h3>${d.name}</h3><p>${d.effect}</p></div>${rarBadge(d.rarity)}</header>
+        <div class="btn-row"><button class="btn small" data-act="dmove" data-d="${sel.id}">Move it</button><button class="btn small" data-act="dstow" data-d="${sel.id}">Pack away</button></div></article>`;
+    }
+    // the cauldron
+    html += `<article class="card" data-hw="cauldron"><header class="ship-head"><img class="px b-img big" src="${Art.cauldronURL()}" alt=""><div><h3>The West Woods cauldron</h3><p>Drop in candy and see what bubbles up. Halloween decorations come from here: they can’t be bought.</p></div></header>
+      ${H.lastBrew && !H.lastBrew.seen ? `<button class="btn primary glow" data-act="brewshow">See what the cauldron brewed</button>` : ''}
+      <div class="tiers">${Object.entries(TOF.CAULDRON.tiers).map(([k, t]) => `<div class="tier"><b>${t.name}</b>
+        <button class="btn ${on && candy >= t.cost ? 'primary' : ''}" data-act="brew" data-tier="${k}" ${on && candy >= t.cost ? '' : 'disabled'}>Deposit ${t.cost} ${icon('candy', 'tiny')}</button>
+        <small>${RAR_ORDER.map(r => `${TOF.RARITY[r]} ${t.odds[r]}%`).join(' · ')}${t.qty > 1 ? `. Coin and goods prizes ×${t.qty}.` : '.'}</small></div>`).join('')}</div>
+      <button class="btn" data-act="gocauldron">Show me the cauldron</button></article>`;
+    // the ghost ship
+    const sh = on && H.ship && now < H.ship.leaveAt ? H.ship : null;
+    if (sh) {
+      html += `<article class="card hw" data-hw="ship"><h3>The ghost ship is in!</h3><p class="desc">Her crewless deck creaks with cargo. She trades for candy, each offer once, and sails in <b>${span(sh.leaveAt - now)}</b>.</p>` +
+        sh.offers.map(o => { const t = TOF.GHOST_TRADES.find(x => x.id === o.id), can = !o.done && candy >= t.candy;
+          return `<div class="mrow offer"><div class="m-info"><b>${t.name}${t.big ? ' <span class="rar rar-rare">Big offer</span>' : ''}</b><span>${Object.entries(t.get).map(([k, v]) => `${icon(k, 'tiny')} ${v} ${resName(k)}`).join(', ')}</span></div>
+            <div class="m-btns">${o.done ? '<span class="ok-text">Traded</span>' : `<button class="btn small ${can ? 'primary' : ''}" data-act="gtrade" data-o="${o.id}" ${can ? '' : 'disabled'}>${t.candy} ${icon('candy', 'tiny')}</button>`}</div></div>`; }).join('') +
+        `<button class="btn" data-act="goship">Show me the ship</button></article>`;
+    } else if (on) html += `<p class="note">A ghost ship drifts into the harbor now and then, ready to trade timber, stone, food and more for candy.</p>`;
+    // the collection
+    const owned = t => (state.decorInv[t] || 0) + state.decor.filter(d => d.type === t).length;
+    html += `<h3 class="group" data-hw="collection">Halloween decorations (${TOF.HW_DECOR.filter(t => owned(t)).length} of ${TOF.HW_DECOR.length})</h3><div class="hw-grid">` +
+      [...TOF.HW_DECOR].sort((a, b) => RAR_ORDER.indexOf(TOF.DECOR[a].rarity) - RAR_ORDER.indexOf(TOF.DECOR[b].rarity)).map(t => {
+        const d = TOF.DECOR[t], inv = state.decorInv[t] || 0, out = state.decor.filter(x => x.type === t).length;
+        return `<div class="hw-item ${owned(t) ? '' : 'missing'}"><img class="px" src="${Art.decorURL(t)}" alt=""><b>${owned(t) ? d.name : '???'}</b>${rarBadge(d.rarity)}
+          <small>${owned(t) ? `${out} placed${inv ? `, ${inv} to place` : ''}` : 'Not found yet'}</small>
+          ${inv ? `<button class="btn primary" data-act="dplace" data-type="${t}">Place</button>` : ''}</div>`;
+      }).join('') + `</div><p class="note">Each placed decoration adds a little candy to future trips (+${Math.round(TOF.DECOR.hwPumpkinFlag.candy * 100)}% to +${Math.round(TOF.DECOR.hwCauldron.candy * 100)}% each; every jack-o’-lantern gives +${Math.round(TOF.DECOR.hwJackClassic.candy * 100)}%). Copies stack. Tap a placed one in the village to move it or pack it away.</p>`;
+    return html;
+  }
+  // Brewing: candy and prize were settled before this plays, so the animation is only for show.
+  function brewIt(tier) {
+    const r = App.brew(tier);
+    if (!r.ok) { toast(r.reason, 'bad'); return; }
+    closePanel();
+    $('#modalBody').innerHTML = `<div class="brewbox brewing"><img src="${Art.cauldronURL()}" alt=""></div><h2>Bubble, bubble…</h2><p class="sub">The cauldron churns your candy.</p>`;
+    $('#modalOk').disabled = true; $('#modalOk').textContent = 'Brewing…';
+    $('#modal').hidden = false;
+    Sound.play('chestShake');
+    setTimeout(() => showBrew(r.brew), 1600);
+  }
+  function showBrew(b) {
+    const name = b.decor ? TOF.DECOR[b.decor].name : Object.entries(b.items).map(([k, v]) => `${v} ${resName(k)}`).join(' and ');
+    const img = b.decor ? `<img class="prize" src="${Art.decorURL(b.decor)}" alt="">` : `<div class="brewbox">${Object.keys(b.items).map(k => icon(k, 'big')).join(' ')}</div>`;
+    $('#modalBody').innerHTML = `<div class="reveal">${rarBadge(b.rarity)}${img}<h2>${esc(name)}</h2>
+      <p class="sub">${b.decor ? `Quantity 1. ${TOF.DECOR[b.decor].effect} Place it from the Halloween panel.` : `From the ${TOF.CAULDRON.tiers[b.tier].name.toLowerCase()}.`}</p></div>`;
+    $('#modalOk').disabled = false; $('#modalOk').textContent = b.rarity === 'veryRare' ? 'Spooktacular!' : b.rarity === 'rare' ? 'Wicked!' : 'Nice!';
+    ui.brewToSee = b.id;
+    Sound.play(b.rarity === 'rare' || b.rarity === 'veryRare' ? 'trophy' : 'chestOpen');
+  }
+
   function effectText(state, b, lvl) {
     switch (b.type) {
       case 'market': return lvl > 1 ? `Sale prices +${(lvl - 1) * 15}%.` : 'Standard prices.';
@@ -7020,7 +7135,7 @@ const UI = (() => {
       case 'tradingPost': return 'Buy 5% cheaper and sell 5% dearer per level above 1.';
       default: {
         const rc = TOF.BUILDINGS[b.type].recipe;
-        if (rc) return `${Object.entries(rc.in).map(([k, v]) => `${v} ${resName(k)}`).join(' + ')} make 1 ${unit(rc.out, 1)}, ${span(rc.hours * TOF.hourMs(state) / TOF.recipeSpeed(lvl))} each, up to ${10 * lvl} per batch.`;
+        if (rc) return `${Object.entries(rc.in).map(([k, v]) => `${v} ${resName(k)}`).join(' + ')} make 1 ${unit(rc.out, 1)}, ${span(rc.hours * TOF.hourMs(state) / TOF.recipeSpeed(lvl))} each, up to ${TOF.BATCH_PER_LEVEL * lvl} per batch.`;
         return '';
       }
     }
@@ -7047,15 +7162,18 @@ const UI = (() => {
           html += `<div class="progress"><i data-jbar="${b.id}"></i></div><p class="eta">${icon(j.out, 'tiny')} <b data-jcount="${b.id}">${j.done}</b> of ${j.qty} ${resName(j.out)} made. Batch done in <b data-jtimer="${b.id}"></b>.</p>
             <button class="btn" data-act="canceljob" data-b="${b.id}">Stop and refund the rest</button>`;
         } else {
-          let can = TOF.maxBatch(b);
-          for (const [k, v] of Object.entries(rc.in)) can = Math.min(can, Math.floor(state.resources[k] / v));
+          // batch choices: 1, 5, 10 and the most this batch can make (inputs, batch size and storage room all count)
+          const can = TOF.batchLimit(state, b), refined = TOF.REFINED.includes(rc.out);
           const have = Object.entries(rc.in).map(([k]) => `${state.resources[k]} ${resName(k)}`).join(', ');
-          html += `<p class="desc">You have ${have}.</p><div class="btn-row three">
-            <button class="btn small" data-act="job" data-b="${b.id}" data-q="1" ${can >= 1 ? '' : 'disabled'}>Make 1</button>
-            <button class="btn small" data-act="job" data-b="${b.id}" data-q="5" ${can > 5 ? '' : 'disabled'}>Make 5</button>
-            <button class="btn small primary" data-act="job" data-b="${b.id}" data-q="${can}" ${can >= 1 ? '' : 'disabled'}>Make all${can ? ` (${can})` : ''}</button></div>`;
+          const unitMs = Math.max(1, Math.round(rc.hours * TOF.hourMs(state) / TOF.recipeSpeed(b.level)));
+          const opt = (n, label) => `<button class="btn small ${label ? 'primary' : ''}" data-act="job" data-b="${b.id}" data-q="${n}" ${n >= 1 && n <= can ? '' : 'disabled'}>${label || n}</button>`;
+          html += `<p class="desc">You have ${have}. Up to <b>${TOF.maxBatch(b)}</b> per batch at level ${b.level}${TOF.BULK.includes(rc.out) ? `, while storage has room (${state.resources[rc.out]}/${TOF.storageCap(state)})` : ''}.</p>
+            <div class="batch">${opt(1)}${opt(5)}${opt(10)}${opt(can, `Max${can ? ` ${can}` : ''}`)}</div>
+            ${can ? `<p class="note">A batch of ${can} takes ${span(can * unitMs)}${refined ? ` and sells for <b>${can} × ${TOF.REFINED_PRICE} = ${can * TOF.REFINED_PRICE} coins</b> at any shop` : ''}.</p>` : `<p class="note">${Object.entries(rc.in).map(([k, v]) => `${v} ${resName(k)}`).join(' + ')} make 1 ${unit(rc.out, 1)}.</p>`}`;
         }
         html += `</article>`;
+        const n = state.resources[rc.out];
+        if (TOF.REFINED.includes(rc.out) && n > 0) html += `<button class="btn" data-act="sellref" data-res="${rc.out}" data-q="${n}">Sell all ${n} ${resName(rc.out)}: ${n} × ${TOF.REFINED_PRICE} = ${n * TOF.REFINED_PRICE} coins</button>`;
       }
       if (b.type === 'tradingPost') {
         html += `<article class="card"><h3>Buy</h3>${Object.keys(TOF.TRADE.buy).map(r => `<div class="mrow">${icon(r, 'mid')}<div class="m-info"><b>${TOF.RESOURCES[r].name}</b><span>${TOF.tradePrice(state, 'buy', r)} coins each, you have ${state.resources[r]}</span></div>
@@ -7294,7 +7412,10 @@ const UI = (() => {
             <button class="btn dev" data-act="grant" data-grant="raw">Add raw materials</button>
             <button class="btn dev" data-act="grant" data-grant="goods">Add planks, rope, iron, food</button>
             <button class="btn dev" data-act="tests">Run automated tests</button>
-          </div>${tests}` : ''}
+            <button class="btn dev" data-act="grant" data-grant="candy">Add 100 candy</button>
+          </div>
+          <p class="label">Halloween event (normally October 1 to November 12)</p>
+          <div class="chips">${['auto', 'on', 'off'].map(v => `<button class="chip" role="radio" aria-checked="${s.eventOverride === v}" data-act="evt" data-v="${v}">${v === 'auto' ? 'By date' : v === 'on' ? 'Force on' : 'Force off'}</button>`).join('')}</div>${tests}` : ''}
       </section>
       <section class="card">
         <h3>Harbor records</h3>
@@ -7350,6 +7471,14 @@ const UI = (() => {
       case 'bback': ui.building = null; refreshPanel(true); break;
       case 'place': beginPlacing(b.dataset.type); break;
       case 'vtab': ui.vTab = b.dataset.tab; refreshPanel(true); break;
+      case 'brew': brewIt(b.dataset.tier); break;
+      case 'brewshow': { const lb = st.halloween.lastBrew; if (lb) { closePanel(); showBrew(lb); $('#modal').hidden = false; } break; }
+      case 'gocauldron': closePanel(); World.focusCauldron(); break;
+      case 'goship': closePanel(); World.focusGhostShip(); break;
+      case 'gtrade': { const r = App.ghostTrade(b.dataset.o); say(r, r.ok ? `The ghostly crew hands over ${Object.entries(r.offer.get).map(([k, v]) => `${v} ${resName(k)}`).join(', ')}.` : ''); if (r.ok) Sound.play('coins'); break; }
+      case 'dstow': { const r = App.stowDecor(b.dataset.d); say(r, r.ok ? `${TOF.DECOR[r.decor.type].name} packed away.` : ''); if (r.ok) ui.hwDecor = null; refreshPanel(); break; }
+      case 'sellref': { const r = App.sellRefined(b.dataset.res, +b.dataset.q); say(r, `Sold ${r.qty} ${resName(b.dataset.res)} for ${r.coins} coins (${TOF.REFINED_PRICE} each).`); if (r.ok) Sound.play('coins'); break; }
+      case 'evt': App.setEvent(b.dataset.v); toast(`Halloween event: ${{ auto: 'by date', on: 'forced on', off: 'forced off' }[b.dataset.v]}.`); break;
       case 'dplace': beginPlacing(b.dataset.type); break;
       case 'dbuy': { const r = App.buyDecor(b.dataset.type); say(r, `${TOF.DECOR[b.dataset.type].name} built. ${TOF.DECOR[b.dataset.type].effect}`); if (r.ok) Sound.play('success'); break; }
       case 'dmove': { const d = st.decor.find(x => x.id === b.dataset.d); if (d) beginPlacing(d.type, d.id); break; }
@@ -7407,7 +7536,7 @@ const UI = (() => {
         Sky.searchPlace(q.trim()).then(r => { if (r.ok) { App.setSky({ place: r.place }); Sky.refresh(true); toast(`Following the weather in ${r.place.name}.`, 'good'); } else toast(r.reason, 'bad'); });
         break;
       }
-      case 'grant': App.grant(b.dataset.grant === 'coins' ? { coins: 1000 } : b.dataset.grant === 'raw' ? { timber: 100, hemp: 60, ironOre: 60, fish: 60 } : b.dataset.grant === 'goods' ? { planks: 60, rope: 40, iron: 40, food: 20 } : { shellfish: 10, rareFish: 5, pearls: 5, relics: 5, charts: 5 }); break;
+      case 'grant': App.grant(b.dataset.grant === 'candy' ? { candy: 100 } : b.dataset.grant === 'coins' ? { coins: 1000 } : b.dataset.grant === 'raw' ? { timber: 100, hemp: 60, ironOre: 60, fish: 60 } : b.dataset.grant === 'goods' ? { planks: 60, rope: 40, iron: 40, food: 20 } : { shellfish: 10, rareFish: 5, pearls: 5, relics: 5, charts: 5 }); break;
       case 'tests': ui.testResults = App.runTests(); refreshPanel(); break;
       case 'reset':
         if (!ui.resetArmed) { ui.resetArmed = true; refreshPanel(); }
@@ -7482,7 +7611,15 @@ const UI = (() => {
     }
     const info = o.info || {};
     if (info.bId) { openPanel('village', { building: info.bId }); return; }
-    if (info.dId) { const d = st.decor.find(x => x.id === info.dId); if (d) { toast(`${TOF.DECOR[d.type].name}: ${TOF.DECOR[d.type].effect}`); openPanel('village', { decor: d.type }); } return; }
+    if (o.kind === 'ghost') {
+      const r = App.popGhost(o.ghostId);
+      Sound.play(r.ok && r.candy ? 'coins' : 'splash');
+      toast(r.ok ? (r.candy ? `Pop! The ghost giggles and leaves ${r.candy} candy behind.` : 'Pop! The ghost giggles. (The ghosts have given all they can this hour.)') : 'Pop!', r.ok && r.candy ? 'good' : '');
+      return;
+    }
+    if (info.cauldron) { openPanel('halloween', { focus: 'cauldron' }); return; }
+    if (info.ghostShip) { openPanel('halloween', { focus: 'ship' }); return; }
+    if (info.dId) { const d = st.decor.find(x => x.id === info.dId); if (d && TOF.DECOR[d.type].hw) { openPanel('halloween', { decor: d.id, focus: 'sel' }); return; } if (d) { toast(`${TOF.DECOR[d.type].name}: ${TOF.DECOR[d.type].effect}`); openPanel('village', { decor: d.type }); } return; }
     if (info.crop) { harvestField(); return; }
     if (info.action) openPanel(info.action);
     else if (info.future) toast(info.future);
@@ -7490,7 +7627,7 @@ const UI = (() => {
   }
 
   function init() {
-    for (const n of ['coin', 'fish', 'shellfish', 'rareFish', 'pearls', 'relics', 'charts', 'boat', 'hammer', 'gear', 'market', 'chest', 'cannon', 'compass', 'wrench', 'timber', 'planks', 'hemp', 'rope', 'ironOre', 'iron', 'food', 'house', 'crate', 'sun', 'moon', 'rain', 'snow', 'fog', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', 'charm', 'map', ...Object.keys(TOF.TROPHIES)]) ICON[n] = Art.iconURL(n);
+    for (const n of ['coin', 'fish', 'shellfish', 'rareFish', 'pearls', 'relics', 'charts', 'boat', 'hammer', 'gear', 'market', 'chest', 'cannon', 'compass', 'wrench', 'timber', 'planks', 'hemp', 'rope', 'ironOre', 'iron', 'food', 'house', 'crate', 'sun', 'moon', 'rain', 'snow', 'fog', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', 'charm', 'map', 'candy', ...Object.keys(TOF.TROPHIES)]) ICON[n] = Art.iconURL(n);
     for (const [k, c] of Object.entries(TOF.CHESTS)) ICON[k] = Art.chestURL(c.family, c.size, false);
     $('#modalBody').addEventListener('click', e => {
       const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
@@ -7499,7 +7636,7 @@ const UI = (() => {
     });
     $('#skyChip').addEventListener('click', () => openPanel('settings'));
     Sky.onStatus(() => { if (ui.panel === 'settings') refreshPanel(); renderSkyChip(); });
-    $('#placeCancel').addEventListener('click', () => { const pl = World.placing, m = pl && pl.movingId, dec = pl && TOF.DECOR[pl.type]; endPlacing(); openPanel('village', dec ? { decor: pl.type } : m ? { building: m } : {}); });
+    $('#placeCancel').addEventListener('click', () => { const pl = World.placing, m = pl && pl.movingId, dec = pl && TOF.DECOR[pl.type]; endPlacing(); if (dec && dec.hw) openPanel('halloween', { focus: 'collection' }); else openPanel('village', dec ? { decor: pl.type } : m ? { building: m } : {}); });
     $('#placeOk').addEventListener('click', () => {
       const p = World.placing; if (!p) return;
       const dec = TOF.DECOR[p.type];
@@ -7512,7 +7649,7 @@ const UI = (() => {
       if (dec) {
         const r = App.placeDecor(p.type, p.gx, p.gy);
         if (!r.ok) { toast(r.reason, 'bad'); return; }
-        endPlacing(); Sound.play('success'); toast(`${dec.name} added. ${dec.effect}`, 'good');
+        endPlacing(); Sound.play('success'); toast(dec.hw ? `${dec.name} placed. Candy bonus now +${Math.round(TOF.decorBonus(App.state).candy * 100)}%.` : `${dec.name} added. ${dec.effect}`, 'good');
         return;
       }
       const r = App.place(p.type, p.gx, p.gy);
@@ -7543,19 +7680,18 @@ const UI = (() => {
     document.addEventListener('click', e => { if (e.target.closest('button, .chip, label.switch, label.supplies')) Sound.play('tap'); });
     $('#updateBtn').addEventListener('click', () => { App.save(); PWA.applyUpdate(); });
     $('#sheetBody').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.id === 'renameInput') { const b = document.querySelector('[data-act="dorename"]'); if (b) b.click(); } });
-    $('#resRow').addEventListener('click', e => { const b = e.target.closest('.res'); if (b) openPanel(['coins', 'charts'].includes(b.dataset.res) ? 'shipwright' : 'market'); });
-    $('#voyages').addEventListener('click', e => {
-      const v = e.target.closest('.voyage'); if (!v) return;
-      if (v.dataset.all) collectAll();
-      else if (v.dataset.more) openPanel('fleet');
-      else if (v.classList.contains('ready')) collect(v.dataset.exp);
-      else openPanel('fleet', { ship: v.dataset.ship });
+    $('#resRow').addEventListener('click', e => { const b = e.target.closest('.res'); if (b) openPanel(b.dataset.res === 'candy' ? 'halloween' : ['coins', 'charts'].includes(b.dataset.res) ? 'shipwright' : 'market'); });
+    $('#shipsBtn').addEventListener('click', () => (ui.panel === 'fleet' && !ui.fleetShip ? closePanel() : openPanel('fleet')));
+    $('#modalOk').addEventListener('click', () => {
+      $('#modal').hidden = true; $('#modalOk').textContent = 'Stow the catch'; $('#modalOk').classList.add('primary');
+      if (ui.brewToSee) { App.brewSeen(ui.brewToSee); ui.brewToSee = null; openPanel('halloween', { focus: 'cauldron' }); }
+      refresh();
     });
-    $('#modalOk').addEventListener('click', () => { $('#modal').hidden = true; $('#modalOk').textContent = 'Stow the catch'; $('#modalOk').classList.add('primary'); refresh(); });
     document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (!$('#modal').hidden) $('#modal').hidden = true; else closePanel(); } });
   }
 
-  return { init, refresh, tick, toast, onWorldTap, openPanel, renderVoyages, onPlaceChange, refreshPanel, renderSkyChip };
+  const showBrewAgain = () => { const lb = App.state.halloween.lastBrew; if (lb && !lb.seen && $('#modal').hidden) { showBrew(lb); $('#modal').hidden = false; } };
+  return { showBrewAgain, init, refresh, tick, toast, onWorldTap, openPanel, renderVoyages, onPlaceChange, refreshPanel, renderSkyChip };
 })();
 
 // ============================================================
@@ -7582,6 +7718,8 @@ const UI = (() => {
   UI.refresh();
 
   const st = App.state;
+  // a brew the app closed on before it was revealed: show it now (it was paid for and granted already)
+  if (st.halloween.lastBrew && !st.halloween.lastBrew.seen) setTimeout(() => UI.showBrewAgain(), 900);
   const back = st.ships.filter(s => TOF.shipStatus(st, s.id, t0) === 'returned');
   if (App.loadInfo.source === 'new') UI.toast('Welcome to the harbor. Tap your boat to send it out.');
   else if (back.length) UI.toast(`${back.length > 1 ? back.length + ' ships' : back[0].name} came home while you were away.`);
@@ -7594,6 +7732,7 @@ const UI = (() => {
     if (type === 'tickjob') { UI.refresh(); return; }
     World.syncBuildings(App.state);
     World.syncDecor(App.state);
+    World.syncGhostShip(App.state);
     if (World.syncDocks(App.state, type === 'built')) { UI.toast('Builders ran out a new jetty for the growing fleet.', 'good'); Sound.play('splash'); }
     if (type === 'settled' && data.built.length) Sound.play('success');
     if (type === 'settled') {
