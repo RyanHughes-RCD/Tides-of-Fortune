@@ -597,7 +597,7 @@ const TOF = (() => {
   const START_RESOURCES = { coins: 20, timber: 30 }; // the original stock, doubled in newGame()
   const START_HEADSTART = 50;
   const CROP_HOURS = 3, CROP_YIELD = 12;
-  const MAP_SIZE = 40;
+  const MAP_SIZE = 48; // 1.4: grew from 40; the original 40x40 keeps its layout, so saves load unchanged
   const SKY_TIMES = ['live', 'dawn', 'day', 'dusk', 'night'];
   const SKY_WEATHER = ['live', 'sunny', 'rainy', 'snowy', 'foggy'];
   const BUILDING_MAX_LEVEL = 3;
@@ -5408,7 +5408,7 @@ const PWA = (() => {
 const World = (() => {
   'use strict';
   const { Pix, PAL, C, hash } = Art;
-  const HW = 16, HH = 8, N = 40;
+  const HW = 16, HH = 8, N = TOF.MAP_SIZE;
   const T = { GRASS: 0, ROAD: 1, SAND: 2, WATER: 3, DOCK: 4, ROCK: 5, FIELD: 6 };
 
   // ---------- coordinates ----------
@@ -5419,7 +5419,9 @@ const World = (() => {
   // Coastline: for rows gy>=8, water starts at column COAST[gy-8]. Rows 28+ are the southern
   // land added in the village pass; earlier coordinates are unchanged so saves keep their layout.
   const COAST = [16, 16, 17, 16, 16, 15, 15, 16, 15, 15, 15, 14, 14, 14, 14, 14, 14, 14, 14, 14,
-    14, 14, 14, 15, 15, 14, 14, 13, 13, 14, 14, 14];
+    14, 14, 14, 15, 15, 14, 14, 13, 13, 14, 14, 14,
+    // 1.4: the land added south of the old map edge bulges out into a wide peninsula
+    15, 16, 17, 18, 19, 19, 18, 17];
   const coastAt = gy => COAST[Math.max(0, Math.min(gy - 8, COAST.length - 1))];
   function isWater(gx, gy) {
     if (gy <= 4) return gx >= 22;
@@ -5434,7 +5436,7 @@ const World = (() => {
   const DOCKS = [11, 15, 23, 27, 31].map((row, i) => ({ i, row, x0: coastAt(row), x1: coastAt(row) + DOCK_LEN - 1 }));
   const BERTHS = [];
   for (const d of DOCKS) for (const side of [-1, 1]) BERTHS.push({ gx: d.x0 + 3, gy: d.row + side, lane: d.row + side, dock: d.i });
-  const ISLET = { gx: 28, gy: 19 }; // well out in the bay, clear of the jetties and their lanes
+  const ISLET = { gx: 36, gy: 19 }; // far out in the bay (1.4), between the shipping lanes of rows 16 and 22
   // Decorative homes. Working buildings live in the save and are drawn by syncBuildings().
   const BUILDINGS = [
     { key: 'chapel', gx: 3, gy: 1, fw: 3, fd: 2, name: 'Chapel' },
@@ -5472,7 +5474,11 @@ const World = (() => {
     // newer roads only go where no player building already stands
     const free = (gx, gy) => !blocked.some(f => gx >= f.gx && gy >= f.gy && gx < f.gx + f.fw && gy < f.gy + f.fd);
     const opt = (gx, gy) => { if (land(gx, gy) && free(gx, gy)) set(gx, gy, T.ROAD); };
-    for (let gy = 26; gy <= 36; gy++) opt(9, gy);
+    for (let gy = 26; gy <= N - 4; gy++) opt(9, gy);
+    // roads into the southern peninsula (1.4)
+    for (let gx = 3; gx < coastAt(38) - 1; gx++) opt(gx, 38);
+    for (let gx = 9; gx < coastAt(43) - 1; gx++) opt(gx, 43);
+    for (let gy = 38; gy <= 43; gy++) opt(15, gy);
     for (let gx = 3; gx <= 13; gx++) opt(gx, 30);
     for (const row of [27, 31]) for (let gx = 10; gx < coastAt(row); gx++) opt(gx, row);
     // jetties
@@ -5485,7 +5491,7 @@ const World = (() => {
   // The terrain image covers a rectangle as wide as the map and PAD taller at the top and bottom, so a
   // tall phone screen never shows an empty void: the coast, forest and open sea simply carry on.
   // Tiles outside the 40x40 map are scenery only (nothing can be built there).
-  const PAD = 320, M = 40, EN = N + 2 * M;
+  const PAD = 260, M = 40, EN = N + 2 * M;
   const ext = [];  // ext[gy + M][gx + M] -> tile type, for every tile in or near the picture
   let wd = [], ld = []; // water: tiles to the nearest land; land: tiles to the nearest water
   const inMap = (gx, gy) => gx >= 0 && gy >= 0 && gx < N && gy < N;
@@ -5619,11 +5625,11 @@ const World = (() => {
     for (let gy = -M; gy < N + M; gy++) for (let gx = -M; gx < N + M; gx++) {
       const tp = isoTop(gx, gy);
       if (tp.x + HW < -OX || tp.x - HW > OX || tp.y + 2 * HH < -OY || tp.y > GH - OY) continue;
-      const t = typeAt(gx, gy), outside = !inMap(gx, gy);
+      const t = typeAt(gx, gy);
       if (wet(t)) {
-        if (outside && wDist(gx, gy) >= 5) forTilePixels(gx, gy, (X, Y) => { for (let f = 0; f < 4; f++) blit(waters[f], seaSw[f], X, Y); });
+        if (wDist(gx, gy) >= 5) forTilePixels(gx, gy, (X, Y) => { for (let f = 0; f < 4; f++) blit(waters[f], seaSw[f], X, Y); });
         else forTilePixels(gx, gy, (X, Y, u, v) => { for (let f = 0; f < 4; f++) waters[f].set(X, Y, waterColor(X, Y, gx, gy, u, v, f)); });
-      } else if (outside && t === T.GRASS && lDist(gx, gy) >= 3) {
+      } else if (t === T.GRASS && lDist(gx, gy) >= 3) {
         forTilePixels(gx, gy, (X, Y) => { blit(land, grassSw, X, Y); blit(snow, snowSw, X, Y); });
       } else forTilePixels(gx, gy, (X, Y, u, v) => { land.set(X, Y, landColor(t, X, Y, gx, gy, u, v)); snow.set(X, Y, snowColor(t, X, Y)); });
     }
@@ -5748,11 +5754,11 @@ const World = (() => {
     const kinds = ['tree', 'tree2', 'oak', 'pine', 'bush', 'bush2'];
     for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
       if (map[gy][gx] !== T.GRASS || occ[gy][gx]) continue;
-      const edge = gx < 2 || gy < 1 || gy > 36;
+      const edge = gx < 2 || gy < 1 || gy > N - 4;
       const n = hash(gx, gy, 77);
       if (n < (edge ? 0.5 : gy >= 28 ? 0.1 : 0.14)) {
         const c = tileCenter(gx, gy);
-        const k = gy > 34 || gx < 2 ? (n < 0.3 ? 'pine' : 'oak') : kinds[(hash(gx, gy, 78) * kinds.length) | 0];
+        const k = gy > N - 6 || gx < 2 ? (n < 0.3 ? 'pine' : 'oak') : kinds[(hash(gx, gy, 78) * kinds.length) | 0];
         const jx = Math.round((hash(gx, gy, 79) - 0.5) * 10), jy = Math.round((hash(gx, gy, 80) - 0.5) * 4);
         addObj({ kind: 'prop', tex: k, x: c.x + jx, y: c.y + jy, depth: c.y + jy, tree: true, gx, gy });
       }
@@ -6388,11 +6394,11 @@ const World = (() => {
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     // 3) fog: a veil plus slow drifting banks
     if (w.kind === 'foggy') {
-      ctx.fillStyle = `rgba(226,230,235,${0.1 + 0.14 * w.intensity})`; ctx.fillRect(0, 0, W, H);
+      ctx.fillStyle = `rgba(226,230,235,${0.05 + 0.07 * w.intensity})`; ctx.fillRect(0, 0, W, H); // 1.4: about half as thick
       for (const f of fogBlobs) {
         const x = f.x * W, y = f.y * H, rad = f.r * Math.max(W, H);
         const gr = ctx.createRadialGradient(x, y, 0, x, y, rad);
-        gr.addColorStop(0, `rgba(236,240,244,${0.24 * w.intensity})`); gr.addColorStop(1, 'rgba(236,240,244,0)');
+        gr.addColorStop(0, `rgba(236,240,244,${0.12 * w.intensity})`); gr.addColorStop(1, 'rgba(236,240,244,0)');
         ctx.fillStyle = gr; ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
       }
     }
