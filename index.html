@@ -4356,20 +4356,25 @@ const Art = (() => {
       p.line(x0 + 1, y0 - 7, x0 + 13, y0 + o.h - 2, '#5e3b22'); p.rect(x0 + 12, y0 + o.h - 2, 1, 6, '#4a2f1c'); p.rect(x0, y0 - 7, 1, 6, '#4a2f1c');
     },
     curlRoof(p, q, o) {
-      // A long, slow taper out of the roof (drawn row by row so it flows on from the roof slopes),
-      // swaying a little, then the tip rolls over into a big coil like the hill in a spooky poster.
-      const ax = q[0], ay = q[1] - o.z, c = o.c || '#5a3f7a', H = 24, lit = shade(c, 1.18), dim = shade(c, 0.82), seam = shade(c, 0.62);
-      const cx = t => ax + 2 * Math.sin(t * Math.PI) - 4 * t * t * t, wid = t => 2.8 + 13.2 * Math.pow(1 - t, 2.6);
-      for (let y = ay + 14; y >= ay + 14 - H; y--) {
-        const t = (ay + 14 - y) / H, x = cx(t), w = wid(t), l = Math.round(x - w), r = Math.round(x + w), m = Math.round(x - w * 0.15);
-        p.rect(l, y, Math.max(1, m - l), 1, lit); p.rect(m, y, Math.max(1, r - m), 1, dim);
-        if ((ay - y) % 5 === 0) for (let i = l + 1; i < r; i += 2) p.set(i, y, seam); // shingle courses
+      // Rises out of the roof row by row from its widest point (y0, half-width w0), using the roof's own
+      // face shades and shingle courses so the two read as one, then the tip rolls over into a big coil.
+      const ax = q[0], y0 = q[1] - o.z, c = o.c || '#5a3f7a', H = o.H, rows = 2.5;
+      const cx = t => ax + 2 * Math.sin(t * Math.PI) - 4 * t * t * t, wid = t => 2.8 + (o.w0 - 2.8) * Math.pow(1 - t, o.p);
+      const tile = (x, y, k) => { // the same pattern drawBlock lays on roofs
+        const f = (y0 - y) / rows, row = Math.floor(f);
+        if (((x + row * 3) % 6 + 6) % 6 === 0) return shade(c, k * 0.78);
+        if ((f % 1) < 0.28) return shade(c, k * 0.86);
+        return shade(c, k * (0.95 + 0.1 * Math.min(1, (y0 - y) / H)));
+      };
+      for (let y = y0; y >= y0 - H; y--) {
+        const t = (y0 - y) / H, x = cx(t), w = wid(t);
+        for (let i = Math.round(x - w); i < Math.round(x + w); i++) p.set(i, y, tile(i, y, i < x ? 1.0 : 0.84));
       }
-      let x = cx(1), y = ay + 14 - H, th = Math.atan2(-H * 0.02, cx(1) - cx(0.98)), phi = 0;
-      const R0 = 11, PHI = 3.3 * Math.PI, ds = 0.35;
+      let x = cx(1), y = y0 - H, th = Math.atan2(-H * 0.02, cx(1) - cx(0.98)), phi = 0;
+      const R0 = 11, PHI = 3.3 * Math.PI, ds = 0.35, lit = shade(c, 1.0), mid = shade(c, 0.9), dim = shade(c, 0.78);
       while (phi < PHI) {
         const r = R0 * Math.exp(-0.17 * phi), w = 2.8 - 1.7 * (phi / PHI), px = x, py = y;
-        p.circle(px, py, w, (xx, yy) => ((xx - px) + (yy - py) < -0.6 ? lit : dim));
+        p.circle(px, py, w, (xx, yy) => { const d = (xx - px) + (yy - py); return d < -0.8 ? lit : d < 0.8 ? mid : dim; });
         th -= ds / r; phi += ds / r; x += Math.cos(th) * ds; y += Math.sin(th) * ds;
       }
       p.blitMap(['.y.', 'yyy', '.y.'], { y: '#f2c94c' }, Math.round(x) - 1, Math.round(y) - 1);
@@ -4490,13 +4495,16 @@ const Art = (() => {
     },
     // a crooked hut on stilts under a tall witch-hat roof with a curled tip
     seaWitch: L => {
-      const lift = 10, wall = 20, roof = 34, fw = 2.3, u0 = 0.25, v0 = 0.3, uc = u0 + fw / 2, vc = v0 + fw / 2, ue = u0 + fw, ve = v0 + fw;
+      // ROOF picks how the coil grows out of the roof: A matches shades/shingles, B also flares from lower down,
+      // C swaps the straight hip for one concave witch-hat sweep from the eaves.
+      const ROOF = 'A', V = { A: { roof: 34, drop: 14, w0: 14.6, H: 24, p: 2.2 }, B: { roof: 34, drop: 22, w0: 23, H: 32, p: 1.8 }, C: { roof: 10, drop: 10, w0: 36.3, H: 38, p: 1.7 } }[ROOF];
+      const lift = 10, wall = 20, roof = V.roof, fw = 2.3, u0 = 0.25, v0 = 0.3, uc = u0 + fw / 2, vc = v0 + fw / 2, ue = u0 + fw, ve = v0 + fw;
       const m = B(u0, v0, { fw, fd: fw, wall, roof, roofStyle: 'hip', mat: 'wood', roofC: '#5a3f7a', door: 'R', noRightWindows: true, seed: 73, z0: lift, found: 1 });
       const items = [P('stilts', u0, v0, { fw, fd: fw, h: lift }), m,
         P('moonWindow', u0 + 0.55, ve, { z: lift + 11, s: 1.4, late: true }), P('herbs', u0 + 1.35, ve, { z: lift + 15, late: true }),
         P('roundWin', ue, v0 + 0.5, { z: lift + 12, late: true }), P('witchSign', ue, vc + 0.45, { z: lift + 15, late: true }),
-        P('stovepipe', ue - 0.5, v0 + 0.5, { z: lift + wall + 14 }),
-        P('curlRoof', uc, vc, { z: lift + wall + roof, late: true, top: lift + wall + roof + 34, c: '#5a3f7a' }),
+        P('stovepipe', ue - 0.5, v0 + 0.5, { z: lift + wall + (ROOF === 'C' ? 10 : 14) }),
+        P('curlRoof', uc, vc, { z: lift + wall + roof - V.drop, w0: V.w0, H: V.H, p: V.p, late: true, top: lift + wall + roof - V.drop + V.H + 34, c: '#5a3f7a' }),
         P('stairs', ue, vc, { h: lift }),
         P('bigPot', 2.72, 2.72), P('lantern', 2.85, 0.32), P('shrooms', 0.3, 2.9), P('pumpkin', 0.85, 2.92, { face: true })];
       if (L >= 2) items.push(P('broom', 2.2, 2.85), P('pumpkin', 2.9, 0.9, { s: 0.8 }), P('lantern', 0.2, 2.6));
