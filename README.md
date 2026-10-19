@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.5.2.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.5.3.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,10 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.5.3
+
+- The Sea Witch's roof now rises out of the hut in one smooth, gradual taper before curling over at the top, instead of a thin spike sitting on the roof.
 
 ## What's new in 1.5.2
 

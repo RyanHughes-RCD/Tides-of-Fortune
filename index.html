@@ -435,7 +435,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.5.2';
+  const GAME_VERSION = '1.5.3';
   const SAVE_VERSION = 6;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -4317,13 +4317,18 @@ const Art = (() => {
     curlRoof(p, q, o) {
       // the hat's tip bends over and curls into a little spiral, ending in a gold star
       const ax = q[0], ay = q[1] - o.z, c = o.c || '#5a3f7a', pts = [];
-      for (let t = 0; t <= 1; t += 0.04) pts.push([ax - 8 * t * t, ay - 11 * t, 2.6 - t * 1.2]);
-      const [ex, ey] = pts[pts.length - 1];
+      // a long, gradual taper from the roof's full width, leaning more and more as it narrows
+      // drawn row by row so its sides carry straight on from the roof slopes before steepening
+      for (let y = ay + 8; y >= ay - 20; y--) {
+        const t = (ay + 8 - y) / 28, x = ax - 9 * Math.pow(t, 2.4), w = 1.2 + 9 * Math.pow(1 - t, 3.4);
+        p.rect(Math.round(x - w), y, Math.max(1, Math.round(w)), 1, shade(c, 1.15));
+        p.rect(Math.round(x - w) + Math.max(1, Math.round(w)), y, Math.max(1, Math.round(w)), 1, shade(c, 0.85));
+      }
+      const ex = ax - 9, ey = ay - 20;
       for (let a = 0; a <= Math.PI * 1.7; a += 0.18) { const r = 4 - a * 1.3; pts.push([ex - 2 - Math.cos(a) * r * 0.9 + 2, ey - 1 + Math.sin(a) * r, Math.max(0.7, 1.3 - a * 0.25)]); }
       for (const [x, y, w] of pts) p.circle(x, y, w, (xx) => (xx < x - 0.3 ? shade(c, 1.15) : shade(c, 0.85)));
       const [tx, ty] = pts[pts.length - 1];
       p.blitMap(['.y.', 'yyy', '.y.'], { y: '#f2c94c' }, tx - 1, ty - 1);
-      p.rect(ax - 6, ay + 4, 12, 1, shade(c, 0.6)); // a band round the hat
     },
     moonWindow(p, q, o) { const x = q[0], y = q[1] - o.z; p.circle(x, y, 3.2, '#3b2a50'); p.circle(x, y, 2.4, '#ffe48a'); p.circle(x + 1.2, y - 0.6, 1.7, '#3b2a50'); p.set(x - 1, y - 1, '#fff2b8'); },
     herbs(p, q, o) { const x = q[0], y = q[1] - o.z; p.line(x - 4, y, x + 6, y + 5, '#5e3b22'); for (let i = 0; i < 4; i++) { const hx = x - 3 + i * 3, hy = y + 1 + i * 1.5; p.rect(hx, hy, 1, 3 + (i % 2), i % 2 ? '#4f8f5a' : '#9fbf5a'); p.set(hx, hy + 4 + (i % 2), '#7b5232'); } },
@@ -4430,7 +4435,7 @@ const Art = (() => {
       const lift = 5, m = B(0.15, 0.15, { fw: 1.25, fd: 1.25, wall: 10, roof: 19, roofStyle: 'hip', mat: 'wood', roofC: '#5a3f7a', door: 'R', noRightWindows: true, seed: 73, z0: lift, found: 1 });
       const items = [P('stilts', 0.15, 0.15, { fw: 1.25, fd: 1.25, h: lift }), m,
         P('moonWindow', 0.78, 1.4, { z: lift + 6, late: true }), P('herbs', 1.0, 1.4, { z: lift + 9, late: true }),
-        P('ladder', 1.4, 0.78, { h: lift }), P('curlRoof', 0.78, 0.78, { z: lift + 10 + 19, late: true, top: lift + 10 + 19 + 18, c: '#5a3f7a' }),
+        P('ladder', 1.4, 0.78, { h: lift }), P('curlRoof', 0.78, 0.78, { z: lift + 10 + 19, late: true, top: lift + 10 + 19 + 26, c: '#5a3f7a' }),
         P('witchPot', 1.75, 1.35), P('lantern', 1.92, 0.45), P('shrooms', 0.35, 1.8)];
       if (L >= 2) items.push(P('broom', 1.55, 1.55));
       if (L >= 3) items.push(P('cat', 0.6, 0.9, { z: lift + 10 + 6, late: true }), P('shrooms', 1.9, 1.9));
