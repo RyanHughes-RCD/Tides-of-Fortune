@@ -399,8 +399,8 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.2';
-  const SAVE_VERSION = 5;
+  const GAME_VERSION = '1.3';
+  const SAVE_VERSION = 6;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
   const HOUR_MS = 3600000;
@@ -431,6 +431,7 @@ const TOF = (() => {
     sunkenKey: { name: 'Sunken key', price: 0 },
     pirateKey: { name: 'Pirate key', price: 0 },
     lostKey:   { name: 'Lost key', price: 0 },
+    candy:     { name: 'Candy', price: 0 },
   };
   // ======================= Phase 4: the wider sea =======================
   const FAMILIES = ['sunken', 'pirate', 'lost'];
@@ -499,7 +500,7 @@ const TOF = (() => {
   };
   const REGION_ORDER = Object.keys(REGIONS);
   // Small finds that don't take up room in the hold.
-  const NON_CARGO = new Set(['coins', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', ...Object.keys(CHESTS)]);
+  const NON_CARGO = new Set(['coins', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', 'candy', ...Object.keys(CHESTS)]);
 
   for (const [id, c] of Object.entries(CHESTS)) RESOURCES[id] = { name: c.name, price: 0 };
   // Bulk goods count against the warehouse limit. Coins and rare finds never do.
@@ -568,8 +569,11 @@ const TOF = (() => {
   const SKY_TIMES = ['live', 'dawn', 'day', 'dusk', 'night'];
   const SKY_WEATHER = ['live', 'sunny', 'rainy', 'snowy', 'foggy'];
   const BUILDING_MAX_LEVEL = 3;
-  // Sell prices stay at or below the raw inputs' buy price at every level, so buy-process-sell never profits.
-  const TRADE = { buy: { timber: 4, hemp: 4, ironOre: 8 }, sell: { planks: 7, rope: 7, iron: 13, food: 5 } };
+  // Refined materials (planks, rope, iron) sell to any shop for one flat price, whatever the building
+  // levels: refining is a steady, time-limited income. Raw goods and food keep their level-scaled prices.
+  const REFINED = ['planks', 'rope', 'iron'];
+  const REFINED_PRICE = 12;
+  const TRADE = { buy: { timber: 4, hemp: 4, ironOre: 8 }, sell: { planks: REFINED_PRICE, rope: REFINED_PRICE, iron: REFINED_PRICE, food: 5 } };
   const START_BUILDINGS = [{ type: 'shipwright', gx: 13, gy: 7 }, { type: 'market', gx: 12, gy: 12 }];
 
   // ---------- decorations ----------
@@ -594,10 +598,69 @@ const TOF = (() => {
     tulips:       { name: 'Tulips', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { yield: { fishing: 0.03 } }, effect: '+3% fishing hauls.', desc: 'Neat rows of red, pink and yellow cups.' },
     fountain:     { name: 'Fountain', group: 'seaside', size: [2, 2], cost: { coins: 900, planks: 20, iron: 15 }, bonus: { chest: 0.1 }, effect: 'Treasure chests turn up 10% more often.', desc: 'Toss a coin for luck. It freezes over when it snows.' },
     goldChest:    { name: 'Chest of Gold', group: 'prestige', size: [1, 1], cost: { coins: 6000, pearls: 10, relics: 5 }, bonus: { coins: 0.05 }, effect: '+5% coins from every trip.', desc: 'An open chest heaped with gold, for all to admire. A long-term investment.' },
+    // Halloween collection: won from the West Woods cauldron, never bought. Copies stack (see HALLOWEEN.candyCap).
+    hwPumpkinFlag:  { name: 'Pumpkin Flag', hw: true, rarity: 'common', candy: 0.04, desc: 'An orange banner with a grinning pumpkin.' },
+    hwGhostFlag:    { name: 'Ghost Flag', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'A purple banner with a friendly ghost. Boo!' },
+    hwWitchFlag:    { name: 'Witch Flag', hw: true, rarity: 'rare', candy: 0.08, desc: 'A green banner with a witch on her broom.' },
+    hwJackClassic:  { name: 'Classic Jack-o’-Lantern', hw: true, rarity: 'common', candy: 0.06, desc: 'Triangle eyes, toothy grin. A timeless classic.' },
+    hwJackSilly:    { name: 'Silly Jack-o’-Lantern', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'Round eyes and its tongue stuck out.' },
+    hwJackSpooky:   { name: 'Spooky Jack-o’-Lantern', hw: true, rarity: 'veryRare', candy: 0.06, desc: 'Narrow eyes, jagged fangs and a green glow.' },
+    hwSkeleton:     { name: 'Waving Skeleton', hw: true, rarity: 'rare', candy: 0.08, desc: 'Rattles a cheerful hello at passing sailors.' },
+    hwScarecrow:    { name: 'Haunted Scarecrow', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'Pumpkin head, glowing eyes, crows that never leave.' },
+    hwLantern:      { name: 'Eerie Lantern', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'A crooked post with a green flame that never goes out.' },
+    hwTombstone:    { name: 'Crooked Tombstone', hw: true, rarity: 'common', candy: 0.04, desc: '“Here lies Old Barnacle. He went fishing.”' },
+    hwBatRoost:     { name: 'Bat Roost', hw: true, rarity: 'rare', candy: 0.08, desc: 'A dead little tree hung with sleepy bats.' },
+    hwCauldron:     { name: 'Miniature Cauldron', hw: true, rarity: 'veryRare', candy: 0.1, desc: 'A bubbling pot of something green. Do not taste.' },
   };
+  for (const d of Object.values(DECOR)) if (d.hw) { d.group = 'halloween'; d.size = [1, 1]; d.bonus = { candy: d.candy }; d.effect = `+${Math.round(d.candy * 100)}% candy from trips (stacks).`; }
+  const HW_DECOR = Object.keys(DECOR).filter(k => DECOR[k].hw);
+  const RARITY = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', veryRare: 'Very rare' };
+
+  // ======================= 1.3: Halloween event =======================
+  // Every number that tunes the event lives here. Dates are the player's local calendar (inclusive),
+  // read from the same `now` every other rule uses, so the event needs no new game and no network.
+  const HALLOWEEN = {
+    start: [10, 1], end: [11, 12], // [month 1-12, day]
+    candyPerHour: 0.6,  // chance of a candy find per hour at sea (each find is 1 or 2 pieces)
+    shortTrip: 0.8,     // a 15-minute trip rolls at (0.25 ^ shortTrip) of an hour's chance, so short trips still can
+    candyCap: 0.5,      // placed Halloween decorations add at most +50% candy
+    ghost: { candy: [1, 3], maxPerHour: 6 },
+    ship: { firstDelayMin: 20, stayMin: 25, gapHours: [5, 10], offers: 3, bigChance: 0.35 },
+  };
+  // The cauldron: pay a tier's candy, roll a rarity on the tier's odds, then an item in that rarity by weight.
+  // `qty` multiplies coin and resource rewards (decorations always come one at a time).
+  const CAULDRON = {
+    tiers: {
+      handful:  { name: 'Small handful', cost: 12, qty: 1, odds: { common: 62, uncommon: 28, rare: 8.5, veryRare: 1.5 } },
+      generous: { name: 'Generous handful', cost: 30, qty: 2, odds: { common: 38, uncommon: 36, rare: 20, veryRare: 6 } },
+      dump:     { name: 'Big cauldron dump', cost: 60, qty: 4, odds: { common: 16, uncommon: 30, rare: 32, veryRare: 22 } },
+    },
+    pool: {
+      common: [{ decor: 'hwPumpkinFlag', w: 3 }, { decor: 'hwJackClassic', w: 3 }, { decor: 'hwTombstone', w: 3 },
+        { items: { coins: 40 }, w: 1.5 }, { items: { timber: 12, hemp: 8 }, w: 1.5 }],
+      uncommon: [{ decor: 'hwGhostFlag', w: 3 }, { decor: 'hwJackSilly', w: 3 }, { decor: 'hwScarecrow', w: 3 }, { decor: 'hwLantern', w: 3 },
+        { items: { coins: 150 }, w: 1.5 }, { key: 1, w: 1.5 }, { items: { planks: 10, rope: 6 }, w: 1 }],
+      rare: [{ decor: 'hwWitchFlag', w: 3 }, { decor: 'hwSkeleton', w: 3 }, { decor: 'hwBatRoost', w: 3 },
+        { items: { coins: 450 }, w: 1.5 }, { key: 2, w: 1.5 }, { items: { pearls: 2, relics: 1 }, w: 1 }],
+      veryRare: [{ decor: 'hwJackSpooky', w: 3 }, { decor: 'hwCauldron', w: 3 }, { items: { coins: 1500 }, w: 1.5 }, { key: 3, w: 1 }],
+    },
+  };
+  // What the ghost ship trades for candy. A visit offers HALLOWEEN.ship.offers of the regular ones, sometimes plus one big one.
+  // (The harbor has no stone, so iron ore is its quarry rock.)
+  const GHOST_TRADES = [
+    { id: 'wood', name: 'Driftwood timber', candy: 10, get: { timber: 30 } },
+    { id: 'planks', name: 'Ghostly planks', candy: 15, get: { planks: 12 } },
+    { id: 'stone', name: 'Quarry stone (iron ore)', candy: 12, get: { ironOre: 20 } },
+    { id: 'food', name: 'Salted provisions', candy: 10, get: { food: 12 } },
+    { id: 'mixed', name: 'Mixed crate', candy: 16, get: { timber: 15, hemp: 15, ironOre: 10 } },
+    { id: 'rope', name: 'Spectral rigging', candy: 14, get: { hemp: 20, rope: 6 } },
+    { id: 'hoard', name: 'Captain’s hoard', candy: 45, get: { planks: 30, rope: 20, iron: 15 }, big: true },
+    { id: 'cargo', name: 'Phantom cargo hold', candy: 40, get: { timber: 60, hemp: 40, ironOre: 40 }, big: true },
+  ];
+  const emptyHalloween = () => ({ lastBrew: null, brewSeq: 0, popped: [], pops: [], ship: null, nextShipAt: null });
   const DECOR_ORDER = Object.keys(DECOR);
   // Hard ceilings on the combined decoration bonus, so the collection helps without carrying you.
-  const DECOR_CAP = { yield: 0.1, power: 0.1, damage: 0.1, trip: 0.05, build: 0.1, coins: 0.1, chest: 0.15, storage: 100, cropFood: 5, cropSpeed: 0.15 };
+  const DECOR_CAP = { yield: 0.1, power: 0.1, damage: 0.1, trip: 0.05, build: 0.1, coins: 0.1, chest: 0.15, storage: 100, cropFood: 5, cropSpeed: 0.15, candy: 0.5 };
 
   const UPGRADE_KEYS = Object.keys(UPGRADES);
 
@@ -619,6 +682,8 @@ const TOF = (() => {
     monstersFought: { label: 'Monsters fought', kind: 'count' },
     cropsHarvested: { label: 'Harvests', kind: 'count' },
     greedWarnings:  { label: 'Greed warnings', kind: 'count' }, // reserved: nothing raises warnings yet
+    candyFound:     { label: 'Candy found', kind: 'sum' },
+    brews:          { label: 'Cauldron brews', kind: 'count' },
   };
   // Design targets only. Nothing reacts to them in this version.
   const MILESTONES = [
@@ -685,13 +750,15 @@ const TOF = (() => {
       log: [],
       stats: Object.fromEntries(Object.keys(STAT_DEFS).map(k => [k, 0])),
       crops: null,
-      settings: { devMode: false, devSecondsPerHour: 2, sky: { time: 'live', weather: 'live', place: null }, audio: { music: 0.45, sfx: 0.8, ambience: 0.25 }, batterySaver: false },
+      settings: { devMode: false, devSecondsPerHour: 2, sky: { time: 'live', weather: 'live', place: null }, audio: { music: 0.45, sfx: 0.8, ambience: 0.25 }, batterySaver: false, eventOverride: 'auto' },
       nextId: 1,
       nextShipId: 1,
       buildings: [],
       nextBuildingId: 1,
       decor: [],
       nextDecorId: 1,
+      decorInv: {},
+      halloween: emptyHalloween(),
       regions: ['home'], landmarks: [], lore: { kraken: 0 }, trophies: {}, flags: { witchFound: false }, reports: [],
     };
     // Doubled starting stock, then topped up so the Sawmill can be built straight away.
@@ -953,6 +1020,16 @@ const TOF = (() => {
 
   // Phase 4 finds. A separate random stream, so the base haul for a seed never changes.
   function extras(r, st, type, hours, seed, M) {
+    // Halloween candy: every trip type and length can find some. Its own random stream keeps the rest of the haul unchanged.
+    if (M.candy > 0) {
+      const cr = mulberry32((seed ^ 0x5CA1AB1E) >>> 0);
+      let candy = 0;
+      for (let h = 0; h < hours; h++) {
+        const w = Math.min(1, hours - h);
+        if (cr() < Math.min(0.95, HALLOWEEN.candyPerHour * Math.pow(w, HALLOWEEN.shortTrip) * M.candy)) candy += 1 + Math.floor(cr() * 2);
+      }
+      if (candy) { r.items.candy = candy; r.events.push({ type: 'rare', text: `Found ${candy} candy bobbing in the waves. Trick or treat!` }); }
+    }
     const Rg = REGIONS[M.region] || REGIONS.home;
     const rng = mulberry32((seed ^ 0xA5A5A5A5) >>> 0);
     const ring = Rg.ring, magicMult = 1 + st.magic * 0.1;
@@ -1078,6 +1155,7 @@ const TOF = (() => {
     const chestMult = (hasTrophy(state, 'drownedCrown') ? 1.25 : 1) * (1 + dec.chest);
     if (chestMult !== 1) m.chestMult = round3(chestMult);
     if (dec.coins) m.coins = round3(1 + dec.coins);
+    if (halloweenActive(state, now)) m.candy = round3(1 + dec.candy); // fixed at sailing, so reloading can't change it
     return m;
   }
 
@@ -1254,6 +1332,7 @@ const TOF = (() => {
     state.stats.expeditions++;
     state.stats.fishCaught += (result.items.fish || 0) + (result.items.shellfish || 0) + (result.items.rareFish || 0);
     state.stats.piratesBeaten += result.wins;
+    if (result.items.candy) Stats.add(state, 'candyFound', result.items.candy);
     state.log.unshift({ at: now, shipId: ship.id, type: exp.type, hours: exp.hours, items: result.items });
     if (state.log.length > 30) state.log.length = 30;
     return { ok: true, exp, ship, result };
@@ -1262,7 +1341,7 @@ const TOF = (() => {
   // A short ship's log of anything out of the ordinary.
   const LOG_NAMES = { rareFish: ['rare catch', 'rare catches'], pearls: ['pearl', 'pearls'], relics: ['relic', 'relics'], charts: ['sea chart', 'sea charts'],
     sunkenKey: ['sunken key', 'sunken keys'], pirateKey: ['pirate key', 'pirate keys'], lostKey: ['lost key', 'lost keys'], moonfish: ['moonfish', 'moonfish'],
-    salvage: ['spectral salvage', 'spectral salvage'], essence: ['enchanted essence', 'enchanted essence'] };
+    salvage: ['spectral salvage', 'spectral salvage'], essence: ['enchanted essence', 'enchanted essence'], candy: ['candy', 'candy'] };
   function tripReport(r, exp) {
     const lines = [];
     const finds = [];
@@ -1385,6 +1464,7 @@ const TOF = (() => {
   function tradePrice(state, side, res) {
     const lvl = Math.max(1, buildingLevel(state, 'tradingPost'));
     const base = TRADE[side][res];
+    if (side === 'sell' && REFINED.includes(res)) return REFINED_PRICE;
     return side === 'buy' ? Math.max(1, Math.round(base * (1 - 0.05 * (lvl - 1)))) : Math.round(base * (1 + 0.05 * (lvl - 1)));
   }
   function buildCost(type, toLevel) { return BUILDINGS[type].costs[toLevel - 1]; }
@@ -1449,10 +1529,12 @@ const TOF = (() => {
   const ownsDecor = (state, type) => (state.decor || []).some(d => d.type === type);
   // Combined bonus from every decoration owned, clamped to DECOR_CAP.
   function decorBonus(state) {
-    const out = { yield: {}, power: {}, damage: 0, trip: 0, build: 0, coins: 0, chest: 0, storage: 0, cropFood: 0, cropSpeed: 0 };
+    const out = { yield: {}, power: {}, damage: 0, trip: 0, build: 0, coins: 0, chest: 0, storage: 0, cropFood: 0, cropSpeed: 0, candy: 0 };
     for (const k of Object.keys(TYPES)) { out.yield[k] = 0; out.power[k] = 0; }
+    // Halloween pieces stack per placed copy; everything else counts once per type.
+    for (const d of state.decor || []) if (DECOR[d.type] && DECOR[d.type].hw) out.candy += DECOR[d.type].candy;
     for (const type of new Set((state.decor || []).map(d => d.type))) {
-      const b = DECOR[type] && DECOR[type].bonus;
+      const b = DECOR[type] && !DECOR[type].hw && DECOR[type].bonus;
       if (!b) continue;
       for (const [k, v] of Object.entries(b)) {
         if (typeof v === 'object') for (const [t, x] of Object.entries(v)) out[k][t] += x;
@@ -1468,6 +1550,7 @@ const TOF = (() => {
   function decorLock(state, type) {
     const d = DECOR[type];
     if (!d) return 'Unknown decoration.';
+    if (d.hw) return (state.decorInv && state.decorInv[type] > 0) ? null : 'None left to place. The West Woods cauldron gives these out.';
     if (ownsDecor(state, type)) return 'You already have one.';
     return null;
   }
@@ -1488,10 +1571,21 @@ const TOF = (() => {
     if (DECOR[type].fixed) return buyDecor(state, type);
     const why = placeCheck(state, type, gx, gy, terrain);
     if (why) return { ok: false, reason: why };
-    if (!canAfford(state, DECOR[type].cost)) return { ok: false, reason: 'Not enough resources.' };
-    spend(state, DECOR[type].cost);
+    if (DECOR[type].hw) state.decorInv[type]--; // won, not bought: placing takes one from the stash
+    else {
+      if (!canAfford(state, DECOR[type].cost)) return { ok: false, reason: 'Not enough resources.' };
+      spend(state, DECOR[type].cost);
+    }
     const d = { id: 'd-' + state.nextDecorId++, type, gx, gy };
     state.decor.push(d);
+    return { ok: true, decor: d };
+  }
+  // Halloween pieces can be packed away again; they go back to the stash for later.
+  function stowDecor(state, id) {
+    const i = (state.decor || []).findIndex(x => x.id === id);
+    if (i < 0 || !DECOR[state.decor[i].type].hw) return { ok: false, reason: 'That can’t be packed away.' };
+    const [d] = state.decor.splice(i, 1);
+    state.decorInv[d.type] = (state.decorInv[d.type] || 0) + 1;
     return { ok: true, decor: d };
   }
   function moveDecor(state, id, gx, gy, terrain) {
@@ -1502,6 +1596,89 @@ const TOF = (() => {
     if (why) return { ok: false, reason: why };
     d.gx = gx; d.gy = gy;
     return { ok: true, decor: d };
+  }
+
+  // ---------- Halloween ----------
+  function halloweenActive(state, now) {
+    const o = state && state.settings && state.settings.eventOverride;
+    if (o === 'on') return true;
+    if (o === 'off') return false;
+    const d = new Date(now), md = (d.getMonth() + 1) * 100 + d.getDate();
+    return md >= HALLOWEEN.start[0] * 100 + HALLOWEEN.start[1] && md <= HALLOWEEN.end[0] * 100 + HALLOWEEN.end[1];
+  }
+  const candyMult = state => round3(1 + decorBonus(state).candy);
+  const seedOr = seed => (seed === undefined ? Math.floor(Math.random() * 4294967296) : seed) >>> 0;
+  function pickWeighted(list, r) {
+    const tot = list.reduce((a, x) => a + x.w, 0);
+    let t = r * tot;
+    for (const x of list) { t -= x.w; if (t < 0) return x; }
+    return list[list.length - 1];
+  }
+  // One draw from the cauldron. Candy leaves and the reward lands in the same call, and the result is
+  // stored as lastBrew before any animation plays: closing the app mid-brew can't lose or repeat it.
+  function brew(state, tierId, now, seed) {
+    const tier = CAULDRON.tiers[tierId];
+    if (!tier) return { ok: false, reason: 'Pick a handful.' };
+    if (!halloweenActive(state, now)) return { ok: false, reason: 'The cauldron has gone cold until next Halloween.' };
+    if (state.resources.candy < tier.cost) return { ok: false, reason: `That takes ${tier.cost} candy. You have ${state.resources.candy}.` };
+    const rng = mulberry32(seedOr(seed));
+    const rarity = pickWeighted(Object.entries(tier.odds).map(([k, w]) => ({ k, w })), rng()).k;
+    const pick = pickWeighted(CAULDRON.pool[rarity], rng());
+    state.resources.candy -= tier.cost;
+    const reward = { rarity, items: {}, decor: null };
+    if (pick.decor) { reward.decor = pick.decor; state.decorInv[pick.decor] = (state.decorInv[pick.decor] || 0) + 1; }
+    else {
+      if (pick.key) reward.items[FAMILIES.map(f => KEY_OF[f])[Math.floor(rng() * 3)]] = pick.key;
+      for (const [k, v] of Object.entries(pick.items || {})) reward.items[k] = v * tier.qty;
+      addItems(state, reward.items);
+    }
+    const H = state.halloween;
+    H.lastBrew = { id: ++H.brewSeq, tier: tierId, at: now, seen: false, ...reward };
+    Stats.add(state, 'brews');
+    return { ok: true, brew: H.lastBrew };
+  }
+  function brewSeen(state, id) { const b = state.halloween.lastBrew; if (b && b.id === id) b.seen = true; return { ok: !!b }; }
+  // A friendly ghost popped in the village at night. Each ghost pays once; past maxPerHour they just giggle.
+  function popGhost(state, ghostId, now, seed) {
+    if (!halloweenActive(state, now)) return { ok: false, reason: 'No ghosts out tonight.' };
+    const H = state.halloween, id = String(ghostId || '').slice(0, 40);
+    if (!id || H.popped.includes(id)) return { ok: false, reason: 'Already popped.' };
+    H.popped.push(id); if (H.popped.length > 40) H.popped = H.popped.slice(-40);
+    H.pops = H.pops.filter(t => t > now - HOUR_MS && t <= now);
+    if (H.pops.length >= HALLOWEEN.ghost.maxPerHour) return { ok: true, candy: 0 };
+    const [a, b] = HALLOWEEN.ghost.candy, candy = a + Math.floor(mulberry32(seedOr(seed))() * (b - a + 1));
+    H.pops.push(now);
+    addItems(state, { candy });
+    Stats.add(state, 'candyFound', candy);
+    return { ok: true, candy };
+  }
+  // The ghost ship drifts in now and then while the event runs, stays a while, then fades away.
+  function settleGhostShip(state, now, rnd = Math.random) {
+    const H = state.halloween, cfg = HALLOWEEN.ship;
+    if (!halloweenActive(state, now)) { const had = !!H.ship; H.ship = null; return { ship: null, changed: had }; }
+    let changed = false;
+    if (H.ship && now >= H.ship.leaveAt) { H.nextShipAt = H.ship.leaveAt + Math.round((cfg.gapHours[0] + rnd() * (cfg.gapHours[1] - cfg.gapHours[0])) * HOUR_MS); H.ship = null; changed = true; }
+    if (!H.ship && !Number.isFinite(H.nextShipAt)) { H.nextShipAt = now + cfg.firstDelayMin * 60000; changed = true; }
+    if (!H.ship && now >= H.nextShipAt) {
+      const regular = GHOST_TRADES.filter(t => !t.big).map(t => ({ t, k: rnd() })).sort((x, y) => x.k - y.k).slice(0, cfg.offers).map(x => x.t);
+      if (rnd() < cfg.bigChance) { const big = GHOST_TRADES.filter(t => t.big); regular.push(big[Math.floor(rnd() * big.length)]); }
+      H.ship = { id: 'gs-' + now, arriveAt: now, leaveAt: now + cfg.stayMin * 60000, offers: regular.map(t => ({ id: t.id, done: false })) };
+      changed = true;
+    }
+    return { ship: H.ship, changed };
+  }
+  function ghostTrade(state, offerId, now) {
+    const sh = state.halloween.ship;
+    if (!sh || now >= sh.leaveAt || !halloweenActive(state, now)) return { ok: false, reason: 'The ghost ship has sailed.' };
+    const o = sh.offers.find(x => x.id === offerId), t = GHOST_TRADES.find(x => x.id === offerId);
+    if (!o || !t) return { ok: false, reason: 'No such offer.' };
+    if (o.done) return { ok: false, reason: 'Already traded.' };
+    if (state.resources.candy < t.candy) return { ok: false, reason: `That takes ${t.candy} candy.` };
+    const cap = storageCap(state);
+    for (const [k, v] of Object.entries(t.get)) if (BULK.includes(k) && state.resources[k] + v > cap) return { ok: false, reason: `No room for ${RESOURCES[k].name.toLowerCase()} (storage ${cap}).` };
+    state.resources.candy -= t.candy; o.done = true;
+    addItems(state, t.get);
+    return { ok: true, offer: t };
   }
 
   // ---------- crops ----------
@@ -1545,7 +1722,17 @@ const TOF = (() => {
 
   // ---------- production ----------
   function recipeSpeed(level) { return 1 + 0.5 * (level - 1); }
-  function maxBatch(b) { return 10 * Math.max(1, b.level); }
+  const BATCH_PER_LEVEL = 25;
+  function maxBatch(b) { return BATCH_PER_LEVEL * Math.max(1, b.level); }
+  // How many a batch could make right now: limited by inputs, the building's batch size and room in storage.
+  function batchLimit(state, b) {
+    const rc = BUILDINGS[b.type].recipe;
+    if (!rc) return 0;
+    let n = maxBatch(b);
+    for (const [k, v] of Object.entries(rc.in)) n = Math.min(n, Math.floor(state.resources[k] / v));
+    if (BULK.includes(rc.out)) n = Math.min(n, Math.max(0, storageCap(state) - state.resources[rc.out]));
+    return Math.max(0, n);
+  }
 
   function queueJob(state, id, qty, now) {
     const b = getBuilding(state, id);
@@ -1555,10 +1742,8 @@ const TOF = (() => {
     if (b.level < 1) return { ok: false, reason: 'Still under construction.' };
     settleProduction(state, now);
     if (b.job) return { ok: false, reason: 'Already working on a batch.' };
-    let n = Math.floor(qty);
-    for (const [k, v] of Object.entries(rc.in)) n = Math.min(n, Math.floor(state.resources[k] / v));
-    n = Math.min(n, maxBatch(b));
-    if (n < 1) return { ok: false, reason: `Not enough ${Object.keys(rc.in).map(k => RESOURCES[k].name.toLowerCase()).join(' or ')}.` };
+    const n = Math.min(Math.floor(Number(qty) || 0), batchLimit(state, b));
+    if (n < 1) return { ok: false, reason: BULK.includes(rc.out) && state.resources[rc.out] >= storageCap(state) ? `Storage for ${RESOURCES[rc.out].name.toLowerCase()} is full.` : `Not enough ${Object.keys(rc.in).map(k => RESOURCES[k].name.toLowerCase()).join(' or ')}.` };
     for (const [k, v] of Object.entries(rc.in)) state.resources[k] -= v * n;
     b.job = { out: rc.out, per: { ...rc.in }, qty: n, done: 0, startAt: now, unitMs: Math.max(1, Math.round(rc.hours * hourMs(state) / recipeSpeed(b.level))) };
     return { ok: true, qty: n };
@@ -1609,9 +1794,21 @@ const TOF = (() => {
     return { built: settleBuildings(state, now), produced: settleProduction(state, now) };
   }
 
+  // ---------- refined goods ----------
+  // Planks, rope and iron sell at any shop (the Stores or a Trading Post) for REFINED_PRICE each.
+  function sellRefined(state, res, qty) {
+    if (!REFINED.includes(res)) return { ok: false, reason: 'Only planks, rope and iron sell here.' };
+    const n = Math.min(state.resources[res], Math.max(0, Math.floor(Number(qty) || 0)));
+    if (n < 1) return { ok: false, reason: `No ${RESOURCES[res].name.toLowerCase()} to sell.` };
+    state.resources[res] -= n;
+    earnCoins(state, n * REFINED_PRICE);
+    return { ok: true, qty: n, coins: n * REFINED_PRICE };
+  }
+
   // ---------- trading post ----------
   function trade(state, side, res, qty) {
     if (buildingLevel(state, 'tradingPost') < 1) return { ok: false, reason: 'Build a Trading Post first.' };
+    if (side === 'sell' && REFINED.includes(res)) return sellRefined(state, res, qty);
     if (!TRADE[side] || !TRADE[side][res]) return { ok: false, reason: 'Not traded here.' };
     const price = tradePrice(state, side, res);
     let n = Math.floor(qty);
@@ -1699,6 +1896,14 @@ const TOF = (() => {
       out.decor = []; out.nextDecorId = 1;
       return out;
     },
+    // v5 → v6: Halloween (candy, the cauldron, a stash of won decorations, ghost visits).
+    5: s => {
+      const out = JSON.parse(JSON.stringify(s));
+      out.version = 6;
+      out.decorInv = {}; out.halloween = emptyHalloween();
+      out.resources = { candy: 0, ...(s.resources || {}) };
+      return out;
+    },
   };
 
   function migrate(s) {
@@ -1764,7 +1969,7 @@ const TOF = (() => {
         seed: (Number(e.seed) >>> 0), dev: !!e.dev,
         stats: validStats(e.stats) ? snapshot({ ...e.stats, aff: { fishing: 1, treasure: 1, combat: 1, exploration: 1, ...e.stats.aff } }) : snapshot(shipStats(shipById[e.shipId])),
         mods: validMods(e.mods) ? { power: e.mods.power, yield: e.mods.yield, damage: e.mods.damage, region: REGIONS[e.mods.region] ? e.mods.region : 'home',
-          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}) } : { ...NO_MODS, region: 'home' },
+          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}) } : { ...NO_MODS, region: 'home' },
         supplies: !!e.supplies, region: REGIONS[e.region] ? e.region : 'home',
       }));
     s.log = Array.isArray(raw.log) ? raw.log.filter(x => x && typeof x === 'object').slice(0, 30) : [];
@@ -1807,7 +2012,8 @@ const TOF = (() => {
     s.decor = [];
     const seenDecor = new Set();
     for (const d of (Array.isArray(raw.decor) ? raw.decor : [])) {
-      if (!d || typeof d.id !== 'string' || !DECOR[d.type] || seenDecor.has(d.type)) continue;
+      if (!d || typeof d.id !== 'string' || !DECOR[d.type] || seenDecor.has(d.type) || s.decor.some(x => x.id === d.id)) continue;
+      if (DECOR[d.type].hw && s.decor.filter(x => DECOR[x.type].hw).length >= 200) continue;
       const nd = { id: d.id, type: d.type, gx: null, gy: null };
       if (!DECOR[d.type].fixed) {
         if (!Number.isInteger(d.gx) || !Number.isInteger(d.gy)) continue;
@@ -1815,11 +2021,30 @@ const TOF = (() => {
         const f = footprint(nd.type, nd.gx, nd.gy);
         if (placedThings(s).some(o => overlaps(f, footprint(o.type, o.gx, o.gy)))) continue;
       }
-      seenDecor.add(d.type); s.decor.push(nd);
+      if (!DECOR[d.type].hw) seenDecor.add(d.type);
+      s.decor.push(nd);
     }
     let maxD = 0;
     for (const d of s.decor) { const n = parseInt(d.id.replace('d-', ''), 10); if (Number.isFinite(n)) maxD = Math.max(maxD, n); }
     s.nextDecorId = Math.max(clampInt(raw.nextDecorId, 1, 1e9), maxD + 1);
+    s.decorInv = {};
+    for (const k of HW_DECOR) { const n = clampInt(raw.decorInv && raw.decorInv[k], 0, 999); if (n) s.decorInv[k] = n; }
+    const rh = raw.halloween || {}, H = s.halloween;
+    H.brewSeq = clampInt(rh.brewSeq, 0, 1e9);
+    const lb = rh.lastBrew;
+    if (lb && Number.isInteger(lb.id) && CAULDRON.tiers[lb.tier] && RARITY[lb.rarity]) {
+      const items = {};
+      for (const [k, v] of Object.entries(lb.items || {})) if (k in RESOURCES) items[k] = clampInt(v, 0, 1e6);
+      H.lastBrew = { id: lb.id, tier: lb.tier, at: Number.isFinite(lb.at) ? lb.at : now, seen: !!lb.seen, rarity: lb.rarity, items, decor: DECOR[lb.decor] && DECOR[lb.decor].hw ? lb.decor : null };
+      H.brewSeq = Math.max(H.brewSeq, lb.id);
+    }
+    H.popped = Array.isArray(rh.popped) ? rh.popped.filter(x => typeof x === 'string').slice(-40) : [];
+    H.pops = Array.isArray(rh.pops) ? rh.pops.filter(Number.isFinite).slice(-HALLOWEEN.ghost.maxPerHour) : [];
+    H.nextShipAt = Number.isFinite(rh.nextShipAt) ? rh.nextShipAt : null;
+    const sh = rh.ship;
+    if (sh && typeof sh.id === 'string' && Number.isFinite(sh.arriveAt) && Number.isFinite(sh.leaveAt) && Array.isArray(sh.offers))
+      H.ship = { id: sh.id, arriveAt: sh.arriveAt, leaveAt: Math.min(sh.leaveAt, sh.arriveAt + HALLOWEEN.ship.stayMin * 60000),
+        offers: sh.offers.filter(o => o && GHOST_TRADES.some(t => t.id === o.id)).slice(0, 6).map(o => ({ id: o.id, done: !!o.done })) };
     for (const k of Object.keys(STAT_DEFS)) {
       const v = Number(raw.stats && raw.stats[k]);
       s.stats[k] = Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
@@ -1835,6 +2060,7 @@ const TOF = (() => {
     const vol = (v, d) => (Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : d);
     s.settings.audio = { music: vol(au.music, 0.45), sfx: vol(au.sfx, 0.8), ambience: vol(au.ambience, 0.25) };
     s.settings.batterySaver = !!(raw.settings && raw.settings.batterySaver);
+    s.settings.eventOverride = ['on', 'off'].includes(raw.settings && raw.settings.eventOverride) ? raw.settings.eventOverride : 'auto';
     const sk = (raw.settings && raw.settings.sky) || {};
     const pl = sk.place;
     s.settings.sky = {
@@ -1929,6 +2155,7 @@ const TOF = (() => {
     repairCost, repair, sell, sellAll, canAfford, upgradeCost, buyUpgrade,
     migrate, sanitize, loadGame, saveGame, resetSave, mulberry32, exportSave, importSave,
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
+    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
   };
 })();
@@ -2388,7 +2615,7 @@ function runTofTests(TOF) {
     const c = TOF.cancelJob(s, b.id, T0 + H + unit * 1.5);
     eq(c.refunded, 2, 'two left'); eq(s.resources.ironOre, 1 + 4, 'ore refunded'); eq(s.resources.iron, 200 + 1, 'one iron made');
     s.resources.ironOre = 200;
-    eq(TOF.queueJob(s, b.id, 99, T0 + 2 * H).qty, 10, 'level 1 batch cap is 10');
+    eq(TOF.queueJob(s, b.id, 99, T0 + 2 * H).qty, TOF.BATCH_PER_LEVEL, 'level 1 batch cap');
   });
 
   test('developer mode speeds up construction and production', () => {
@@ -2464,22 +2691,21 @@ function runTofTests(TOF) {
     const r = TOF.trade(s, 'buy', 'timber', 1000);
     eq(r.qty, 250, 'capped by coins (1000 / 4)'); eq(s.resources.timber, 280, 'stock');
     s.resources.planks = 5;
-    eq(TOF.trade(s, 'sell', 'planks', 9).coins, 35, 'sold 5 planks at 7');
+    eq(TOF.trade(s, 'sell', 'planks', 9).coins, 60, 'sold 5 planks at 12');
     ok(!TOF.trade(s, 'sell', 'fish', 1).ok, 'fish go to the market');
   });
 
-  test('no buy-process-sell profit at any trading post level', () => {
+  test('refined goods sell for exactly 12 at every trading post level; raw prices unchanged', () => {
     const s = veteran(T0);
     const tp = { id: 'b-tp', type: 'tradingPost', gx: 0, gy: 20, level: 1, pending: null, job: null };
     s.buildings.push(tp);
     for (let lvl = 1; lvl <= 3; lvl++) {
       tp.level = lvl;
-      for (const type of ['sawmill', 'ropemaker', 'blacksmith']) {
-        const rc = TOF.BUILDINGS[type].recipe;
-        const inCost = Object.entries(rc.in).reduce((a, [k, v]) => a + v * TOF.tradePrice(s, 'buy', k), 0);
-        ok(TOF.tradePrice(s, 'sell', rc.out) <= inCost, `${type} at level ${lvl}`);
-      }
+      for (const r of ['planks', 'rope', 'iron']) eq(TOF.tradePrice(s, 'sell', r), 12, `${r} at level ${lvl}`);
+      eq(TOF.tradePrice(s, 'buy', 'timber'), Math.max(1, Math.round(4 * (1 - 0.05 * (lvl - 1)))), 'timber buy price as before');
+      eq(TOF.tradePrice(s, 'sell', 'food'), Math.round(5 * (1 + 0.05 * (lvl - 1))), 'food is not a refined material');
     }
+    eq(TOF.sellPrice(s, 'fish'), 2, 'fish untouched');
   });
 
   test('version 2 saves migrate to the village with trips intact', () => {
@@ -2842,7 +3068,7 @@ function runTofTests(TOF) {
     for (const c of Object.values(TOF.SHIP_CLASSES)) Object.keys(c.cost).forEach(k => used.add(k));
     for (const b of Object.values(TOF.BUILDINGS)) for (const c of b.costs) if (c) Object.keys(c).forEach(k => used.add(k));
     for (const u of Object.values(TOF.UPGRADES)) for (const c of u.costs) Object.keys(c).forEach(k => used.add(k));
-    for (const d of Object.values(TOF.DECOR)) Object.keys(d.cost).forEach(k => used.add(k));
+    for (const d of Object.values(TOF.DECOR)) Object.keys(d.cost || {}).forEach(k => used.add(k));
     for (const k of used) ok(TOF.SOURCES[k], 'hint for ' + k);
   });
 
@@ -2924,11 +3150,166 @@ function runTofTests(TOF) {
     const v4 = JSON.parse(JSON.stringify(TOF.newGame(T0))); v4.version = 4; delete v4.decor; delete v4.nextDecorId;
     st.setItem(TOF.SAVE_KEY, JSON.stringify({ format: 'tof', state: v4 }));
     const m = TOF.loadGame(st, T0);
-    eq(m.source, 'save', 'loaded'); eq(m.state.decor.length, 0, 'no decor yet'); eq(m.state.version, 5, 'v5');
+    eq(m.source, 'save', 'loaded'); eq(m.state.decor.length, 0, 'no decor yet'); eq(m.state.version, TOF.SAVE_VERSION, 'current');
     // a hand-edited save cannot double up
     s.decor.push({ id: 'd-9', type: 'sunflowers', gx: 6, gy: 33 });
     TOF.saveGame(st, s, T0);
     eq(TOF.loadGame(st, T0).state.decor.filter(d => d.type === 'sunflowers').length, 1, 'duplicates dropped');
+  });
+
+  // ---------- 1.3: Halloween, refining ----------
+  const at = (y, mo, d, h = 12) => new Date(y, mo - 1, d, h).getTime();
+  const spooky = () => { const s = veteran(at(2026, 10, 20)); s.settings.eventOverride = 'on'; return s; };
+  test('the Halloween event runs October 1 to November 12 inclusive', () => {
+    const s = veteran(T0);
+    ok(!TOF.halloweenActive(s, at(2026, 9, 30, 23)), 'Sep 30 off');
+    ok(TOF.halloweenActive(s, at(2026, 10, 1, 0)), 'Oct 1 on');
+    ok(TOF.halloweenActive(s, at(2026, 11, 12, 23)), 'Nov 12 late on');
+    ok(!TOF.halloweenActive(s, at(2026, 11, 13, 0)), 'Nov 13 off');
+    ok(TOF.halloweenActive(s, at(2027, 10, 31)), 'next year too');
+    s.settings.eventOverride = 'off'; ok(!TOF.halloweenActive(s, at(2026, 10, 31)), 'developer override off');
+  });
+  test('every trip type and length can find candy, only during the event', () => {
+    const ship = veteran(T0).ships[0], st = TOF.shipStats({ ...ship, upgrades: { ...ship.upgrades, cannons: 3 } });
+    for (const type of Object.keys(TOF.TYPES)) for (const h of TOF.DURATIONS) {
+      let got = 0;
+      for (let seed = 1; seed < 300 && !got; seed++) got = TOF.rollExpedition(st, type, h, seed, { candy: 1 }).items.candy || 0;
+      ok(got > 0, `${type} ${h}h finds candy`);
+      for (let seed = 1; seed < 40; seed++) ok(!TOF.rollExpedition(st, type, h, seed).items.candy, 'none outside the event');
+    }
+    const s = veteran(at(2026, 10, 20));
+    ok(TOF.tripMods(s, 'fishing', at(2026, 10, 20)).candy === 1, 'event trips carry the candy rate');
+    ok(!TOF.tripMods(s, 'fishing', at(2026, 12, 1)).candy, 'December trips do not');
+  });
+  test('candy is fixed when a ship sails, paid once, and the same after a reload', () => {
+    const st = memStorage(), now = at(2026, 10, 20), s = veteran(now);
+    let exp;
+    for (let seed = 1; seed < 500; seed++) {
+      s.expeditions = []; s.claimed = [];
+      exp = TOF.dispatch(s, 'ship-1', 8, now, seed).exp;
+      if (TOF.rollExpedition(exp.stats, exp.type, exp.hours, exp.seed, exp.mods).items.candy) break;
+    }
+    TOF.saveGame(st, s, now);
+    const a = TOF.loadGame(st, now + 9 * H).state, b = TOF.loadGame(st, now + 9 * H).state;
+    const ca = TOF.claim(a, exp.id, now + 9 * H).result.items.candy, cb = TOF.claim(b, exp.id, now + 9 * H).result.items.candy;
+    ok(ca > 0 && ca === cb, 'deterministic'); eq(a.resources.candy, ca, 'credited');
+    ok(!TOF.claim(a, exp.id, now + 10 * H).ok, 'not twice'); eq(a.resources.candy, ca, 'still once');
+    eq(TOF.Stats.get(a, 'candyFound'), ca, 'counted');
+  });
+  test('only placed Halloween decorations boost candy; copies stack up to the cap; jack-o-lanterns match', () => {
+    const s = spooky();
+    s.decorInv = { hwTombstone: 30, hwJackClassic: 1, hwJackSilly: 1, hwJackSpooky: 1 };
+    eq(TOF.candyMult(s), 1, 'the stash does not count');
+    const J = ['hwJackClassic', 'hwJackSilly', 'hwJackSpooky'].map(k => TOF.DECOR[k]);
+    ok(J.every(j => JSON.stringify(j.bonus) === JSON.stringify(J[0].bonus)), 'identical jack-o-lantern bonuses');
+    ok(TOF.placeDecor(s, 'hwTombstone', 2, 33).ok && TOF.placeDecor(s, 'hwTombstone', 3, 33).ok, 'two copies');
+    eq(TOF.candyMult(s), 1.08, 'stacked');
+    eq(s.decorInv.hwTombstone, 28, 'taken from the stash');
+    const d = s.decor[0]; ok(TOF.moveDecor(s, d.id, 4, 33).ok, 'moved'); eq(TOF.candyMult(s), 1.08, 'moving keeps it');
+    ok(TOF.stowDecor(s, d.id).ok, 'packed away'); eq(TOF.candyMult(s), 1.04, 'removed'); eq(s.decorInv.hwTombstone, 29, 'back in the stash');
+    for (let i = 0; i < 20; i++) TOF.placeDecor(s, 'hwTombstone', 2 + (i % 8), 34 + Math.floor(i / 8));
+    eq(TOF.candyMult(s), 1 + TOF.HALLOWEEN.candyCap, 'capped');
+    ok(!TOF.placeDecor(s, 'hwWitchFlag', 9, 33).ok, 'cannot place what you have not won');
+    ok(!TOF.buyDecor(s, 'hwWitchFlag').ok, 'cannot buy them either');
+  });
+  test('the cauldron takes candy and gives exactly one valid reward', () => {
+    const s = spooky(), now = at(2026, 10, 20);
+    s.resources.candy = 5;
+    ok(!TOF.brew(s, 'handful', now, 1).ok, 'too little candy'); eq(s.resources.candy, 5, 'nothing taken');
+    s.resources.candy = 100000;
+    const seen = { common: 0, uncommon: 0, rare: 0, veryRare: 0 };
+    for (let i = 1; i <= 400; i++) {
+      const before = JSON.stringify([s.resources, s.decorInv]), c0 = s.resources.candy;
+      const r = TOF.brew(s, 'handful', now, i * 977);
+      ok(r.ok, 'brewed'); eq(s.resources.candy, c0 - 12, 'cost once');
+      ok(r.brew.decor ? TOF.DECOR[r.brew.decor].hw : Object.keys(r.brew.items).length > 0, 'always a reward');
+      ok(JSON.stringify([s.resources, s.decorInv]) !== before, 'state changed');
+      seen[r.brew.rarity]++;
+    }
+    ok(seen.common > seen.uncommon && seen.uncommon > seen.rare && seen.rare > seen.veryRare, 'rarity order');
+    let rareBig = 0, rareSmall = 0;
+    for (let i = 1; i <= 300; i++) { if (['rare', 'veryRare'].includes(TOF.brew(s, 'dump', now, i * 31).brew.rarity)) rareBig++; if (['rare', 'veryRare'].includes(TOF.brew(s, 'handful', now, i * 31).brew.rarity)) rareSmall++; }
+    ok(rareBig > rareSmall * 3, 'the big dump is much luckier');
+    s.settings.eventOverride = 'off'; ok(!TOF.brew(s, 'handful', now, 1).ok, 'cold after the event');
+    for (const [k, t] of Object.entries(TOF.CAULDRON.tiers)) ok(Math.abs(Object.values(t.odds).reduce((a, b) => a + b, 0) - 100) < 1e-9, `${k} odds sum to 100`);
+  });
+  test('a brew survives a restart: paid once, revealed later', () => {
+    const st = memStorage(), now = at(2026, 10, 20), s = spooky();
+    s.resources.candy = 30;
+    const r = TOF.brew(s, 'generous', now, 99);
+    TOF.saveGame(st, s, now); // the app closes during the animation
+    const back = TOF.loadGame(st, now + 1000).state;
+    eq(back.resources.candy, 0, 'candy gone once'); eq(back.halloween.lastBrew.id, r.brew.id, 'remembered'); ok(!back.halloween.lastBrew.seen, 'still to reveal');
+    TOF.brewSeen(back, r.brew.id); ok(back.halloween.lastBrew.seen, 'revealed');
+    if (r.brew.decor) eq(back.decorInv[r.brew.decor], 1, 'decoration kept');
+  });
+  test('ghosts pay once each and only a few times an hour', () => {
+    const s = spooky(), now = at(2026, 10, 20, 22);
+    const r = TOF.popGhost(s, 'g-1', now, 5);
+    ok(r.ok && r.candy >= 1 && r.candy <= 3, 'paid'); eq(s.resources.candy, r.candy, 'credited');
+    ok(!TOF.popGhost(s, 'g-1', now, 5).ok, 'same ghost refused'); eq(s.resources.candy, r.candy, 'once');
+    let total = r.candy;
+    for (let i = 2; i <= 20; i++) total += TOF.popGhost(s, 'g-' + i, now + i, i).candy || 0;
+    ok(total <= TOF.HALLOWEEN.ghost.maxPerHour * 3, 'hourly limit'); eq(s.resources.candy, total, 'matches');
+    ok(TOF.popGhost(s, 'g-99', now + 2 * H, 1).candy > 0, 'pays again later');
+  });
+  test('the ghost ship visits now and then, trades once per offer, then leaves', () => {
+    const s = spooky(), now = at(2026, 10, 20);
+    let r = TOF.settleGhostShip(s, now, () => 0.5);
+    ok(!r.ship, 'not straight away');
+    r = TOF.settleGhostShip(s, now + 21 * 60000, () => 0.1);
+    ok(r.ship && r.ship.offers.length >= 3, 'arrived with offers');
+    const offer = r.ship.offers[0], t = TOF.GHOST_TRADES.find(x => x.id === offer.id);
+    s.resources.candy = t.candy * 2;
+    const before = { ...s.resources };
+    ok(TOF.ghostTrade(s, offer.id, now + 22 * 60000).ok, 'traded');
+    eq(s.resources.candy, before.candy - t.candy, 'candy once');
+    for (const [k, v] of Object.entries(t.get)) eq(s.resources[k], before[k] + v, k);
+    ok(!TOF.ghostTrade(s, offer.id, now + 22 * 60000).ok, 'not twice'); eq(s.resources.candy, before.candy - t.candy, 'still once');
+    const leave = r.ship.leaveAt;
+    r = TOF.settleGhostShip(s, leave + 1, () => 0.5);
+    ok(!r.ship, 'sailed away'); ok(s.halloween.nextShipAt >= leave + 5 * H, 'hours before the next visit');
+    ok(!TOF.ghostTrade(s, offer.id, leave + 2).ok, 'no trading with a departed ship');
+    s.settings.eventOverride = 'off'; ok(!TOF.settleGhostShip(s, s.halloween.nextShipAt + 1).ship, 'no ships after the event');
+  });
+  test('ghost ship trades respect storage', () => {
+    const s = spooky(), now = at(2026, 10, 20);
+    s.halloween.ship = { id: 'gs', arriveAt: now, leaveAt: now + H, offers: [{ id: 'wood', done: false }] };
+    s.resources.candy = 50; s.resources.timber = TOF.storageCap(s) - 5;
+    ok(/room/.test(TOF.ghostTrade(s, 'wood', now).reason), 'refused'); eq(s.resources.candy, 50, 'nothing taken');
+  });
+  test('refined goods sell at the stores for 12 each and never oversell', () => {
+    const s = veteran(T0); s.resources.planks = 7; s.resources.iron = 3;
+    const c0 = s.resources.coins;
+    const r = TOF.sellRefined(s, 'planks', 100);
+    eq(r.qty, 7, 'all of them'); eq(r.coins, 84, '7 x 12'); eq(s.resources.coins, c0 + 84, 'paid'); eq(s.resources.planks, 0, 'gone');
+    ok(!TOF.sellRefined(s, 'planks', 1).ok, 'none left'); ok(!TOF.sellRefined(s, 'timber', 1).ok, 'raw goods are not refined');
+    ok(!TOF.sellRefined(s, 'iron', -5).ok, 'no negative sales'); eq(s.resources.iron, 3, 'kept');
+  });
+  test('bigger refining batches keep the inputs, timers and storage rules', () => {
+    const s = veteran(T0);
+    const saw = { id: 'b-saw', type: 'sawmill', gx: 0, gy: 20, level: 2, pending: null, job: null };
+    s.buildings.push(saw); s.resources.timber = 500; s.resources.planks = TOF.storageCap(s) - 30;
+    eq(TOF.batchLimit(s, saw), 30, 'storage room limits the batch');
+    s.resources.planks = 0;
+    eq(TOF.batchLimit(s, saw), 2 * TOF.BATCH_PER_LEVEL, 'level 2 batch');
+    const r = TOF.queueJob(s, saw.id, 999, T0);
+    eq(r.qty, 50, 'big batch'); eq(s.resources.timber, 400, '2 timber per plank');
+    const unit = saw.job.unitMs;
+    TOF.settleProduction(s, T0 + unit * 10); eq(s.resources.planks, 10, 'one at a time on the timer');
+    TOF.settleProduction(s, T0 + unit * 10); eq(s.resources.planks, 10, 'settling twice adds nothing');
+    TOF.settleProduction(s, T0 + unit * 50 + 5); eq(s.resources.planks, 50, 'whole batch'); ok(!saw.job, 'done');
+    TOF.settleProduction(s, T0 + unit * 99); eq(s.resources.planks, 50, 'never duplicated');
+    s.resources.timber = 3; ok(TOF.queueJob(s, saw.id, 10, T0 + unit * 60).qty === 1, 'inputs still limit it');
+  });
+  test('1.2 saves load into 1.3 with safe Halloween defaults', () => {
+    const st = memStorage();
+    const v5 = JSON.parse(JSON.stringify(TOF.newGame(T0))); v5.version = 5; delete v5.decorInv; delete v5.halloween; delete v5.resources.candy; delete v5.settings.eventOverride;
+    v5.decor = [{ id: 'd-1', type: 'roses', gx: 3, gy: 33 }];
+    st.setItem(TOF.SAVE_KEY, JSON.stringify({ format: 'tof', state: v5 }));
+    const r = TOF.loadGame(st, T0);
+    eq(r.source, 'save', 'loaded'); eq(r.state.resources.candy, 0, 'no candy'); eq(r.state.halloween.lastBrew, null, 'no brew');
+    eq(r.state.decor.length, 1, 'decorations kept'); eq(r.state.settings.eventOverride, 'auto', 'auto');
   });
 
   return results;
