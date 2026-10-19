@@ -118,6 +118,13 @@ img.px.big { height: 34px; }
 .estimate, .desc, .eta, .upg-delta, .cost { font-size: 15px; line-height: 1.45; margin: 10px 0; }
 .warn { font-size: 14px; line-height: 1.4; margin: 8px 0; padding: 8px 10px; border-left: 4px solid var(--signal); background: rgba(200, 70, 60, .12); border-radius: 4px; }
 .ok-text { color: var(--kelp); font-weight: 600; margin: 10px 0 0; }
+.perk { color: var(--kelp); font-weight: 600; }
+.perks { margin: 8px 0 0; padding-left: 18px; font-size: 15px; line-height: 1.5; color: var(--kelp); font-weight: 600; }
+.card.decor.owned { border-color: var(--kelp); }
+.card.decor.prestige { background: linear-gradient(160deg, rgba(224,169,59,.35), transparent 60%), var(--sail-2); }
+.card.flash { animation: flashcard 1.2s steps(4) 1; }
+@keyframes flashcard { 0%, 50% { box-shadow: 0 0 0 4px var(--brass); } 100% { box-shadow: none; } }
+.note.version { text-align: center; opacity: .8; }
 :root[data-theme="dark"] .ok-text { color: #8fd29c; }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .ok-text { color: #8fd29c; } }
 .note { font-size: 13px; color: var(--muted); line-height: 1.4; margin: 4px 2px 12px; }
@@ -392,7 +399,8 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const SAVE_VERSION = 4;
+  const GAME_VERSION = '1.2';
+  const SAVE_VERSION = 5;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
   const HOUR_MS = 3600000;
@@ -564,6 +572,33 @@ const TOF = (() => {
   const TRADE = { buy: { timber: 4, hemp: 4, ironOre: 8 }, sell: { planks: 7, rope: 7, iron: 13, food: 5 } };
   const START_BUILDINGS = [{ type: 'shipwright', gx: 13, gy: 7 }, { type: 'market', gx: 12, gy: 12 }];
 
+  // ---------- decorations ----------
+  // Placed instantly, no builders. One of each: owning a decoration is what earns its bonus, so
+  // bonuses never stack from copies. `fixed` ones have a home of their own (the field, the islet)
+  // and need no spot. `soil`: grass only. `coastal`: must touch the shore.
+  // bonus keys: yield.<type> / power.<type> (fractions), damage (hull damage cut), trip (trip time cut),
+  // build (build time cut), coins (coins from trips), chest (chest finds), storage (+bulk limit),
+  // cropFood (+food per harvest), cropSpeed (field grows faster).
+  const DECOR = {
+    scarecrow:    { name: 'Scarecrow', group: 'farm', fixed: 'field', cost: { coins: 60, timber: 10, hemp: 5 }, bonus: { cropSpeed: 0.1 }, effect: 'The field ripens 10% faster.', desc: 'Keeps the crows off the field.' },
+    fieldFence:   { name: 'Field Fence', group: 'farm', fixed: 'field', cost: { coins: 90, timber: 25 }, bonus: { cropFood: 2 }, effect: '+2 food every harvest.', desc: 'A split-rail fence round the field. No more trampled rows.' },
+    garden:       { name: 'Kitchen Garden', group: 'farm', size: [2, 2], soil: true, cost: { coins: 150, timber: 20, fish: 10 }, bonus: { cropFood: 3 }, effect: '+3 food every harvest.', desc: 'Cabbages, carrots and beans for the village pot.' },
+    cargoStack:   { name: 'Barrels and Boxes', group: 'seaside', size: [1, 1], cost: { coins: 120, planks: 15 }, bonus: { storage: 50 }, effect: '+50 storage for each bulk good.', desc: 'Spare barrels and crates stacked by the road.' },
+    crabStatue:   { name: 'Crab Statue', group: 'seaside', size: [1, 1], coastal: true, cost: { coins: 300, shellfish: 20 }, bonus: { yield: { fishing: 0.05 } }, effect: '+5% fishing hauls.', desc: 'A bronze crab on a stone plinth. Fishers rub its claw for luck.' },
+    harborLantern:{ name: 'Harbor Lantern', group: 'light', size: [1, 1], cost: { coins: 200, iron: 6 }, bonus: { trip: 0.03 }, effect: 'Every trip is 3% shorter.', desc: 'A tall double lantern that guides ships home after dark.' },
+    festoon:      { name: 'Festival Lanterns', group: 'light', size: [1, 1], cost: { coins: 250, rope: 10 }, bonus: { build: 0.05 }, effect: 'Builders finish 5% faster.', desc: 'Strings of paper lanterns, so the builders can work into the evening.' },
+    keeperShack:  { name: 'Keeper’s Shack', group: 'seaside', fixed: 'islet', cost: { coins: 600, planks: 40, rope: 10 }, bonus: { damage: 0.05 }, effect: '5% less hull damage on every trip.', desc: 'A snug shack beside the lighthouse. The keeper warns ships off the reef.' },
+    lilies:       { name: 'Lily of the Valley', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { yield: { treasure: 0.03 } }, effect: '+3% treasure-hunting hauls.', desc: 'Tiny white bells said to bring luck to treasure seekers.' },
+    sunflowers:   { name: 'Sunflowers', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { power: { exploration: 0.03 } }, effect: '+3% exploration power.', desc: 'Tall golden heads that follow the sun like a compass.' },
+    roses:        { name: 'Roses', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { power: { combat: 0.03 } }, effect: '+3% pirate-hunting power.', desc: 'Red roses. Sailors fight harder with a sweetheart waiting.' },
+    tulips:       { name: 'Tulips', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { yield: { fishing: 0.03 } }, effect: '+3% fishing hauls.', desc: 'Neat rows of red, pink and yellow cups.' },
+    fountain:     { name: 'Fountain', group: 'seaside', size: [2, 2], cost: { coins: 900, planks: 20, iron: 15 }, bonus: { chest: 0.1 }, effect: 'Treasure chests turn up 10% more often.', desc: 'Toss a coin for luck. It freezes over when it snows.' },
+    goldChest:    { name: 'Chest of Gold', group: 'prestige', size: [1, 1], cost: { coins: 6000, pearls: 10, relics: 5 }, bonus: { coins: 0.05 }, effect: '+5% coins from every trip.', desc: 'An open chest heaped with gold, for all to admire. A long-term investment.' },
+  };
+  const DECOR_ORDER = Object.keys(DECOR);
+  // Hard ceilings on the combined decoration bonus, so the collection helps without carrying you.
+  const DECOR_CAP = { yield: 0.1, power: 0.1, damage: 0.1, trip: 0.05, build: 0.1, coins: 0.1, chest: 0.15, storage: 100, cropFood: 5, cropSpeed: 0.15 };
+
   const UPGRADE_KEYS = Object.keys(UPGRADES);
 
   const SHIP_NAMES = ['Little Gull', 'Saltwhistle', 'Merry Kelp', 'Brine Song', 'Tidecutter', 'Old Barnacle', 'Dawn Heron', 'Cormorant', 'Silver Wake', 'Morning Star', 'Stormpetrel', 'Driftwood', 'Sea Lantern', 'Gannet', 'Low Tide'];
@@ -655,6 +690,8 @@ const TOF = (() => {
       nextShipId: 1,
       buildings: [],
       nextBuildingId: 1,
+      decor: [],
+      nextDecorId: 1,
       regions: ['home'], landmarks: [], lore: { kraken: 0 }, trophies: {}, flags: { witchFound: false }, reports: [],
     };
     // Doubled starting stock, then topped up so the Sawmill can be built straight away.
@@ -768,8 +805,8 @@ const TOF = (() => {
   }
 
   // ---------- expedition outcomes (deterministic per seed) ----------
-  function newResult(mods) { return { items: {}, events: [], damage: 0, overflow: 0, capacity: 0, wins: 0, losses: 0, y: mods.yield, dm: mods.damage }; }
-  const add = (r, k, n) => { n = Math.round(n * r.y); if (n > 0) r.items[k] = (r.items[k] || 0) + n; };
+  function newResult(mods) { return { items: {}, events: [], damage: 0, overflow: 0, capacity: 0, wins: 0, losses: 0, y: mods.yield, dm: mods.damage, cy: mods.coins || 1 }; }
+  const add = (r, k, n) => { n = Math.round(n * r.y * (k === 'coins' ? r.cy : 1)); if (n > 0) r.items[k] = (r.items[k] || 0) + n; };
   const NO_MODS = { power: 1, yield: 1, damage: 1 };
   const SOURCES = {
     coins: 'Sell catch at the Stores tab, or go treasure or pirate hunting.',
@@ -1025,7 +1062,8 @@ const TOF = (() => {
   function tripMods(state, type, now, supplies, region = 'home', charm = false) {
     const rumor = rumorFor(state, now);
     const Rg = REGIONS[region] || REGIONS.home;
-    let power = 1;
+    const dec = decorBonus(state);
+    let power = 1 + (dec.power[type] || 0);
     if (type === 'combat') power *= (1 + 0.1 * buildingLevel(state, 'weaponsmith')) * (hasTrophy(state, 'captainCutlass') ? 1.1 : 1);
     if (type === 'exploration') power *= (1 + 0.15 * buildingLevel(state, 'cartographer')) * (hasTrophy(state, 'goldenCompass') ? 1.1 : 1);
     let yld = rumor && rumor.type === type ? rumor.bonus : 1;
@@ -1033,10 +1071,13 @@ const TOF = (() => {
     yld *= (Rg.yield && (Rg.yield[type] || Rg.yield.all)) || 1;
     if ((state.landmarks || []).includes(region)) yld *= 1.2;
     if (type === 'fishing' && hasTrophy(state, 'sirenPearl')) yld *= 1.1;
-    let damage = (supplies ? 0.7 : 1) * Rg.danger * (charm ? 0.5 : 1) * (hasTrophy(state, 'krakenScale') ? 0.9 : 1);
+    yld *= 1 + (dec.yield[type] || 0);
+    let damage = (supplies ? 0.7 : 1) * Rg.danger * (charm ? 0.5 : 1) * (hasTrophy(state, 'krakenScale') ? 0.9 : 1) * (1 - dec.damage);
     const m = { power: round3(power), yield: round3(yld), damage: round3(damage), region: REGIONS[region] ? region : 'home' };
     if (charm) m.charm = true;
-    if (hasTrophy(state, 'drownedCrown')) m.chestMult = 1.25;
+    const chestMult = (hasTrophy(state, 'drownedCrown') ? 1.25 : 1) * (1 + dec.chest);
+    if (chestMult !== 1) m.chestMult = round3(chestMult);
+    if (dec.coins) m.coins = round3(1 + dec.coins);
     return m;
   }
 
@@ -1135,7 +1176,7 @@ const TOF = (() => {
     if (supplies) state.resources.food -= foodFor(hours);
     if (charm) state.resources.charm--;
     const st = shipStats(ship);
-    const tripLen = REGIONS[region].dist * (hasTrophy(state, 'starChart') ? 0.9 : 1);
+    const tripLen = REGIONS[region].dist * (hasTrophy(state, 'starChart') ? 0.9 : 1) * (1 - decorBonus(state).trip);
     const started = Stats.get(state, 'tripsStarted');
     const beginner = started < BEGINNER_TRIPS, firstEver = started === 0;
     const exp = {
@@ -1339,7 +1380,7 @@ const TOF = (() => {
   function buildingOfType(state, type) { return state.buildings.find(b => b.type === type) || null; }
   function buildingLevel(state, type) { const b = buildingOfType(state, type); return b ? b.level : 0; }
   function buildersBusy(state) { return state.buildings.filter(b => b.pending).length; }
-  function storageCap(state) { return 300 + 250 * buildingLevel(state, 'warehouse'); }
+  function storageCap(state) { return 300 + 250 * buildingLevel(state, 'warehouse') + decorBonus(state).storage; }
   function sellPrice(state, res) { return Math.round(RESOURCES[res].price * (1 + 0.15 * Math.max(0, buildingLevel(state, 'market') - 1))); }
   function tradePrice(state, side, res) {
     const lvl = Math.max(1, buildingLevel(state, 'tradingPost'));
@@ -1348,9 +1389,18 @@ const TOF = (() => {
   }
   function buildCost(type, toLevel) { return BUILDINGS[type].costs[toLevel - 1]; }
   function buildHours(toLevel) { return BUILD_HOURS[toLevel - 1]; }
+  // Real build time for a level, after the decoration bonus.
+  function buildMs(state, toLevel) { return Math.round(buildHours(toLevel) * hourMs(state) * (1 - decorBonus(state).build)); }
 
-  function footprint(type, gx, gy) { const [fw, fd] = BUILDINGS[type].size; return { gx, gy, fw, fd }; }
+  const sizeOf = type => (BUILDINGS[type] || DECOR[type]).size || [1, 1];
+  const defOf = type => BUILDINGS[type] || DECOR[type] || null;
+  function footprint(type, gx, gy) { const [fw, fd] = sizeOf(type); return { gx, gy, fw, fd }; }
   function overlaps(a, b) { return a.gx < b.gx + b.fw && b.gx < a.gx + a.fw && a.gy < b.gy + b.fd && b.gy < a.gy + a.fd; }
+  // Everything standing on the map that the player placed: buildings and placed decorations.
+  function placedThings(state) {
+    return [...state.buildings.map(b => ({ id: b.id, type: b.type, gx: b.gx, gy: b.gy })),
+      ...(state.decor || []).filter(d => !DECOR[d.type].fixed).map(d => ({ id: d.id, type: d.type, gx: d.gx, gy: d.gy }))];
+  }
 
   function buildLock(state, type) {
     const d = BUILDINGS[type];
@@ -1364,9 +1414,9 @@ const TOF = (() => {
 
   // terrain(type, gx, gy, fw, fd) -> null | reason. Supplied by the world (it knows the map).
   function placeCheck(state, type, gx, gy, terrain, movingId) {
-    if (!movingId) { const lock = buildLock(state, type); if (lock) return lock; }
+    if (!movingId) { const lock = DECOR[type] ? decorLock(state, type) : buildLock(state, type); if (lock) return lock; }
     const f = footprint(type, gx, gy);
-    for (const b of state.buildings) if (b.id !== movingId && overlaps(f, footprint(b.type, b.gx, b.gy))) return `Too close to the ${BUILDINGS[b.type].name}.`;
+    for (const b of placedThings(state)) if (b.id !== movingId && overlaps(f, footprint(b.type, b.gx, b.gy))) return `Too close to the ${defOf(b.type).name}.`;
     const t = terrain ? terrain(type, f.gx, f.gy, f.fw, f.fd) : null;
     if (t) return t;
     return null;
@@ -1379,7 +1429,7 @@ const TOF = (() => {
     const cost = buildCost(type, 1);
     if (!canAfford(state, cost)) return { ok: false, reason: 'Not enough resources.' };
     spend(state, cost);
-    const b = { id: 'b-' + state.nextBuildingId++, type, gx, gy, level: 0, pending: { toLevel: 1, startAt: now, endAt: now + Math.round(buildHours(1) * hourMs(state)) }, job: null };
+    const b = { id: 'b-' + state.nextBuildingId++, type, gx, gy, level: 0, pending: { toLevel: 1, startAt: now, endAt: now + buildMs(state, 1) }, job: null };
     state.buildings.push(b);
     return { ok: true, building: b };
   }
@@ -1395,10 +1445,71 @@ const TOF = (() => {
     return { ok: true, building: b };
   }
 
+  // ---------- decorations ----------
+  const ownsDecor = (state, type) => (state.decor || []).some(d => d.type === type);
+  // Combined bonus from every decoration owned, clamped to DECOR_CAP.
+  function decorBonus(state) {
+    const out = { yield: {}, power: {}, damage: 0, trip: 0, build: 0, coins: 0, chest: 0, storage: 0, cropFood: 0, cropSpeed: 0 };
+    for (const k of Object.keys(TYPES)) { out.yield[k] = 0; out.power[k] = 0; }
+    for (const type of new Set((state.decor || []).map(d => d.type))) {
+      const b = DECOR[type] && DECOR[type].bonus;
+      if (!b) continue;
+      for (const [k, v] of Object.entries(b)) {
+        if (typeof v === 'object') for (const [t, x] of Object.entries(v)) out[k][t] += x;
+        else out[k] += v;
+      }
+    }
+    for (const k of Object.keys(out)) {
+      if (typeof out[k] === 'object') for (const t of Object.keys(out[k])) out[k][t] = round3(Math.min(DECOR_CAP[k], out[k][t]));
+      else out[k] = round3(Math.min(DECOR_CAP[k], out[k]));
+    }
+    return out;
+  }
+  function decorLock(state, type) {
+    const d = DECOR[type];
+    if (!d) return 'Unknown decoration.';
+    if (ownsDecor(state, type)) return 'You already have one.';
+    return null;
+  }
+  // Fixed decorations (scarecrow, fence, keeper's shack) are bought straight into their home.
+  function buyDecor(state, type) {
+    const lock = decorLock(state, type);
+    if (lock) return { ok: false, reason: lock };
+    if (!DECOR[type].fixed) return { ok: false, reason: 'Choose a spot for it.' };
+    if (!canAfford(state, DECOR[type].cost)) return { ok: false, reason: 'Not enough resources.' };
+    spend(state, DECOR[type].cost);
+    const d = { id: 'd-' + state.nextDecorId++, type, gx: null, gy: null };
+    state.decor.push(d);
+    return { ok: true, decor: d };
+  }
+  function placeDecor(state, type, gx, gy, terrain) {
+    const lock = decorLock(state, type);
+    if (lock) return { ok: false, reason: lock };
+    if (DECOR[type].fixed) return buyDecor(state, type);
+    const why = placeCheck(state, type, gx, gy, terrain);
+    if (why) return { ok: false, reason: why };
+    if (!canAfford(state, DECOR[type].cost)) return { ok: false, reason: 'Not enough resources.' };
+    spend(state, DECOR[type].cost);
+    const d = { id: 'd-' + state.nextDecorId++, type, gx, gy };
+    state.decor.push(d);
+    return { ok: true, decor: d };
+  }
+  function moveDecor(state, id, gx, gy, terrain) {
+    const d = (state.decor || []).find(x => x.id === id);
+    if (!d || DECOR[d.type].fixed) return { ok: false, reason: 'That can’t be moved.' };
+    if (d.gx === gx && d.gy === gy) return { ok: false, reason: 'It’s already there.' };
+    const why = placeCheck(state, d.type, gx, gy, terrain, d.id);
+    if (why) return { ok: false, reason: why };
+    d.gx = gx; d.gy = gy;
+    return { ok: true, decor: d };
+  }
+
   // ---------- crops ----------
   // The field grows food on its own: ripe after 3 hours, harvested free, then it replants itself.
+  const cropHours = state => CROP_HOURS * (1 - decorBonus(state).cropSpeed);
+  const cropYield = state => CROP_YIELD + decorBonus(state).cropFood;
   function cropState(state, now) {
-    if (!state.crops) state.crops = { plantedAt: now, readyAt: now + Math.round(CROP_HOURS * hourMs(state)) };
+    if (!state.crops) state.crops = { plantedAt: now, readyAt: now + Math.round(cropHours(state) * hourMs(state)) };
     const c = state.crops, span = Math.max(1, c.readyAt - c.plantedAt);
     return { ...c, progress: Math.min(1, Math.max(0, (now - c.plantedAt) / span)), ripe: now >= c.readyAt };
   }
@@ -1406,12 +1517,12 @@ const TOF = (() => {
     const c = cropState(state, now);
     if (!c.ripe) return { ok: false, reason: 'Not ripe yet.', readyAt: c.readyAt };
     const room = Math.max(0, storageCap(state) - state.resources.food);
-    const food = Math.min(CROP_YIELD, room);
+    const yieldNow = cropYield(state), food = Math.min(yieldNow, room);
     state.resources.food += food;
     if (!state.discovered.includes('food')) state.discovered.push('food');
-    state.crops = { plantedAt: now, readyAt: now + Math.round(CROP_HOURS * hourMs(state)) };
+    state.crops = { plantedAt: now, readyAt: now + Math.round(cropHours(state) * hourMs(state)) };
     Stats.add(state, 'cropsHarvested');
-    return { ok: true, food, spoiled: CROP_YIELD - food };
+    return { ok: true, food, spoiled: yieldNow - food };
   }
 
   function upgradeBlock(state, b) {
@@ -1428,7 +1539,7 @@ const TOF = (() => {
     const cost = buildCost(b.type, b.level + 1);
     if (!canAfford(state, cost)) return { ok: false, reason: 'Not enough resources.' };
     spend(state, cost);
-    b.pending = { toLevel: b.level + 1, startAt: now, endAt: now + Math.round(buildHours(b.level + 1) * hourMs(state)) };
+    b.pending = { toLevel: b.level + 1, startAt: now, endAt: now + buildMs(state, b.level + 1) };
     return { ok: true, building: b };
   }
 
@@ -1581,6 +1692,13 @@ const TOF = (() => {
       out.expeditions = (s.expeditions || []).map(e => ({ ...e, region: 'home', mods: { ...(e.mods || NO_MODS), region: 'home' } }));
       return out;
     },
+    // v4 → v5: decorations.
+    4: s => {
+      const out = JSON.parse(JSON.stringify(s));
+      out.version = 5;
+      out.decor = []; out.nextDecorId = 1;
+      return out;
+    },
   };
 
   function migrate(s) {
@@ -1646,7 +1764,7 @@ const TOF = (() => {
         seed: (Number(e.seed) >>> 0), dev: !!e.dev,
         stats: validStats(e.stats) ? snapshot({ ...e.stats, aff: { fishing: 1, treasure: 1, combat: 1, exploration: 1, ...e.stats.aff } }) : snapshot(shipStats(shipById[e.shipId])),
         mods: validMods(e.mods) ? { power: e.mods.power, yield: e.mods.yield, damage: e.mods.damage, region: REGIONS[e.mods.region] ? e.mods.region : 'home',
-          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}) } : { ...NO_MODS, region: 'home' },
+          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}) } : { ...NO_MODS, region: 'home' },
         supplies: !!e.supplies, region: REGIONS[e.region] ? e.region : 'home',
       }));
     s.log = Array.isArray(raw.log) ? raw.log.filter(x => x && typeof x === 'object').slice(0, 30) : [];
@@ -1685,6 +1803,23 @@ const TOF = (() => {
     let maxB = 0;
     for (const b of s.buildings) { const n = parseInt(b.id.replace('b-', ''), 10); if (Number.isFinite(n)) maxB = Math.max(maxB, n); }
     s.nextBuildingId = Math.max(clampInt(raw.nextBuildingId, 1, 1e9), maxB + 1);
+    // decorations: one of each, placed ones on the map and clear of everything else
+    s.decor = [];
+    const seenDecor = new Set();
+    for (const d of (Array.isArray(raw.decor) ? raw.decor : [])) {
+      if (!d || typeof d.id !== 'string' || !DECOR[d.type] || seenDecor.has(d.type)) continue;
+      const nd = { id: d.id, type: d.type, gx: null, gy: null };
+      if (!DECOR[d.type].fixed) {
+        if (!Number.isInteger(d.gx) || !Number.isInteger(d.gy)) continue;
+        nd.gx = clampInt(d.gx, 0, MAP_SIZE - 1); nd.gy = clampInt(d.gy, 0, MAP_SIZE - 1);
+        const f = footprint(nd.type, nd.gx, nd.gy);
+        if (placedThings(s).some(o => overlaps(f, footprint(o.type, o.gx, o.gy)))) continue;
+      }
+      seenDecor.add(d.type); s.decor.push(nd);
+    }
+    let maxD = 0;
+    for (const d of s.decor) { const n = parseInt(d.id.replace('d-', ''), 10); if (Number.isFinite(n)) maxD = Math.max(maxD, n); }
+    s.nextDecorId = Math.max(clampInt(raw.nextDecorId, 1, 1e9), maxD + 1);
     for (const k of Object.keys(STAT_DEFS)) {
       const v = Number(raw.stats && raw.stats[k]);
       s.stats[k] = Number.isFinite(v) && v >= 0 ? Math.floor(v) : 0;
@@ -1794,6 +1929,7 @@ const TOF = (() => {
     repairCost, repair, sell, sellAll, canAfford, upgradeCost, buyUpgrade,
     migrate, sanitize, loadGame, saveGame, resetSave, mulberry32, exportSave, importSave,
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
+    GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
   };
 })();
 if (typeof module !== 'undefined') module.exports = TOF;
@@ -2560,7 +2696,7 @@ function runTofTests(TOF) {
     v3.expeditions = [{ id: 'exp-3', shipId: 'ship-1', type: 'fishing', hours: 2, startAt: T0, endAt: T0 + 2 * H, seed: 5, dev: false, stats: TOF.shipStats(v3.ships[0]), mods: { power: 1, yield: 1, damage: 1 }, supplies: false }];
     st.setItem(TOF.SAVE_KEY, JSON.stringify({ format: 'tof', state: v3 }));
     const { state, source } = TOF.loadGame(st, T0 + H);
-    eq(source, 'save', 'loaded'); eq(state.version, 4, 'v4'); eq(state.regions.join(), 'home', 'home only');
+    eq(source, 'save', 'loaded'); eq(state.version, TOF.SAVE_VERSION, 'current version'); eq(state.regions.join(), 'home', 'home only');
     eq(state.resources.sunkenKey, 0, 'keys'); eq(state.lore.kraken, 0, 'lore');
     ok(TOF.claim(state, 'exp-3', T0 + 2 * H).ok, 'trip collects');
   });
@@ -2706,7 +2842,93 @@ function runTofTests(TOF) {
     for (const c of Object.values(TOF.SHIP_CLASSES)) Object.keys(c.cost).forEach(k => used.add(k));
     for (const b of Object.values(TOF.BUILDINGS)) for (const c of b.costs) if (c) Object.keys(c).forEach(k => used.add(k));
     for (const u of Object.values(TOF.UPGRADES)) for (const c of u.costs) Object.keys(c).forEach(k => used.add(k));
+    for (const d of Object.values(TOF.DECOR)) Object.keys(d.cost).forEach(k => used.add(k));
     for (const k of used) ok(TOF.SOURCES[k], 'hint for ' + k);
+  });
+
+  // ---------- 1.2: decorations ----------
+  const fullStores = s => { for (const k of Object.keys(s.resources)) s.resources[k] = 99999; return s; };
+  test('decorations are one of each and their bonus never stacks', () => {
+    const s = fullStores(veteran(T0));
+    ok(TOF.placeDecor(s, 'crabStatue', 2, 33).ok, 'placed');
+    const again = TOF.placeDecor(s, 'crabStatue', 5, 33);
+    ok(!again.ok && /already/.test(again.reason), 'second copy refused');
+    eq(TOF.decorBonus(s).yield.fishing, 0.05, 'crab +5% fishing');
+    ok(TOF.placeDecor(s, 'tulips', 4, 33).ok, 'tulips');
+    eq(TOF.decorBonus(s).yield.fishing, 0.08, 'crab + tulips');
+    eq(TOF.tripMods(s, 'fishing', T0).yield, 1.08, 'applied to fishing trips');
+    eq(TOF.tripMods(s, 'treasure', T0).yield, 1, 'not to other trips');
+  });
+  test('the combined decoration bonus stays within its caps', () => {
+    const s = fullStores(veteran(T0));
+    s.decor = TOF.DECOR_ORDER.map((type, i) => ({ id: 'd-' + i, type, gx: null, gy: null }));
+    const b = TOF.decorBonus(s);
+    for (const [k, cap] of Object.entries(TOF.DECOR_CAP)) {
+      if (typeof b[k] === 'object') for (const v of Object.values(b[k])) ok(v <= cap, `${k} within cap`);
+      else ok(b[k] <= cap, `${k} within cap`);
+    }
+    ok(b.yield.fishing <= 0.1 && b.trip <= 0.05, 'small bonuses');
+    // a full collection is a modest edge, never a shortcut
+    const m = TOF.tripMods(s, 'fishing', T0);
+    ok(m.yield < 1.15 && m.damage > 0.85, 'modest overall');
+  });
+  test('decorations block buildings and buildings block decorations', () => {
+    const s = fullStores(veteran(T0));
+    const sb = TOF.START_BUILDINGS[0];
+    ok(/Too close/.test(TOF.placeDecor(s, 'roses', sb.gx, sb.gy).reason), 'not on a building');
+    ok(TOF.placeDecor(s, 'fountain', 2, 33).ok, 'fountain placed');
+    ok(/Too close/.test(TOF.placeCheck(s, 'sawmill', 1, 32)), 'building refused on the fountain');
+    const d = s.decor[0];
+    ok(TOF.moveDecor(s, d.id, 5, 33).ok, 'moved');
+    eq(d.gx, 5, 'new spot');
+  });
+  test('fixed decorations are bought without a spot and pay off', () => {
+    const s = fullStores(veteran(T0));
+    const yieldBefore = TOF.cropYield(s), hoursBefore = TOF.cropHours(s);
+    ok(TOF.buyDecor(s, 'fieldFence').ok && TOF.buyDecor(s, 'scarecrow').ok, 'bought');
+    eq(TOF.cropYield(s), yieldBefore + 2, 'fence +2 food');
+    ok(TOF.cropHours(s) < hoursBefore, 'scarecrow speeds the field');
+    ok(!TOF.buyDecor(s, 'roses').ok, 'flower beds need a spot');
+    const cap = TOF.storageCap(s);
+    ok(TOF.placeDecor(s, 'cargoStack', 2, 33).ok, 'barrels');
+    eq(TOF.storageCap(s), cap + 50, 'storage +50');
+  });
+  test('buying a decoration spends its cost', () => {
+    const s = veteran(T0);
+    s.resources.coins = 50;
+    ok(!TOF.buyDecor(s, 'fieldFence').ok, 'too poor');
+    s.resources.coins = 500; s.resources.timber = 30;
+    ok(TOF.buyDecor(s, 'fieldFence').ok, 'bought');
+    eq(s.resources.coins, 410, 'coins spent'); eq(s.resources.timber, 5, 'timber spent');
+  });
+  test('the chest of gold adds coins to trips and lantern shortens them', () => {
+    const s = fullStores(veteran(T0));
+    const base = TOF.dispatch(s, 'ship-1', 4, T0, 11, 'treasure');
+    s.expeditions = []; s.claimed = [];
+    s.decor.push({ id: 'd-1', type: 'goldChest', gx: 2, gy: 33 }, { id: 'd-2', type: 'harborLantern', gx: 4, gy: 33 });
+    const gold = TOF.dispatch(s, 'ship-1', 4, T0, 11, 'treasure');
+    eq(gold.exp.mods.coins, 1.05, 'coin bonus recorded');
+    ok(gold.exp.endAt < base.exp.endAt, 'shorter trip');
+    const a = TOF.rollExpedition(gold.exp.stats, 'treasure', 4, 11, base.exp.mods).items.coins;
+    const b = TOF.rollExpedition(gold.exp.stats, 'treasure', 4, 11, gold.exp.mods).items.coins;
+    ok(b > a, 'more coins');
+  });
+  test('decorations survive save, load and old saves migrate', () => {
+    const st = memStorage();
+    const s = fullStores(veteran(T0));
+    TOF.placeDecor(s, 'sunflowers', 3, 33); TOF.buyDecor(s, 'keeperShack');
+    TOF.saveGame(st, s, T0);
+    const back = TOF.loadGame(st, T0).state;
+    eq(back.decor.length, 2, 'kept'); eq(back.decor[0].gx, 3, 'spot kept');
+    eq(TOF.decorBonus(back).power.exploration, 0.03, 'bonus kept');
+    const v4 = JSON.parse(JSON.stringify(TOF.newGame(T0))); v4.version = 4; delete v4.decor; delete v4.nextDecorId;
+    st.setItem(TOF.SAVE_KEY, JSON.stringify({ format: 'tof', state: v4 }));
+    const m = TOF.loadGame(st, T0);
+    eq(m.source, 'save', 'loaded'); eq(m.state.decor.length, 0, 'no decor yet'); eq(m.state.version, 5, 'v5');
+    // a hand-edited save cannot double up
+    s.decor.push({ id: 'd-9', type: 'sunflowers', gx: 6, gy: 33 });
+    TOF.saveGame(st, s, T0);
+    eq(TOF.loadGame(st, T0).state.decor.filter(d => d.type === 'sunflowers').length, 1, 'duplicates dropped');
   });
 
   return results;
@@ -2775,7 +2997,7 @@ const Art = (() => {
     ellipse(cx, cy, rx, ry, c, a) {
       for (let y = Math.floor(cy - ry); y <= cy + ry; y++) for (let x = Math.floor(cx - rx); x <= cx + rx; x++) {
         const dx = (x + 0.5 - cx) / rx, dy = (y + 0.5 - cy) / ry;
-        if (dx * dx + dy * dy <= 1) this.set(x, y, c, a);
+        if (dx * dx + dy * dy <= 1) this.set(x, y, typeof c === 'function' ? c(x, y) : c, a);
       }
     }
     line(x0, y0, x1, y1, c) {
@@ -3402,7 +3624,7 @@ const Art = (() => {
     seaWitch:     { fw: 2, fd: 2, wall: 11, roof: 14, mat: 'wood', roofC: '#5a3f7a', door: 'R', seed: 73, flagC: '#9be3e8' },
   };
   // ======================= Village pass: props, compositions, lighthouse =======================
-  const GLOW = new Set(['#f2c75c', '#fff2b8', '#ffe48a', '#ff9a3c', '#ffd27a', '#fff6c8'].map(h => C(h).join(',')));
+  const GLOW = new Set(['#f2c75c', '#fff2b8', '#ffe48a', '#ff9a3c', '#ffd27a', '#fff6c8', '#ff7a5c', '#7ae0c8'].map(h => C(h).join(',')));
   // Copy of a sprite holding only its light-emitting pixels (windows, lamps, forges), for night lighting.
   function emissive(p) {
     const e = new Pix(p.w, p.h);
@@ -3668,22 +3890,50 @@ const Art = (() => {
   }
 
   // --- the lighthouse on its rocky islet ---
-  function lighthouseIslet() {
-    const W = 118, H = 140, p = new Pix(W, H);
-    const cx = 58, gy = 104; // islet top surface centre
-    // islet: irregular iso blob, extruded downwards as rock
+  // The islet grew a second lobe up the bay (along -gx, so it stays clear of the shipping lanes) where
+  // the keeper's shack stands once built. o.snow swaps the grass for snow; the layout never changes.
+  function lighthouseIslet(o = {}) {
+    const W = 156, H = 140, p = new Pix(W, H);
+    const cx = 92, gy = 104; // islet top surface centre (under the tower)
+    const lx = cx - 38, ly = gy - 19; // the shack lobe
     const R = (a) => 1 + 0.18 * Math.sin(a * 3 + 1) + 0.1 * Math.sin(a * 5 + 2);
-    const blob = (rx, ry, dy) => { const pts = []; for (let a = 0; a < Math.PI * 2; a += 0.15) pts.push([cx + Math.cos(a) * rx * R(a), gy + dy + Math.sin(a) * ry * R(a)]); return pts; };
-    for (let h = 12; h >= 1; h--) p.poly(blob(46 - h * 0.6, 21 - h * 0.25, h), (x, y) => { const n = hash(x >> 1, y >> 1, 21); return h > 8 ? '#3f4245' : n < 0.3 ? '#5b5e60' : n < 0.7 ? '#6b6e70' : '#7b7e7f'; });
-    p.poly(blob(46, 21, 0), (x, y) => { const n = hash(x >> 1, y >> 1, 22); const d = Math.hypot((x - cx) / 46, (y - gy) / 21); if (d > 0.82) return n < 0.5 ? '#8d8f8c' : '#9fa19c'; return n < 0.06 ? '#93cc63' : n < 0.5 ? '#6aad4a' : '#5fa043'; });
-    // boulders round the rim
-    const boulders = [[-40, 4, 7], [-30, 13, 6], [-12, 19, 7], [10, 19, 6], [30, 13, 7], [41, 3, 6], [36, -9, 5], [-38, -8, 5]];
-    for (const [dx, dy, r] of boulders) { p.ellipse(cx + dx, gy + dy, r, r * 0.6, '#6b6e70'); p.ellipse(cx + dx - 1, gy + dy - 1.5, r * 0.7, r * 0.4, '#8d8f8c'); p.set(cx + dx - 2, gy + dy - 2, '#b9bbb5'); }
-    // keeper's pier (lower left) and crates
-    p.poly([[cx - 30, gy + 6], [cx - 52, gy + 17], [cx - 46, gy + 20], [cx - 24, gy + 9]], (x, y) => ((x + y * 2) % 5 === 0 ? '#5c3a22' : '#b07a47'));
-    for (const [px_, py_] of [[-50, 18], [-44, 21], [-36, 13]]) p.rect(cx + px_, gy + py_, 2, 5, '#5e3b22');
-    PROPS.crates(p, [cx - 27, gy + 6], { n: 2 });
-    PROPS.barrels(p, [cx + 22, gy + 4], { n: 2 });
+    const R2 = (a) => 1 + 0.14 * Math.sin(a * 4 + 3) + 0.08 * Math.sin(a * 7);
+    const blob = (rx, ry, dy, x0 = cx, y0 = gy, f = R) => { const pts = []; for (let a = 0; a < Math.PI * 2; a += 0.15) pts.push([x0 + Math.cos(a) * rx * f(a), y0 + dy + Math.sin(a) * ry * f(a)]); return pts; };
+    const lobes = [[46, 21, cx, gy, R], [31, 15, lx, ly, R2]];
+    const grass = (x, y) => {
+      const n = hash(x >> 1, y >> 1, 22);
+      if (o.snow) return n < 0.08 ? '#c9d6e3' : n < 0.55 ? '#f2f6fa' : '#e6edf4';
+      return n < 0.06 ? '#93cc63' : n < 0.5 ? '#6aad4a' : '#5fa043';
+    };
+    const top = (x, y) => {
+      const n = hash(x >> 1, y >> 1, 22);
+      const d = Math.min(Math.hypot((x - cx) / 46, (y - gy) / 21), Math.hypot((x - lx) / 31, (y - ly) / 15));
+      if (d > 0.82) return n < 0.5 ? '#8d8f8c' : '#9fa19c';
+      return grass(x, y);
+    };
+    if (!o.iconOnly) {
+      for (let h = 12; h >= 1; h--) for (const [rx, ry, x0, y0, f] of lobes) p.poly(blob(rx - h * 0.6, ry - h * 0.25, h, x0, y0, f), (x, y) => { const n = hash(x >> 1, y >> 1, 21); return h > 8 ? '#3f4245' : n < 0.3 ? '#5b5e60' : n < 0.7 ? '#6b6e70' : '#7b7e7f'; });
+      for (const [rx, ry, x0, y0, f] of lobes) p.poly(blob(rx, ry, 0, x0, y0, f), top);
+      // boulders round the rim
+      const boulders = [[-12, 19, 7], [10, 19, 6], [30, 13, 7], [41, 3, 6], [36, -9, 5], [-40, 8, 6], [-62, -14, 6], [-60, -26, 5], [-44, -33, 6], [-20, -30, 5], [-14, -8, 4]];
+      for (const [dx, dy, r] of boulders) { p.ellipse(cx + dx, gy + dy, r, r * 0.6, '#6b6e70'); p.ellipse(cx + dx - 1, gy + dy - 1.5, r * 0.7, r * 0.4, '#8d8f8c'); p.set(cx + dx - 2, gy + dy - 2, o.snow ? '#ffffff' : '#b9bbb5'); }
+      // keeper's pier (lower left) and stores
+      p.poly([[cx - 30, gy + 6], [cx - 52, gy + 17], [cx - 46, gy + 20], [cx - 24, gy + 9]], (x, y) => ((x + y * 2) % 5 === 0 ? '#5c3a22' : '#b07a47'));
+      for (const [px_, py_] of [[-50, 18], [-44, 21], [-36, 13]]) p.rect(cx + px_, gy + py_, 2, 5, '#5e3b22');
+      PROPS.barrels(p, [cx + 22, gy + 4], { n: 2 });
+      // a gravel path from the tower to the lobe
+      for (let t = 0; t <= 1; t += 0.02) { const x = cx - 10 + (lx + 10 - (cx - 10)) * t, y = gy - 2 + (ly + 6 - (gy - 2)) * t; p.rect(x - 2, y, 4, 1, hash(x | 0, y | 0, 23) < 0.5 ? '#b9b3a6' : '#a9a397'); }
+    }
+    if (o.shack || o.iconOnly) {
+      const fw = 1.15, fd = 0.95;
+      const sx = lx - (fw - fd) * HW / 2, sy = ly - (fw + fd) * HH / 2;
+      drawBlock(p, sx, sy, { fw, fd, wall: 11, roof: 9, mat: 'wood', roofC: '#3f6fb0', door: 'R', doorAt: 0.35, chimney: true, seed: 83, shutters: true });
+      if (!o.iconOnly) { PROPS.rack(p, [lx - 20, ly + 6]); PROPS.coil(p, [lx + 15, ly + 9]); PROPS.crates(p, [lx - 9, ly + 12], { n: 2 }); }
+    } else if (!o.iconOnly) {
+      PROPS.crates(p, [lx - 2, ly + 4], { n: 2 });
+      PROPS.signpost(p, [lx + 12, ly + 8], { c: '#7c5131' });
+    }
+    if (o.iconOnly) { p.outline(PAL.ink); return sprite(p, cx, gy); }
     // stone plinth (octagonal-ish)
     p.ellipse(cx, gy - 2, 15, 7.5, '#6a665f');
     for (let h = 0; h < 7; h++) p.ellipse(cx, gy - 2 - h, 14, 7, h < 6 ? (h % 3 === 0 ? '#8a857c' : '#a9a397') : '#c4bfb3');
@@ -3729,6 +3979,238 @@ const Art = (() => {
     s.lamp = [0, gz - 9 - (gy + 10)];
     s.emit = emissive(p);
     return s;
+  }
+
+  // ======================= 1.2: decorations =======================
+  // Each decoration is drawn on its footprint like a building: anchored at the footprint's bottom corner.
+  function decorCanvas(fw, fd, top) {
+    const W = (fw + fd) * HW + 12, H = (fw + fd) * HH + top + 6;
+    const p = new Pix(W, H), tx = 6 + fd * HW, ty = top;
+    const pt = (u, v) => [tx + (u - v) * HW, ty + (u + v) * HH];
+    return { p, pt, G: { t: pt(0, 0), r: pt(fw, 0), b: pt(fw, fd), l: pt(0, fd) } };
+  }
+  // Small iso box standing on ground point q: half-width hw, height h.
+  function isoBox(p, q, hw, h, cTop, cL, cR) {
+    const [x, y] = q, t = [x, y - hw / 2 - h], l = [x - hw, y - h], b = [x, y + hw / 2 - h], r = [x + hw, y - h];
+    p.poly([[x - hw, y], [x, y + hw / 2], b, l], cL);
+    p.poly([[x, y + hw / 2], [x + hw, y], r, b], cR);
+    p.poly([t, r, b, l], cTop);
+    return { t, l, b, r };
+  }
+  const STONE = n => (n < 0.33 ? '#b5afa2' : n < 0.66 ? '#c4bfb3' : '#a9a397');
+  // Raised flower bed: timber edge, dark soil.
+  function bed(p, pt, i0 = 0.12, i1 = 0.88) {
+    const c = [pt(i0, i0), pt(i1, i0), pt(i1, i1), pt(i0, i1)];
+    const dn = (q, k) => [q[0], q[1] + k];
+    p.poly([c[3], c[2], dn(c[2], 3), dn(c[3], 3)], '#8a5a33');
+    p.poly([c[2], c[1], dn(c[1], 3), dn(c[2], 3)], '#6e4627');
+    p.poly(c, (x, y) => (hash(x, y, 41) < 0.3 ? '#4a3020' : '#5c3a24'));
+    p.line(c[0][0], c[0][1], c[1][0], c[1][1], '#a06c40'); p.line(c[0][0], c[0][1], c[3][0], c[3][1], '#a06c40');
+  }
+  // Ground spots spread over a 1x1 footprint, back to front so nearer plants overlap farther ones.
+  function spots(pt, n, seed, i0 = 0.24, i1 = 0.76) {
+    const out = [];
+    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
+      const u = i0 + (i1 - i0) * (i + 0.5) / n + (hash(i, j, seed) - 0.5) * 0.08, v = i0 + (i1 - i0) * (j + 0.5) / n + (hash(j, i, seed + 1) - 0.5) * 0.08;
+      out.push({ q: pt(u, v), k: i + j, i, j });
+    }
+    return out.sort((a, b) => a.q[1] - b.q[1]);
+  }
+  const DECOR_ART = {
+    crabStatue(p, pt) {
+      const q = pt(0.5, 0.5);
+      isoBox(p, [q[0], q[1] + 2], 9, 3, '#c4bfb3', '#a9a397', '#8a857c');
+      const pl = isoBox(p, [q[0], q[1] - 1], 6.5, 7, '#cfcabd', (x, y) => STONE(hash(x >> 1, y >> 1, 3)), (x, y) => shade(STONE(hash(x >> 1, y >> 1, 4)), 0.8));
+      const cx = q[0], cy = pl.b[1] - 5; // the crab sits on the plinth top
+      const body = '#c8643a', dk = '#9a4426', hi = '#e8885a';
+      for (const s of [-1, 1]) for (let k = 0; k < 3; k++) { p.line(cx + s * 3, cy + 1 + k, cx + s * (6 + k), cy + 3 + k, dk); }
+      p.ellipse(cx, cy, 5, 3, body); p.ellipse(cx - 1, cy - 1, 3, 1.5, hi);
+      for (const s of [-1, 1]) {
+        p.line(cx + s * 4, cy - 1, cx + s * 6, cy - 4, dk);
+        p.circle(cx + s * 7, cy - 6, 2.2, body); p.set(cx + s * 7, cy - 8, hi); p.set(cx + s * 8, cy - 7, '#f4ecd8');
+        p.rect(cx + s * 2 - (s < 0 ? 1 : 0), cy - 5, 1, 2, dk); p.set(cx + s * 2 - (s < 0 ? 1 : 0), cy - 6, PAL.ink);
+      }
+      p.set(cx - 1, cy + 1, dk); p.set(cx + 1, cy + 1, dk);
+    },
+    harborLantern(p, pt) {
+      const q = pt(0.5, 0.5);
+      isoBox(p, [q[0], q[1] + 1], 4, 3, '#a9a397', '#8a857c', '#6a665f');
+      p.rect(q[0] - 1, q[1] - 34, 2, 33, '#3b3d40'); p.rect(q[0], q[1] - 34, 1, 33, '#5a5d61');
+      p.rect(q[0] - 9, q[1] - 34, 19, 2, '#3b3d40'); p.set(q[0], q[1] - 37, '#e0b44a'); p.rect(q[0] - 1, q[1] - 36, 3, 2, '#3b3d40');
+      for (const s of [-1, 1]) {
+        const x = q[0] + s * 8;
+        p.rect(x, q[1] - 32, 1, 2, '#3b3d40');
+        p.rect(x - 2, q[1] - 30, 5, 1, '#3b3d40'); p.rect(x - 2, q[1] - 29, 5, 5, '#ffe48a'); p.rect(x - 1, q[1] - 29, 2, 2, '#fff2b8');
+        p.rect(x - 2, q[1] - 24, 5, 1, '#3b3d40'); p.set(x, q[1] - 23, '#3b3d40');
+      }
+      p.rect(q[0] - 3, q[1] - 12, 7, 1, '#3b3d40');
+    },
+    festoon(p, pt) {
+      const a = pt(0.12, 0.88), b = pt(0.88, 0.12), H = 24;
+      for (const q of [a, b]) { p.rect(q[0], q[1] - H, 2, H, '#7c5131'); p.rect(q[0] + 1, q[1] - H, 1, H, '#5e3b22'); p.rect(q[0] - 1, q[1] - H - 1, 4, 1, '#a06c40'); }
+      const cols = ['#ff7a5c', '#ffd27a', '#7ae0c8', '#ff7a5c', '#ffd27a'];
+      const A = [a[0] + 1, a[1] - H + 1], B = [b[0] + 1, b[1] - H + 1];
+      const at = t => [A[0] + (B[0] - A[0]) * t, A[1] + (B[1] - A[1]) * t + Math.sin(t * Math.PI) * 7];
+      for (let t = 0; t <= 1; t += 0.01) { const [x, y] = at(t); p.set(x, y, '#3b3d40'); }
+      cols.forEach((c, i) => { const [x, y] = at((i + 1) / 6); p.set(x, y + 1, '#3b3d40'); p.rect(x - 1, y + 2, 3, 4, c); p.set(x - 1, y + 2, shade(c, 1.15)); p.rect(x - 1, y + 6, 3, 1, '#7c5131'); });
+    },
+    cargoStack(p, pt) {
+      PROPS.barrels(p, pt(0.3, 0.35), { n: 2 });
+      PROPS.crates(p, pt(0.62, 0.62), { n: 3 });
+      PROPS.sacks(p, pt(0.25, 0.78));
+      PROPS.barrels(p, pt(0.82, 0.32), { n: 1 });
+    },
+    garden(p, pt) {
+      // tilled rows inside a low wattle border
+      const c = [pt(0.1, 0.1), pt(1.9, 0.1), pt(1.9, 1.9), pt(0.1, 1.9)];
+      p.poly(c, (x, y) => { const v = ((y - c[0][1]) - (x - c[0][0]) * 0.5) / 3; return (Math.floor(v) % 2 ? (hash(x, y, 7) < 0.3 ? '#6e4627' : '#7b5232') : '#5c3a22'); });
+      const plants = [];
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) plants.push({ q: pt(0.35 + k * 0.42, 0.32 + r * 0.44), r, k });
+      plants.sort((a, b) => a.q[1] - b.q[1]);
+      for (const { q, r, k } of plants) {
+        const [x, y] = q;
+        if (r === 0) { p.rect(x, y - 13, 1, 13, '#7c5131'); for (let h = 2; h < 12; h += 2) p.set(x + (h % 4 ? 1 : -1), y - h, h % 6 ? '#5fa043' : '#93cc63'); } // beans on poles
+        else if (r === 1) { p.circle(x, y - 2, 3, '#4f8f5a'); p.circle(x - 1, y - 3, 2, '#93cc63'); p.set(x, y - 3, '#c8e6a0'); } // cabbages
+        else if (r === 2) { p.set(x, y, '#e8862a'); p.set(x, y - 1, '#e8862a'); for (const dx of [-1, 0, 1]) p.set(x + dx, y - 3 + Math.abs(dx), '#5fa043'); p.set(x, y - 4, '#93cc63'); } // carrots
+        else { p.circle(x, y - 2, 2.5, k % 2 ? '#c8463c' : '#d9583b'); p.set(x - 1, y - 3, '#f08a80'); p.set(x, y - 5, '#4b8636'); } // tomatoes
+      }
+      const post = q => p.rect(q[0], q[1] - 4, 1, 4, '#7c5131');
+      for (const [a, b] of [[c[0], c[1]], [c[0], c[3]], [c[3], c[2]], [c[1], c[2]]]) { p.line(a[0], a[1] - 2, b[0], b[1] - 2, '#a06c40'); for (let t = 0; t <= 1.001; t += 0.25) post([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]); }
+      PROPS.barrels(p, pt(1.85, 1.0), { n: 1 });
+    },
+    lilies(p, pt) {
+      bed(p, pt);
+      for (const { q, k } of spots(pt, 3, 51)) {
+        const [x, y] = q;
+        p.poly([[x - 3, y], [x - 1, y - 7], [x, y]], '#3f7d3c'); p.poly([[x, y], [x + 2, y - 8], [x + 3, y]], '#4f9a4e'); p.set(x + 1, y - 6, '#69b356');
+        const s = k % 2 ? 1 : -1;
+        for (let i = 0; i < 6; i++) p.set(x + s * (i * 0.6), y - 7 - Math.sin(i / 5 * Math.PI) * 3 + i * 0.4, '#2f6a35');
+        for (let i = 1; i < 5; i++) { const bx = x + s * (i * 0.9) + s, by = y - 7 + i * 0.7; p.set(bx, by, '#ffffff'); p.set(bx, by + 1, '#e6ecef'); }
+      }
+    },
+    sunflowers(p, pt) {
+      bed(p, pt);
+      for (const { q, k } of spots(pt, 2, 61, 0.3, 0.7)) {
+        const [x, y] = q, h = 16 + (k % 2) * 4;
+        p.rect(x, y - h, 1, h, '#4b8636'); p.set(x + 1, y - h, '#3f7d3c');
+        p.poly([[x, y - 6], [x - 4, y - 9], [x - 1, y - 8]], '#5fa043'); p.poly([[x + 1, y - 10], [x + 5, y - 12], [x + 2, y - 9]], '#5fa043');
+        const hx = x + 0.5, hy = y - h - 2;
+        for (let a = 0; a < Math.PI * 2; a += Math.PI / 6) p.set(hx + Math.cos(a) * 3.4, hy + Math.sin(a) * 3, a < Math.PI ? '#f2c94c' : '#ffd84a');
+        p.circle(hx, hy, 2.6, '#f2c94c'); p.circle(hx, hy, 1.7, '#6b4428'); p.set(hx - 1, hy - 1, '#8a5a33');
+      }
+    },
+    roses(p, pt) {
+      bed(p, pt);
+      for (const { q, k } of spots(pt, 2, 71, 0.3, 0.7)) {
+        const [x, y] = q;
+        p.circle(x, y - 4, 4.6, '#2f6a35'); p.circle(x - 1, y - 5, 3.4, (xx, yy) => (hash(xx, yy, 72 + k) < 0.3 ? '#4a9445' : '#3a7b3c'));
+        for (const [dx, dy] of [[-2, -7], [2, -6], [0, -3], [-3, -3], [3, -2]]) {
+          const c = (dx + k) % 3 === 0 ? '#e58ea8' : '#d9293b';
+          p.rect(x + dx, y + dy, 2, 2, c); p.set(x + dx, y + dy, shade(c, 1.25)); p.set(x + dx + 1, y + dy + 1, shade(c, 0.7));
+        }
+      }
+    },
+    tulips(p, pt) {
+      bed(p, pt);
+      const cols = ['#d9293b', '#f2c94c', '#e58ea8', '#f4f0e8'];
+      for (const { q, i, j } of spots(pt, 4, 81, 0.2, 0.8)) {
+        const [x, y] = q, c = cols[(i + 2 * j) % 4];
+        p.rect(x, y - 5, 1, 5, '#4b8636'); p.set(x - 1, y - 2, '#5fa043'); p.set(x + 1, y - 3, '#5fa043');
+        p.rect(x - 1, y - 8, 3, 3, c); p.set(x - 1, y - 9, c); p.set(x + 1, y - 9, c); p.set(x, y - 8, shade(c, 1.2)); p.set(x + 1, y - 6, shade(c, 0.75));
+      }
+    },
+    goldChest(p, pt, o = {}) {
+      const q = pt(0.5, 0.5);
+      // a red carpet under it, then spilled coins
+      p.poly([pt(0.12, 0.12), pt(0.88, 0.12), pt(0.88, 0.88), pt(0.12, 0.88)], (x, y) => ((x + y) % 4 === 0 ? '#a83b35' : '#c8463c'));
+      p.poly([pt(0.2, 0.2), pt(0.8, 0.2), pt(0.8, 0.8), pt(0.2, 0.8)], (x, y) => ((x + 2 * y) % 5 === 0 ? '#e0b44a' : '#b8433b'));
+      const x0 = q[0] - 8, base = q[1] + 1;
+      p.rect(x0, base - 9, 16, 9, '#7c4a26'); p.rect(x0 + 13, base - 9, 3, 9, '#5a3418');
+      for (const f of [0.2, 0.75]) p.rect(x0 + Math.round(16 * f), base - 9, 2, 9, '#e0b44a');
+      p.poly([[x0, base - 9], [x0 + 16, base - 9], [x0 + 14, base - 19], [x0 + 2, base - 19]], '#5a3418');
+      p.rect(x0 + 3, base - 18, 10, 1, '#e0b44a');
+      for (let x = x0 + 1; x < x0 + 15; x++) { const top = base - 10 - Math.round(Math.sin((x - x0) / 16 * Math.PI) * 4); for (let y = top; y <= base - 8; y++) p.set(x, y, hash(x, y, 12) < 0.45 ? '#f2c94c' : hash(x, y, 13) < 0.5 ? '#fff3b0' : '#d9a441'); }
+      p.rect(x0 + 6, base - 7, 4, 4, '#e0b44a'); p.set(x0 + 7, base - 5, PAL.ink); p.set(x0 + 8, base - 5, PAL.ink);
+      for (const [dx, dy] of [[-11, 2], [-9, 4], [10, 3], [12, 1], [6, 5], [-4, 5]]) { p.rect(q[0] + dx, q[1] + dy, 2, 1, '#f2c94c'); p.set(q[0] + dx, q[1] + dy, '#fff3b0'); }
+      p.set(x0 + 5, base - 13, '#c8463c'); p.set(x0 + 10, base - 12, '#59d1a0'); p.set(x0 + 12, base - 11, '#ffffff');
+      const sp = o.frame ? [x0 + 4, base - 16] : [x0 + 11, base - 15];
+      for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) p.set(sp[0] + dx, sp[1] + dy, '#ffffff');
+    },
+    fountain(p, pt, o = {}) {
+      const q = pt(1, 1), ice = !!o.ice, f = o.frame || 0;
+      const rx = 22, ry = 11;
+      // stone basin wall
+      for (let h = 6; h >= 0; h--) p.ellipse(q[0], q[1] - h, rx, ry, h === 6 ? '#cfcabd' : (x, y) => shade(STONE(hash(x >> 1, (y + h) >> 1, 5)), x > q[0] + 6 ? 0.8 : 1));
+      const water = (x, y) => {
+        if (ice) return hash(x >> 1, y, 31) < 0.12 ? '#ffffff' : ((x * 3 + y * 5) % 23 === 0 ? '#8fb8cc' : hash(x, y, 32) < 0.5 ? '#d6eef8' : '#c4e2f0');
+        const ring = Math.hypot((x - q[0]) / 2, y - (q[1] - 7)) - f * 1.5;
+        return (Math.floor(ring) % 5 === 0) ? '#9fdcf5' : hash(x, y, 33) < 0.2 ? '#59bde0' : '#3f9fd8';
+      };
+      p.ellipse(q[0], q[1] - 7, rx - 3, ry - 2, water);
+      p.ellipse(q[0], q[1] - 7, rx - 3, ry - 2, (x, y) => (Math.hypot((x - q[0]) / (rx - 3), (y - q[1] + 7) / (ry - 2)) > 0.9 ? '#a9a397' : null));
+      // centre column and upper bowl
+      p.rect(q[0] - 2, q[1] - 22, 5, 16, '#b5afa2'); p.rect(q[0] + 1, q[1] - 22, 2, 16, '#8a857c');
+      p.ellipse(q[0], q[1] - 22, 8, 3.5, '#a9a397'); p.ellipse(q[0], q[1] - 23, 7, 3, ice ? '#d6eef8' : '#59bde0');
+      p.rect(q[0] - 1, q[1] - 28, 3, 5, '#c4bfb3'); p.circle(q[0] + 0.5, q[1] - 29, 2, '#cfcabd');
+      if (ice) {
+        // icicles under the bowl lip, snow cap on top
+        for (let x = -7; x <= 7; x += 2) { const L = 2 + (Math.abs(x * 7) % 4); p.rect(q[0] + x, q[1] - 20, 1, L, '#e8f6fc'); p.set(q[0] + x, q[1] - 20 + L, '#b8dcec'); }
+        p.ellipse(q[0] + 0.5, q[1] - 31, 2.5, 1.2, '#ffffff'); p.ellipse(q[0], q[1] - 24, 6, 1.5, '#ffffff');
+        for (let x = -18; x <= 18; x += 3) p.set(q[0] + x, q[1] - 7 - Math.sqrt(Math.max(0, 1 - (x / 19) ** 2)) * 9, '#ffffff');
+      } else {
+        // spouting jets that fall into the basin
+        for (const s of [-1, 1]) for (let t = 0; t <= 1; t += 0.04) {
+          const x = q[0] + s * (1 + t * 13), y = q[1] - 30 - Math.sin(t * Math.PI) * 5 + t * 22;
+          if (((t * 25 + f * 2) | 0) % 3 !== 0) p.set(x, y, '#e9f7fc');
+        }
+        p.rect(q[0], q[1] - 34, 1, 4, '#e9f7fc');
+        for (const s of [-1, 1]) { p.set(q[0] + s * 14, q[1] - 9 - (f % 2), '#ffffff'); p.set(q[0] + s * 15, q[1] - 10 + (f % 2), '#e9f7fc'); }
+      }
+    },
+  };
+  const DECOR_TOP = { harborLantern: 44, festoon: 34, sunflowers: 30, garden: 24, fountain: 42, goldChest: 28 };
+  const _dtex = {};
+  // variant: { frame, ice } for animated / seasonal decorations.
+  function decorTex(type, o = {}) {
+    const key = type + (o.frame ? '_' + o.frame : '') + (o.ice ? '_ice' : '');
+    if (_dtex[key]) return _dtex[key];
+    const [fw, fd] = TOF.sizeOf(type);
+    const { p, pt, G } = decorCanvas(fw, fd, DECOR_TOP[type] || 24);
+    DECOR_ART[type](p, pt, o);
+    p.outline(PAL.ink);
+    const s = sprite(p, G.b[0], G.b[1]);
+    return (_dtex[key] = s);
+  }
+  // Field set pieces: one fence rail per tile edge (dir 'u' runs along +gx, 'v' along +gy) and the scarecrow.
+  function fenceTex(dir) {
+    const p = new Pix(22, 28), d = dir === 'u' ? [HW, HH] : [-HW, HH];
+    const a = [dir === 'u' ? 2 : 19, 17], b = [a[0] + d[0], a[1] + d[1]];
+    for (const q of [a, [a[0] + d[0] / 2, a[1] + d[1] / 2 - 4], b]) { p.rect(q[0], q[1] - 7, 2, 7, '#7c5131'); p.set(q[0], q[1] - 7, '#a06c40'); }
+    p.line(a[0], a[1] - 5, b[0], b[1] - 5, '#b07a47'); p.line(a[0], a[1] - 2, b[0], b[1] - 2, '#a06c40');
+    p.outline(PAL.ink);
+    return sprite(p, a[0], a[1]);
+  }
+  function scarecrow() {
+    const p = new Pix(20, 32), x = 10, g = 29;
+    p.rect(x, g - 22, 1, 22, '#6b4428');
+    p.rect(x - 7, g - 17, 15, 1, '#7c5131');
+    p.poly([[x - 4, g - 18], [x + 5, g - 18], [x + 4, g - 9], [x - 3, g - 9]], (xx, yy) => ((xx + yy) % 5 === 0 ? '#3f6fb0' : '#5a7fb8'));
+    p.rect(x - 1, g - 15, 3, 3, '#c8463c'); p.rect(x - 7, g - 18, 3, 3, '#5a7fb8'); p.rect(x + 5, g - 18, 3, 3, '#5a7fb8');
+    for (const s of [-8, 8]) { p.set(x + s, g - 16, '#e8c050'); p.set(x + s + (s > 0 ? 1 : -1), g - 15, '#e8c050'); }
+    p.rect(x - 3, g - 9, 7, 1, '#e8c050'); p.set(x - 2, g - 8, '#e8c050'); p.set(x + 2, g - 8, '#e8c050');
+    p.circle(x + 0.5, g - 21, 3, '#e8c48a'); p.set(x - 1, g - 22, PAL.ink); p.set(x + 1, g - 22, PAL.ink); p.rect(x - 1, g - 20, 3, 1, '#7c5131');
+    p.rect(x - 5, g - 24, 11, 1, '#c9a040'); p.rect(x - 3, g - 27, 7, 3, '#d9b14a'); p.rect(x - 3, g - 25, 7, 1, '#c8463c');
+    p.outline(PAL.ink);
+    p.ellipse(x, g, 4, 1.5, '#1d3a1a', 60);
+    return sprite(p, x, g);
+  }
+  const _durl = {};
+  function decorURL(type) {
+    if (_durl[type]) return _durl[type];
+    if (type === 'scarecrow') return (_durl[type] = cropURL(scarecrow()));
+    if (type === 'fieldFence') { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const x = c.getContext('2d'); x.drawImage(fenceTex('v').canvas, 17, 1); x.drawImage(fenceTex('u').canvas, 2, 1); return (_durl[type] = c.toDataURL()); }
+    if (type === 'keeperShack') return (_durl[type] = cropURL(lighthouseIslet({ shack: true, iconOnly: true })));
+    return (_durl[type] = cropURL(decorTex(type)));
   }
 
   const _btex = {};
@@ -3948,7 +4430,9 @@ const Art = (() => {
     B('shipwright', { fw: 2, fd: 3, wall: 15, roof: 12, mat: 'wood', roofC: '#5c6670', bigDoor: true, door: 'R', chimney: true, seed: 31 });
     B('warehouse', { fw: 3, fd: 2, wall: 16, roof: 12, mat: 'wood', roofC: '#8a5a36', bigDoor: true, door: 'L', doorAt: 0.3, seed: 37 });
     T.oak = tree('oak', 1); T.tree = tree('round', 2); T.tree2 = tree('round', 5); T.pine = tree('pine', 3); T.bush = tree('bush', 3); T.bush2 = tree('bush', 4);
-    T.lighthouse = lighthouseIslet();
+    T.lighthouse = lighthouseIslet(); T.lighthouseSnow = lighthouseIslet({ snow: true });
+    T.lighthouseShack = lighthouseIslet({ shack: true }); T.lighthouseShackSnow = lighthouseIslet({ shack: true, snow: true });
+    T.fenceU = fenceTex('u'); T.fenceV = fenceTex('v'); T.scarecrow = scarecrow();
     T.rock = rock(1); T.rock2 = rock(2);
     T.crate = crate(); T.barrel = barrel(); T.lamp = lamp(); T.post = post();
     { const p = new Pix(9, 12); p.blitMap(['..rrr..', '.rwwwr.', '.rrrrr.', '.wwwww.', 'rrrrrrr', '.rrrrr.'], { r: '#c8463c', w: '#f4ecd8' }, 1, 3); p.rect(4, 1, 1, 3, '#3b3d40'); p.outline(PAL.ink); T.buoy = sprite(p, 4, 9); }
@@ -3965,7 +4449,7 @@ const Art = (() => {
     return T;
   }
 
-  return { Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
+  return { decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
 })();
 
 </script>
@@ -4356,7 +4840,7 @@ const PWA = (() => {
 const World = (() => {
   'use strict';
   const { Pix, PAL, C, hash } = Art;
-  const HW = 16, HH = 8, N = 40, EDGE = 18;
+  const HW = 16, HH = 8, N = 40;
   const T = { GRASS: 0, ROAD: 1, SAND: 2, WATER: 3, DOCK: 4, ROCK: 5, FIELD: 6 };
 
   // ---------- coordinates ----------
@@ -4429,32 +4913,55 @@ const World = (() => {
     for (let gy = 1; gy <= 4; gy++) for (let gx = 17; gx <= 20; gx++) set(gx, gy, T.FIELD);
   }
 
-  // distance-to-land per water tile (for shallow/deep tint)
-  let waterDist = [];
-  function computeWaterDist() {
-    waterDist = map.map(r => r.map(t => (t === T.WATER ? 99 : 0)));
-    const q = [];
-    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) if (waterDist[gy][gx] === 0) q.push([gx, gy]);
-    while (q.length) {
-      const [gx, gy] = q.shift();
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-        const x = gx + dx, y = gy + dy;
-        if (x < 0 || y < 0 || x >= N || y >= N) continue;
-        if (waterDist[y][x] > waterDist[gy][gx] + 1) { waterDist[y][x] = waterDist[gy][gx] + 1; q.push([x, y]); }
-      }
-    }
+  // ---------- the land and sea beyond the map ----------
+  // The terrain image covers a rectangle as wide as the map and PAD taller at the top and bottom, so a
+  // tall phone screen never shows an empty void: the coast, forest and open sea simply carry on.
+  // Tiles outside the 40x40 map are scenery only (nothing can be built there).
+  const PAD = 320, M = 40, EN = N + 2 * M;
+  const ext = [];  // ext[gy + M][gx + M] -> tile type, for every tile in or near the picture
+  let wd = [], ld = []; // water: tiles to the nearest land; land: tiles to the nearest water
+  const inMap = (gx, gy) => gx >= 0 && gy >= 0 && gx < N && gy < N;
+  function typeAt(gx, gy) {
+    if (inMap(gx, gy)) return map[gy][gx];
+    const r = ext[gy + M];
+    return r && r[gx + M] !== undefined ? r[gx + M] : (isWater(gx, gy) ? T.WATER : T.GRASS);
   }
+  const wet = t => t === T.WATER || t === T.DOCK;
+  function buildExt() {
+    for (let y = 0; y < EN; y++) { ext[y] = []; for (let x = 0; x < EN; x++) { const gx = x - M, gy = y - M; ext[y][x] = inMap(gx, gy) ? map[gy][gx] : (isWater(gx, gy) ? T.WATER : T.GRASS); } }
+    for (let y = 0; y < EN; y++) for (let x = 0; x < EN; x++) {
+      if (inMap(x - M, y - M) || ext[y][x] !== T.GRASS) continue;
+      if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => ext[y + dy] && ext[y + dy][x + dx] === T.WATER)) ext[y][x] = T.SAND;
+    }
+    const bfs = (isSrc) => {
+      const d = ext.map(r => r.map(t => (isSrc(t) ? 0 : 999))), q = [];
+      for (let y = 0; y < EN; y++) for (let x = 0; x < EN; x++) if (!d[y][x]) q.push(x, y);
+      for (let i = 0; i < q.length; i += 2) {
+        const x = q[i], y = q[i + 1];
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const a = x + dx, b = y + dy;
+          if (a < 0 || b < 0 || a >= EN || b >= EN || d[b][a] <= d[y][x] + 1) continue;
+          d[b][a] = d[y][x] + 1; q.push(a, b);
+        }
+      }
+      return d;
+    };
+    wd = bfs(t => !wet(t));
+    ld = bfs(t => t === T.WATER);
+  }
+  const wDist = (gx, gy) => { const r = wd[gy + M]; return r && r[gx + M] !== undefined ? r[gx + M] : 99; };
+  const lDist = (gx, gy) => { const r = ld[gy + M]; return r && r[gx + M] !== undefined ? r[gx + M] : 99; };
 
   // ---------- terrain pixels ----------
-  const OX = N * HW; // ground image x offset (world x = px - OX)
-  const GW = N * HW * 2, GH = N * HH * 2 + EDGE + 2;
+  const OX = N * HW, OY = PAD; // ground image offset (world x = px - OX, world y = py - OY)
+  const GW = N * HW * 2, GH = N * HH * 2 + 2 * PAD;
   const halfW = y => (y < 8 ? 2 * (y + 1) : 2 * (15 - y));
   function forTilePixels(gx, gy, fn) {
     const t = isoTop(gx, gy);
     for (let ly = 0; ly < 16; ly++) {
       const hw = halfW(ly);
       for (let lx = 16 - hw; lx < 16 + hw; lx++) {
-        const X = t.x - 16 + lx + OX, Y = t.y + ly;
+        const X = t.x - 16 + lx + OX, Y = t.y + ly + OY;
         const u = (ly / HH + (lx - 16) / HW) / 2, v = (ly / HH - (lx - 16) / HW) / 2;
         fn(X, Y, u, v);
       }
@@ -4497,28 +5004,27 @@ const World = (() => {
   }
   // Bilinear sample of the distance field so depth bands curve smoothly instead of following tile edges.
   function smoothDist(fx, fy) {
-    const g = (x, y) => waterDist[Math.min(N - 1, Math.max(0, y))][Math.min(N - 1, Math.max(0, x))];
     const x0 = Math.floor(fx), y0 = Math.floor(fy), tx = fx - x0, ty = fy - y0;
-    const a = g(x0, y0) * (1 - tx) + g(x0 + 1, y0) * tx, b = g(x0, y0 + 1) * (1 - tx) + g(x0 + 1, y0 + 1) * tx;
+    const a = wDist(x0, y0) * (1 - tx) + wDist(x0 + 1, y0) * tx, b = wDist(x0, y0 + 1) * (1 - tx) + wDist(x0 + 1, y0 + 1) * tx;
     return a * (1 - ty) + b * ty;
   }
   function waterColor(X, Y, gx, gy, u, v, frame) {
     const d = smoothDist(gx + u - 0.5, gy + v - 0.5) + (hash(X, Y, 11) - 0.5) * 0.7;
     let c = d < 1.3 ? PAL.wShallow : d < 3.2 ? PAL.wMid : PAL.wDeep;
     // foam next to land
-    const nearLand = (dx, dy) => { const x = gx + dx, y = gy + dy; return x >= 0 && y >= 0 && x < N && y < N && map[y][x] !== T.WATER && map[y][x] !== T.DOCK; };
+    const nearLand = (dx, dy) => !wet(typeAt(gx + dx, gy + dy));
     const wob = 0.12 + 0.05 * Math.sin((X + Y) * 0.7 + frame * 1.6);
     if ((nearLand(-1, 0) && u < wob) || (nearLand(0, -1) && v < wob) || (nearLand(1, 0) && u > 1 - wob) || (nearLand(0, 1) && v > 1 - wob)) {
       return hash(X, Y, frame) < 0.7 ? PAL.wFoam : PAL.wWave;
     }
-    // drifting wave dashes
-    if (Y % 5 === 0) {
-      const ph = (Y * 7) % 13;
-      const k = (X + ph * 3 + frame * 2) % 29;
-      if (k < 3 && hash(Math.floor((X + ph * 3 + frame * 2) / 29), Y, 12) < 0.45) return PAL.wWave;
-    }
-    if (hash(X, Y, 100 + frame) < 0.0015) return PAL.wSpark;
-    return c;
+    return waveDash(X, Y, frame) || (hash(X, Y, 100 + frame) < 0.0015 ? PAL.wSpark : c);
+  }
+  // drifting wave dashes
+  function waveDash(X, Y, frame, wrap = 0) {
+    if (Y % 5 !== 0) return null;
+    const ph = (Y * 7) % 13, k0 = X + ph * 3 + frame * 2;
+    const k = k0 % 29, cell = Math.floor(k0 / 29);
+    return k < 3 && hash(wrap ? cell % wrap : cell, Y, 12) < 0.45 ? PAL.wWave : null;
   }
 
   let groundCanvas = null, snowCanvas = null, waterCanvases = [], dockLayers = [];
@@ -4528,36 +5034,30 @@ const World = (() => {
     if (t === T.SAND) return n < 0.5 ? '#e9edf1' : '#dfe5ea';
     return n < 0.08 ? '#c9d6e3' : n < 0.55 ? '#f2f6fa' : '#e6edf4';
   }
+  // Repeating swatches for open sea and inland meadow far from any shore: copying them is far cheaper than
+  // working out every pixel, and nothing there needs foam, beaches or depth bands.
+  function swatch(w, h, color) { const p = new Pix(w, h); for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) p.set(x, y, color(x, y)); return p; }
+  function blit(dst, src, X, Y) {
+    if (X < 0 || Y < 0 || X >= dst.w || Y >= dst.h) return;
+    const i = ((Y % src.h) * src.w + (X % src.w)) * 4, j = (Y * dst.w + X) * 4;
+    dst.d[j] = src.d[i]; dst.d[j + 1] = src.d[i + 1]; dst.d[j + 2] = src.d[i + 2]; dst.d[j + 3] = 255;
+  }
   function buildTerrain() {
     const land = new Pix(GW, GH), snow = new Pix(GW, GH);
     const waters = [0, 1, 2, 3].map(() => new Pix(GW, GH));
-    for (let gy = 0; gy < N; gy++) for (let gx = 0; gx < N; gx++) {
-      const t = map[gy][gx];
-      if (t === T.WATER || t === T.DOCK) {
-        forTilePixels(gx, gy, (X, Y, u, v) => { for (let f = 0; f < 4; f++) waters[f].set(X, Y, waterColor(X, Y, gx, gy, u, v, f)); });
+    const SW = 232, SH = 130; // multiples of the wave-dash periods (29 across, 5 and 13 down)
+    const seaSw = [0, 1, 2, 3].map(f => swatch(SW, SH, (x, y) => waveDash(x, y, f, SW / 29) || (hash(x, y, 100 + f) < 0.0015 ? PAL.wSpark : PAL.wDeep)));
+    const grassSw = swatch(256, 128, (x, y) => landColor(T.GRASS, x, y, 0, 0, 0, 0)), snowSw = swatch(256, 128, (x, y) => snowColor(T.GRASS, x, y));
+    for (let gy = -M; gy < N + M; gy++) for (let gx = -M; gx < N + M; gx++) {
+      const tp = isoTop(gx, gy);
+      if (tp.x + HW < -OX || tp.x - HW > OX || tp.y + 2 * HH < -OY || tp.y > GH - OY) continue;
+      const t = typeAt(gx, gy), outside = !inMap(gx, gy);
+      if (wet(t)) {
+        if (outside && wDist(gx, gy) >= 5) forTilePixels(gx, gy, (X, Y) => { for (let f = 0; f < 4; f++) blit(waters[f], seaSw[f], X, Y); });
+        else forTilePixels(gx, gy, (X, Y, u, v) => { for (let f = 0; f < 4; f++) waters[f].set(X, Y, waterColor(X, Y, gx, gy, u, v, f)); });
+      } else if (outside && t === T.GRASS && lDist(gx, gy) >= 3) {
+        forTilePixels(gx, gy, (X, Y) => { blit(land, grassSw, X, Y); blit(snow, snowSw, X, Y); });
       } else forTilePixels(gx, gy, (X, Y, u, v) => { land.set(X, Y, landColor(t, X, Y, gx, gy, u, v)); snow.set(X, Y, snowColor(t, X, Y)); });
-    }
-    // diorama edges along the two lower map borders
-    for (let X = 0; X < GW; X++) {
-      let yb = -1;
-      for (let Y = GH - 1; Y >= 0; Y--) if (land.a(X, Y) || waters[0].a(X, Y)) { yb = Y; break; }
-      if (yb < 0) continue;
-      const isLand = land.a(X, yb) > 0;
-      const right = X >= OX;
-      for (let k = 1; k <= EDGE; k++) {
-        if (isLand) {
-          let c = k <= 2 ? PAL.edgeGrass : (hash(X >> 1, (yb + k) >> 1, 13) < 0.25 ? PAL.dirt3 : ((k >> 2) % 2 ? PAL.dirt1 : PAL.dirt2));
-          c = right ? Art.shade(c, 0.8) : c;
-          land.set(X, yb + k, c); snow.set(X, yb + k, k <= 2 ? '#e6edf4' : c);
-        } else {
-          for (let f = 0; f < 4; f++) {
-            let c = k <= 1 ? PAL.wWave : (k < 7 ? PAL.edgeWater1 : PAL.edgeWater2);
-            c = right ? Art.shade(c, 0.85) : c;
-            waters[f].set(X, yb + k, c, 235);
-          }
-        }
-      }
-      if (isLand) { land.set(X, yb + EDGE + 1, PAL.ink); snow.set(X, yb + EDGE + 1, PAL.ink); } else for (let f = 0; f < 4; f++) waters[f].set(X, yb + EDGE + 1, '#1b4a78');
     }
     groundCanvas = land.canvas();
     snowCanvas = snow.canvas();
@@ -4565,11 +5065,14 @@ const World = (() => {
     // one small layer per jetty, with a dark edge so the planks sit above the water
     dockLayers = DOCKS.map(d => {
       const a = isoTop(d.x0, d.row), b = isoTop(d.x1 + 1, d.row + 1);
-      const x0 = a.x - HW - 2 + OX, y0 = a.y - 2, w = (b.x + HW + 4 + OX) - x0, h = (b.y + 8) - y0;
+      const x0 = a.x - HW - 2 + OX, y0 = a.y - 2 + OY, w = (b.x + HW + 4 + OX) - x0, h = (b.y + 8 + OY) - y0;
       const p = new Pix(w, h);
       for (let gx = d.x0; gx <= d.x1; gx++) forTilePixels(gx, d.row, (X, Y, u, v) => p.set(X - x0, Y - y0, landColor(T.DOCK, X, Y, gx, d.row, u, v)));
       for (let x = 0; x < w; x++) { let yb = -1; for (let y = h - 1; y >= 0; y--) if (p.a(x, y)) { yb = y; break; } if (yb >= 0) for (let k = 1; k <= 3; k++) p.set(x, yb + k, k === 3 ? '#2a1d17' : '#5c3a22'); }
-      return { canvas: p.canvas(), x: x0 - OX, y: y0, active: false };
+      // the deck's outline: ships berthed behind the jetty are clipped to stay under it
+      const c = [isoTop(d.x0, d.row), isoTop(d.x1 + 1, d.row), isoTop(d.x1 + 1, d.row + 1), isoTop(d.x0, d.row + 1)];
+      const outline = [[c[0].x - 1, c[0].y], [c[1].x + 1, c[1].y - 1], [c[2].x + 1, c[2].y + 3], [c[3].x - 1, c[3].y + 3]];
+      return { canvas: p.canvas(), x: x0 - OX, y: y0 - OY, active: false, outline };
     });
   }
 
@@ -4577,11 +5080,13 @@ const World = (() => {
   let TEX = null;
   let canvas, ctx, dpr = 1;
   const cam = { x: 40, y: 190, scale: 3 };
-  let objects = [];
+  let objects = [], outerBack = [], outerFront = [];
   const ships = new Map();
   const villagers = [], gulls = [], smoke = [], emitters = [];
   let staticOcc = null, getState = () => null;
   const bObjs = new Map(); // building id -> scene object
+  const dObjs = new Map(); // decoration id -> scene object
+  let lighthouseObj = null, fieldDecor = [];
   let placing = null;      // { type, fw, fd, gx, gy, reason }
   let roadTiles = [];
   let onTapCb = () => {};
@@ -4642,7 +5147,16 @@ const World = (() => {
     }
     // lighthouse on its islet
     const lh = tileCenter(ISLET.gx, ISLET.gy);
-    addObj({ kind: 'prop', tex: 'lighthouse', x: lh.x, y: lh.y, depth: lh.y + 8, lighthouse: true, info: { name: 'Lighthouse', future: 'The old lighthouse. Its keeper has stories about what lies past the reef.' }, tap: true });
+    lighthouseObj = addObj({ kind: 'prop', tex: 'lighthouse', x: lh.x, y: lh.y, depth: lh.y + 8, lighthouse: true, info: { name: 'Lighthouse', future: 'The old lighthouse. Its keeper has stories about what lies past the reef.' }, tap: true });
+    // the field's fence (one rail per tile edge) and scarecrow, shown once bought
+    fieldDecor = [];
+    for (let i = 0; i < 4; i++) {
+      for (const [gx, gy, dir] of [[17 + i, 1, 'U'], [17 + i, 5, 'U'], [17, 1 + i, 'V'], [21, 1 + i, 'V']]) {
+        const a = isoTop(gx, gy), mid = dir === 'U' ? (a.y + 4) : (a.y + 4);
+        fieldDecor.push(addObj({ kind: 'prop', tex: 'fence' + dir, x: a.x, y: a.y, depth: mid, decorType: 'fieldFence', hidden: true }));
+      }
+    }
+    { const c = isoTop(19, 3); fieldDecor.push(addObj({ kind: 'prop', tex: 'scarecrow', x: c.x, y: c.y, depth: c.y + 1, decorType: 'scarecrow', hidden: true })); }
     // support posts hang from the jetty's visible front edge and its seaward end (shown once built)
     for (const d of DOCKS) {
       const pts = [];
@@ -4669,6 +5183,19 @@ const World = (() => {
         addObj({ kind: 'prop', tex: k, x: c.x + jx, y: c.y + jy, depth: c.y + jy, tree: true, gx, gy });
       }
     }
+    // forest beyond the map's land edges, drawn as pre-sorted scenery behind or in front of the village
+    outerBack = []; outerFront = [];
+    for (let gy = -M; gy < N + M; gy++) for (let gx = -M; gx < N + M; gx++) {
+      if (inMap(gx, gy) || typeAt(gx, gy) !== T.GRASS || lDist(gx, gy) < 2) continue;
+      const n = hash(gx + 100, gy + 100, 77);
+      if (n > 0.34) continue;
+      const c = tileCenter(gx, gy);
+      if (c.x < -OX - 20 || c.x > OX + 20 || c.y < -OY - 10 || c.y > GH - OY + 40) continue;
+      const jx = Math.round((hash(gx + 100, gy, 79) - 0.5) * 10), jy = Math.round((hash(gx, gy + 100, 80) - 0.5) * 4);
+      const k = n < 0.15 ? 'pine' : n < 0.25 ? 'oak' : ['tree', 'tree2', 'pine', 'bush'][(hash(gx, gy, 78) * 4) | 0];
+      (gx < 0 || gy < 0 ? outerBack : outerFront).push({ tex: k, x: c.x + jx, y: c.y + jy, depth: c.y + jy });
+    }
+    outerBack.sort((a, b) => a.depth - b.depth); outerFront.sort((a, b) => a.depth - b.depth);
     // walkable tiles
     roadTiles = reachableRoads();
     villagers.length = 0;
@@ -4703,9 +5230,40 @@ const World = (() => {
     }
     for (const e of staticEmitters) emitters.push(e);
     if (state.buildings.some(b => b.type === 'seaWitch' && b.level >= 1) && !villagers.some(v => v.look === 'witch')) villagers.push(spawnVillager('witch', 777));
-    for (const o of objects) if (o.tree) o.hidden = foots.some(f => inFoot(o.gx, o.gy, f));
+    hideTrees(state);
   }
   let staticEmitters = [];
+
+  // ---------- decorations ----------
+  // Texture key for a decoration, registering the sprite on first use. Fountains freeze in the snow.
+  function decorKey(type, frame = 0, ice = false) {
+    const key = 'dec_' + type + (frame ? '_' + frame : '') + (ice ? '_ice' : '');
+    if (!TEX[key]) TEX[key] = Art.decorTex(type, { frame, ice });
+    return key;
+  }
+  let decorReady = false;
+  function syncDecor(state) {
+    const live = new Set((state.decor || []).map(d => d.id));
+    for (const [id, o] of dObjs) if (!live.has(id)) { removeObj(o); dObjs.delete(id); }
+    const owned = new Set((state.decor || []).map(d => d.type));
+    for (const o of fieldDecor) o.hidden = !owned.has(o.decorType);
+    if (lighthouseObj) { lighthouseObj.tex = owned.has('keeperShack') ? 'lighthouseShack' : 'lighthouse'; lighthouseObj.info.future = owned.has('keeperShack') ? 'The keeper waves from the shack door. Ships give the reef a wide berth now.' : 'The old lighthouse. Its keeper has stories about what lies past the reef.'; }
+    for (const d of state.decor || []) {
+      if (TOF.DECOR[d.type].fixed) continue;
+      const [fw, fd] = TOF.sizeOf(d.type), p = isoTop(d.gx + fw, d.gy + fd);
+      let o = dObjs.get(d.id);
+      if (!o) { o = addObj({ kind: 'decor', dId: d.id, decorType: d.type, tap: true, info: { dId: d.id } }); dObjs.set(d.id, o); if (decorReady) { o.squash = 1; splash(p.x - (fw - fd) * 4, p.y - 4); } }
+      if (!o.tex) o.tex = decorKey(d.type);
+      o.x = p.x; o.y = p.y; o.depth = p.y - (fw + fd) * 2; o.fw = fw; o.fd = fd;
+    }
+    hideTrees(state);
+    decorReady = true;
+  }
+  // Trees give way to anything the player has put on their tile.
+  function hideTrees(state) {
+    const foots = TOF.placedThings(state).map(b => TOF.footprint(b.type, b.gx, b.gy));
+    for (const o of objects) if (o.tree) o.hidden = foots.some(f => inFoot(o.gx, o.gy, f));
+  }
 
   const TERRAIN_NAME = { [T.ROAD]: 'roads', [T.WATER]: 'water', [T.DOCK]: 'the docks', [T.ROCK]: 'rocks', [T.FIELD]: 'the field' };
   // Map rules for placement. Returns null when the spot is fine, else a reason.
@@ -4715,27 +5273,31 @@ const World = (() => {
       if (x < 0 || y < 0 || x >= N || y >= N) return 'That’s off the edge of the island.';
       const t = map[y][x];
       if (t !== T.GRASS && t !== T.SAND) return `Can’t build on ${TERRAIN_NAME[t]}.`;
+      if (t === T.SAND && TOF.defOf(type).soil) return 'Flowers and gardens need grass, not sand.';
       if (staticOcc[y][x]) return 'Something is already standing there.';
       if (t === T.SAND) coastal = true;
       for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = x + dx, b = y + dy; if (a >= 0 && b >= 0 && a < N && b < N && (map[b][a] === T.WATER || map[b][a] === T.DOCK)) coastal = true; }
     }
-    if (TOF.BUILDINGS[type].coastal && !coastal) return `The ${TOF.BUILDINGS[type].name} has to touch the shore.`;
+    if (TOF.defOf(type).coastal && !coastal) return `The ${TOF.defOf(type).name} has to touch the shore.`;
     return null;
   }
   const tileAt = (wx, wy) => ({ gx: Math.floor((wy / HH + wx / HW) / 2), gy: Math.floor((wy / HH - wx / HW) / 2) });
 
+  const isDecor = type => !!TOF.DECOR[type];
+  const findPlaced = id => getState().buildings.find(x => x.id === id) || (getState().decor || []).find(x => x.id === id);
+  const placedObj = id => bObjs.get(id) || dObjs.get(id);
   function startPlacing(type, movingId) {
-    const [fw, fd] = TOF.BUILDINGS[type].size;
+    const [fw, fd] = TOF.sizeOf(type);
     placing = { type, fw, fd, gx: 0, gy: 0, reason: null, movingId: movingId || null };
     if (movingId) {
-      const b = getState().buildings.find(x => x.id === movingId), o = bObjs.get(movingId);
-      TEX['ghost_' + type] = Art.buildingTex(type, Math.max(1, b.level));
+      const b = findPlaced(movingId), o = placedObj(movingId);
+      TEX['ghost_' + type] = isDecor(type) ? Art.decorTex(type) : Art.buildingTex(type, Math.max(1, b.level));
       if (o) o.alpha = 0.35;
       movePlacing(b.gx, b.gy);
       const p = isoTop(b.gx + fw / 2, b.gy + fd / 2); cam.x = p.x; cam.y = p.y; clampCam();
       return placing;
     }
-    TEX['ghost_' + type] = Art.buildingTex(type, 1);
+    TEX['ghost_' + type] = isDecor(type) ? Art.decorTex(type) : Art.buildingTex(type, 1);
     // first valid spot spiralling out from the screen centre
     const c = tileAt(cam.x, cam.y);
     let best = null;
@@ -4752,12 +5314,12 @@ const World = (() => {
   function movePlacing(gx, gy) {
     if (!placing) return;
     placing.gx = gx; placing.gy = gy;
-    placing.reason = placing.movingId && (() => { const b = getState().buildings.find(x => x.id === placing.movingId); return b && b.gx === gx && b.gy === gy; })()
+    placing.reason = placing.movingId && (() => { const b = findPlaced(placing.movingId); return b && b.gx === gx && b.gy === gy; })()
       ? 'Tap a new spot for it.' : TOF.placeCheck(getState(), placing.type, gx, gy, terrainCheck, placing.movingId);
     onPlaceCb(placing);
   }
   function stopPlacing() {
-    if (placing && placing.movingId) { const o = bObjs.get(placing.movingId); if (o) o.alpha = 1; }
+    if (placing && placing.movingId) { const o = placedObj(placing.movingId); if (o) o.alpha = 1; }
     placing = null;
   }
   let onPlaceCb = () => {};
@@ -4799,7 +5361,9 @@ const World = (() => {
       if (o && (o.cls !== ship.cls || o.berth !== ship.berth)) { removeObj(o); ships.delete(ship.id); o = null; }
       if (!o) {
         const p = berthPos(ship.berth);
-        o = addObj({ kind: 'ship', shipId: ship.id, cls: ship.cls, berth: ship.berth, tex: 'ship_' + ship.cls, x: p.x, y: p.y, depth: p.y, tap: true, mode: 'docked', path: null, bubble: false, alpha: 1, smokeT: 0 });
+        const bb = BERTHS[ship.berth] || BERTHS[0];
+        o = addObj({ kind: 'ship', shipId: ship.id, cls: ship.cls, berth: ship.berth, tex: 'ship_' + ship.cls, x: p.x, y: p.y, depth: p.y, tap: true, mode: 'docked', path: null, bubble: false, alpha: 1, smokeT: 0,
+          backDock: bb.gy < DOCKS[bb.dock].row ? bb.dock : -1 });
         ships.set(ship.id, o);
         if (status === 'away') { o.mode = 'away'; o.hidden = true; }
         if (launchedId === ship.id) { o.alpha = 0; o.launch = 1; splash(p.x, p.y); }
@@ -4887,6 +5451,12 @@ const World = (() => {
       }
       v.depth = v.y;
     }
+    // animated and seasonal decorations
+    const iced = snowCover > 0.5;
+    for (const o of dObjs.values()) {
+      if (o.decorType === 'fountain') o.tex = decorKey('fountain', iced ? 0 : Math.floor(time * 5) % 3, iced);
+      else if (o.decorType === 'goldChest') o.tex = decorKey('goldChest', Math.floor(time * 1.2) % 2);
+    }
     // gulls
     for (const g of gulls) {
       g.x += g.vx * dt; g.y += Math.sin(time * 0.6 + g.ph) * 4 * dt;
@@ -4914,17 +5484,10 @@ const World = (() => {
     const tx = Math.round(W / 2 - cam.x * s), ty = Math.round(H / 2 - cam.y * s);
     ctx.setTransform(s, 0, 0, s, tx, ty);
     const frame = ((Math.floor(time / 0.32) % 4) + 4) % 4;
-    ctx.drawImage(waterCanvases[frame], -OX, 0);
-    ctx.drawImage(groundCanvas, -OX, 0);
-    if (snowCover > 0.01) { ctx.globalAlpha = snowCover; ctx.drawImage(snowCanvas, -OX, 0); ctx.globalAlpha = 1; }
-    for (const L of dockLayers) if (L.active) ctx.drawImage(L.canvas, L.x, L.y);
-    if (rings.length) {
-      ctx.strokeStyle = '#d6efff'; ctx.lineWidth = 1;
-      for (const r of rings) { const k = r.t / 0.7; ctx.globalAlpha = 0.6 * (1 - k); ctx.beginPath(); ctx.ellipse(r.x, r.y, 1 + k * 4, 0.5 + k * 2, 0, 0, Math.PI * 2); ctx.stroke(); }
-      ctx.globalAlpha = 1;
-    }
-
-    // ripples under docked/moving ships
+    ctx.drawImage(waterCanvases[frame], -OX, -OY);
+    ctx.drawImage(groundCanvas, -OX, -OY);
+    if (snowCover > 0.01) { ctx.globalAlpha = snowCover; ctx.drawImage(snowCanvas, -OX, -OY); ctx.globalAlpha = 1; }
+    // ripples under docked/moving ships, on the water and so under the jetties
     for (const o of ships.values()) {
       if (o.hidden) continue;
       const r = TEX[(Math.floor(time * 1.5) % 2 ? 'ripB_' : 'ripA_') + o.cls];
@@ -4932,10 +5495,21 @@ const World = (() => {
       ctx.drawImage(r.canvas, Math.round(o.x - r.ax), Math.round(o.y - r.ay + 1));
     }
     ctx.globalAlpha = 1;
+    for (const L of dockLayers) if (L.active) ctx.drawImage(L.canvas, L.x, L.y);
+    if (rings.length) {
+      ctx.strokeStyle = '#d6efff'; ctx.lineWidth = 1;
+      for (const r of rings) { const k = r.t / 0.7; ctx.globalAlpha = 0.6 * (1 - k); ctx.beginPath(); ctx.ellipse(r.x, r.y, 1 + k * 4, 0.5 + k * 2, 0, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
 
+    // what part of the world is on screen, to skip off-screen scenery
+    const view = { x0: cam.x - W / 2 / s - 40, x1: cam.x + W / 2 / s + 40, y0: cam.y - H / 2 / s - 10, y1: cam.y + H / 2 / s + 60 };
+    const drawScenery = list => { for (const o of list) if (o.x > view.x0 && o.x < view.x1 && o.y > view.y0 && o.y < view.y1) { const t = TEX[o.tex]; ctx.drawImage(t.canvas, o.x - t.ax, o.y - t.ay); } };
+    drawScenery(outerBack);
     objects.sort((a, b) => a.depth - b.depth);
     for (const o of objects) {
       if (o.hidden) continue;
+      if (o.x < view.x0 - 80 || o.x > view.x1 + 80 || o.y < view.y0 - 20 || o.y > view.y1 + 80) continue;
       let t;
       if (o.kind === 'villager') {
         const moving = o.wait <= 0 && o.prog < 1;
@@ -4945,6 +5519,13 @@ const World = (() => {
       if (o.kind === 'ship' || o.kind === 'buoy') y += Math.sin(time * 2 + o.x * 0.1) * 0.8;
       const dx = Math.round(o.x - t.ax), dy = Math.round(y - t.ay);
       ctx.globalAlpha = o.alpha ?? 1;
+      // a ship berthed behind a jetty bobs under its deck, never over it
+      const clip = o.kind === 'ship' && o.backDock >= 0 && dockLayers[o.backDock].active ? dockLayers[o.backDock].outline : null;
+      if (clip) {
+        ctx.save(); ctx.beginPath(); ctx.rect(o.x - 200, o.y - 200, 400, 400);
+        ctx.moveTo(clip[0][0], clip[0][1]); for (let i = 1; i < clip.length; i++) ctx.lineTo(clip[i][0], clip[i][1]); ctx.closePath();
+        ctx.clip('evenodd');
+      }
       if (o.squash > 0) {
         const k = Math.sin(o.squash * Math.PI) * 0.12;
         ctx.save(); ctx.translate(Math.round(o.x), Math.round(y)); ctx.scale(1 + k * 0.5, 1 - k);
@@ -4953,8 +5534,12 @@ const World = (() => {
       } else if (o.flip) {
         ctx.save(); ctx.translate(Math.round(o.x), 0); ctx.scale(-1, 1); ctx.drawImage(t.canvas, -t.ax, dy); ctx.restore();
       } else ctx.drawImage(t.canvas, dx, dy);
+      // fresh snow settles on the lighthouse islet just as it does on the village
+      if (o.lighthouse && snowCover > 0.01) { const sn = TEX[o.tex + 'Snow']; ctx.globalAlpha = (o.alpha ?? 1) * snowCover; ctx.drawImage(sn.canvas, dx, dy); }
+      if (clip) ctx.restore();
       ctx.globalAlpha = 1;
     }
+    drawScenery(outerFront);
     // smoke
     for (const p of smoke) {
       const k = p.life / p.max, r = 1.5 + k * 3;
@@ -5051,7 +5636,7 @@ const World = (() => {
       for (let i = 0; i < w.intensity * 40 * dt * 10; i++) {
         const p = toWorld(Math.random() * W / dpr, Math.random() * H / dpr);
         const gx = Math.floor((p.y / HH + p.x / HW) / 2), gy = Math.floor((p.y / HH - p.x / HW) / 2);
-        if (gx >= 0 && gy >= 0 && gx < N && gy < N && map[gy][gx] === T.WATER) rings.push({ x: p.x, y: p.y, t: 0 });
+        if (typeAt(gx, gy) === T.WATER) rings.push({ x: p.x, y: p.y, t: 0 });
       }
     }
     for (let i = rings.length - 1; i >= 0; i--) { rings[i].t += dt; if (rings[i].t > 0.7) rings.splice(i, 1); }
@@ -5106,6 +5691,8 @@ const World = (() => {
       for (const o of objects) {
         if (o.hidden) continue;
         if (o.tex === 'lamp') halo(o.x, o.y - 15, 26, 0.35 * sky.lights, '255,200,120');
+        else if (o.decorType === 'harborLantern') { for (const sx of [-8, 8]) halo(o.x + sx, o.y - 33, 26, 0.4 * sky.lights, '255,214,130'); }
+        else if (o.decorType === 'festoon') halo(o.x, o.y - 24, 30, 0.3 * sky.lights, '255,170,120');
         else if (o.kind === 'ship' && o.alpha > 0.5) halo(o.x - 6, o.y - 8, 12, 0.3 * sky.lights, '255,190,110');
         else if (o.kind === 'building' && o.tex && o.tex.startsWith('bld_')) halo(o.x - (o.fw - o.fd) * 4, o.y - 10, 30, 0.12 * sky.lights, '255,190,120');
         else if (o.lighthouse) {
@@ -5170,26 +5757,17 @@ const World = (() => {
   // ---------- camera & input ----------
   const pointers = new Map();
   let gesture = null;
-  const minScale = () => Math.max(1, Math.floor(Math.min(canvas.width / (N * HW * 2 + 40), canvas.height / (N * HH * 2 + 60)) * 10) / 10);
+  // Never zoom out past the edge of the terrain picture, so the screen is always filled.
+  const minScale = () => Math.max(1, Math.ceil(Math.max(canvas.width / GW, canvas.height / GH) * 100) / 100);
   const maxScale = () => 5 * dpr;
   function clampCam() {
     cam.scale = Math.min(maxScale(), Math.max(minScale(), cam.scale));
-    // let any part of the map be dragged right up to the screen edges (just clear of the HUD and tab bar)
-    // The map's top edge can be dragged down to just under the HUD and its bottom edge up to just
-    // above the tab bar: every part of the village can reach either screen edge, never off-screen.
+    // The view may roam anywhere inside the terrain picture: the village's top and bottom rows can be
+    // panned right to the screen edges (and past them), and the scenery beyond keeps the screen full.
     const halfW = canvas.width / 2 / cam.scale, halfH = canvas.height / 2 / cam.scale;
-    const mTop = 70 * dpr / cam.scale, mBot = 90 * dpr / cam.scale, mSide = 10 * dpr / cam.scale;
-    const span = (lo, hi, half, a, b) => {
-      const min = lo + half - a, max = hi - half + b;
-      return min <= max ? [min, max] : [(lo + hi) / 2 - (b - a) / 2, (lo + hi) / 2 - (b - a) / 2];
-    };
-    const [x0, x1] = span(-N * HW, N * HW, halfW, mSide, mSide), [y0, y1] = span(0, N * HH * 2 + EDGE, halfH, mTop, mBot);
-    cam.x = Math.min(x1, Math.max(x0, cam.x));
-    cam.y = Math.min(y1, Math.max(y0, cam.y));
-    return;
-    cam.scale = Math.min(maxScale(), Math.max(minScale(), cam.scale));
-    cam.x = Math.min(N * HW, Math.max(-N * HW, cam.x));
-    cam.y = Math.min(N * HH * 2 + EDGE, Math.max(0, cam.y));
+    const lim = (v, lo, hi) => (lo > hi ? (lo + hi) / 2 : Math.min(hi, Math.max(lo, v)));
+    cam.x = lim(cam.x, -OX + halfW, OX - halfW);
+    cam.y = lim(cam.y, -OY + halfH, GH - OY - halfH);
   }
   const toWorld = (sx, sy) => ({ x: cam.x + (sx * dpr - canvas.width / 2) / cam.scale, y: cam.y + (sy * dpr - canvas.height / 2) / cam.scale });
   function zoomAt(sx, sy, newScale) {
@@ -5301,8 +5879,8 @@ const World = (() => {
   function init(el, onTap, stateGetter, onPlace) {
     canvas = el; ctx = canvas.getContext('2d'); onTapCb = onTap; getState = stateGetter; onPlaceCb = onPlace || (() => {});
     const st0 = getState();
-    blocked = st0 ? st0.buildings.map(b => ({ gx: b.gx, gy: b.gy, fw: TOF.BUILDINGS[b.type].size[0], fd: TOF.BUILDINGS[b.type].size[1] })) : [];
-    buildMap(); computeWaterDist(); buildTerrain();
+    blocked = st0 ? TOF.placedThings(st0).map(b => TOF.footprint(b.type, b.gx, b.gy)) : [];
+    buildMap(); buildExt(); buildTerrain();
     TEX = Art.buildAll();
     populate();
     staticEmitters = emitters.slice();
@@ -5326,6 +5904,10 @@ const World = (() => {
     const o = bObjs.get(id); if (!o) return;
     cam.x = o.x - (o.fw - o.fd) * 4; cam.y = o.y - 20; clampCam();
   }
+  function focusDecor(id) {
+    const o = dObjs.get(id); if (!o) return;
+    cam.x = o.x - (o.fw - o.fd) * 4; cam.y = o.y - 14; clampCam();
+  }
   function focusShip(shipId) {
     const o = ships.get(shipId);
     if (!o) return;
@@ -5333,7 +5915,7 @@ const World = (() => {
     cam.x = p.x; cam.y = p.y - 20; clampCam();
   }
 
-  return { init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
+  return { syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
     startPlacing, movePlacing, stopPlacing, _villagers: () => villagers, _roads: () => roadTiles, isWalkable: (gx, gy) => walkable(gx, gy), setLowPower: v => { lowPower = !!v; }, _debug: { setTime: t => { time = t; }, exitPath: i => exitPath(i), islet: () => tileCenter(ISLET.gx, ISLET.gy) }, get placing() { return placing; }, isoTop, _ships: ships, _objects: () => objects, _bObjs: bObjs };
 })();
 
@@ -5375,6 +5957,9 @@ const App = (() => {
     get state() { return state; }, get lastSaved() { return lastSaved; }, get loadInfo() { return loadInfo; }, get persistent() { return store.persistent; },
     dispatch(shipId, hours, type, opts) { return done(TOF.dispatch(state, shipId, hours, now(), undefined, type, opts), 'dispatched'); },
     place(type, gx, gy) { return done(TOF.placeBuilding(state, type, gx, gy, now(), World.terrainCheck), 'placed'); },
+    placeDecor(type, gx, gy) { return done(TOF.placeDecor(state, type, gx, gy, World.terrainCheck), 'decor'); },
+    buyDecor(type) { return done(TOF.buyDecor(state, type), 'decor'); },
+    moveDecor(id, gx, gy) { return done(TOF.moveDecor(state, id, gx, gy, World.terrainCheck), 'moved'); },
     upgradeBuilding(id) { return done(TOF.upgradeBuilding(state, id, now()), 'bupgrade'); },
     queueJob(id, qty) { return done(TOF.queueJob(state, id, qty, now()), 'job'); },
     cancelJob(id) { return done(TOF.cancelJob(state, id, now()), 'job'); },
@@ -5541,7 +6126,7 @@ const UI = (() => {
     ui.panel = name; ui.resetArmed = false;
     if (name === 'fleet') ui.fleetShip = opts.ship || null;
     if (name === 'shipwright' && opts.tab) { ui.swTab = opts.tab; if (opts.ship) ui.swShip = opts.ship; }
-    if (name === 'village') ui.building = opts.building || null;
+    if (name === 'village') { ui.building = opts.building || null; if (opts.decor) { ui.vTab = 'decor'; ui.decorFocus = opts.decor; } }
     $('#sheetTitle').textContent = PANELS[name].title;
     document.querySelectorAll('#nav button').forEach(b => b.setAttribute('aria-pressed', b.dataset.panel === name ? 'true' : 'false'));
     refreshPanel(true);
@@ -5558,6 +6143,7 @@ const UI = (() => {
     body.innerHTML = PANELS[ui.panel].render(App.state, App.now());
     if (ui.panel === 'map') drawMap();
     body.scrollTop = toTop ? 0 : y;
+    if (ui.decorFocus) { const c = body.querySelector(`[data-dcard="${ui.decorFocus}"]`); ui.decorFocus = null; if (c) { body.scrollTop = c.offsetTop - body.offsetTop - 8; c.classList.add('flash'); } }
     tick(App.now());
   }
   function refresh() { renderResources(); renderVoyages(); refreshPanel(); tick(App.now()); }
@@ -5714,7 +6300,7 @@ const UI = (() => {
   }
 
   // ---------- village ----------
-  function buildTime(state, h) { return span(h * TOF.hourMs(state)); }
+  function buildTime(state, level) { return span(TOF.buildMs(state, level)); }
   function bStatus(b, now) {
     if (b.pending) return `<span class="fl-status">${icon('hammer', 'tiny')} <b data-btimer="${b.id}">${fmt(b.pending.endAt - now)}</b></span>`;
     if (b.job) return `<span class="fl-status">${icon(b.job.out, 'tiny')} ${b.job.done}/${b.job.qty}</span>`;
@@ -5727,15 +6313,17 @@ const UI = (() => {
   }
   function fieldCard(state, now) {
     const c = TOF.cropState(state, now);
-    return `<article class="card field"><header class="ship-head">${icon('food', 'mid')}<div><h3>The field</h3><p>Grows ${TOF.CROP_YIELD} food every ${TOF.CROP_HOURS} hours, free, and replants itself.</p></div></header>
-      ${c.ripe ? `<button class="btn primary glow" data-act="harvest">Harvest ${TOF.CROP_YIELD} food</button>`
+    return `<article class="card field"><header class="ship-head">${icon('food', 'mid')}<div><h3>The field</h3><p>Grows ${TOF.cropYield(state)} food every ${span(TOF.cropHours(state) * TOF.hourMs(state))}, free, and replants itself.</p></div></header>
+      ${c.ripe ? `<button class="btn primary glow" data-act="harvest">Harvest ${TOF.cropYield(state)} food</button>`
         : `<div class="progress"><i style="width:${(c.progress * 100).toFixed(1)}%"></i></div><p class="eta">Ripe in <b data-crop="1">${fmt(c.readyAt - now)}</b>.</p>`}</article>`;
   }
   function renderVillage(state, now) {
     if (ui.building && TOF.getBuilding(state, ui.building)) return renderBuildingDetail(state, now, TOF.getBuilding(state, ui.building));
     ui.building = null;
+    const tabs = `<div class="seg" role="tablist"><button role="tab" aria-selected="${ui.vTab !== 'decor'}" data-act="vtab" data-tab="build">Buildings</button><button role="tab" aria-selected="${ui.vTab === 'decor'}" data-act="vtab" data-tab="decor">Decorations</button></div>`;
+    if (ui.vTab === 'decor') return tabs + renderDecor(state);
     const busy = TOF.buildersBusy(state);
-    let html = fieldCard(state, now) + `<p class="note builders">${icon('hammer', 'tiny')} Builders: <b>${TOF.MAX_BUILDERS - busy} of ${TOF.MAX_BUILDERS}</b> free</p><ul class="fleet-list">`;
+    let html = tabs + fieldCard(state, now) + `<p class="note builders">${icon('hammer', 'tiny')} Builders: <b>${TOF.MAX_BUILDERS - busy} of ${TOF.MAX_BUILDERS}</b> free</p><ul class="fleet-list">`;
     for (const b of state.buildings) {
       html += `<li><button class="fl-row" data-act="openb" data-b="${b.id}"><span class="fl-img">${bImg(b.type, b.level)}</span>
         <span class="fl-main"><b>${bName(b.type)}</b><small>${b.level ? `Level ${b.level}` : 'Under construction'}${b.pending && b.level ? `, upgrading to ${b.pending.toLevel}` : ''}</small></span>${bStatus(b, now)}</button></li>`;
@@ -5752,7 +6340,44 @@ const UI = (() => {
       else if (busy >= TOF.MAX_BUILDERS) btn = `<p class="lock">Both builders are busy.</p>`;
       else btn = `<button class="btn ${afford ? 'primary' : ''}" data-act="place" data-type="${type}" ${afford ? '' : 'disabled'}>${afford ? 'Choose a spot' : `Need ${missingText(state, cost)}`}</button>`;
       html += `<article class="card build ${lock ? 'locked' : ''}"><header class="ship-head">${bImg(type, 1, 'big')}<div><h3>${d.name}</h3><p>${d.desc}</p></div></header>
-        ${cost ? `<p class="cost">Cost: ${costText(state, cost)} <span class="bt">${icon('hammer', 'tiny')} ${buildTime(state, TOF.buildHours(1))}</span></p>` : ''}${btn}${lock ? '' : hints(state, cost)}</article>`;
+        ${cost ? `<p class="cost">Cost: ${costText(state, cost)} <span class="bt">${icon('hammer', 'tiny')} ${buildTime(state, 1)}</span></p>` : ''}${btn}${lock ? '' : hints(state, cost)}</article>`;
+    }
+    return html;
+  }
+
+  // ---------- decorations ----------
+  const DECOR_GROUPS = [['farm', 'The field and garden'], ['seaside', 'Seaside and harbor'], ['light', 'Lights'], ['flowers', 'Flower beds'], ['prestige', 'Prestige']];
+  const pc = x => `${Math.round(x * 100)}%`;
+  function decorSummary(state) {
+    const b = TOF.decorBonus(state), out = [];
+    for (const [t, v] of Object.entries(b.yield)) if (v) out.push(`+${pc(v)} ${TOF.TYPES[t].name.toLowerCase()} hauls`);
+    for (const [t, v] of Object.entries(b.power)) if (v) out.push(`+${pc(v)} ${TOF.TYPES[t].name.toLowerCase()} power`);
+    if (b.coins) out.push(`+${pc(b.coins)} coins from trips`);
+    if (b.chest) out.push(`chests ${pc(b.chest)} more often`);
+    if (b.trip) out.push(`trips ${pc(b.trip)} shorter`);
+    if (b.damage) out.push(`${pc(b.damage)} less hull damage`);
+    if (b.build) out.push(`builders ${pc(b.build)} faster`);
+    if (b.storage) out.push(`+${b.storage} storage`);
+    if (b.cropFood) out.push(`+${b.cropFood} food per harvest`);
+    if (b.cropSpeed) out.push(`field ${pc(b.cropSpeed)} faster`);
+    return out;
+  }
+  function renderDecor(state) {
+    const have = new Set((state.decor || []).map(d => d.type)), sum = decorSummary(state);
+    let html = `<article class="card"><h3>Village charm</h3><p class="desc">Every decoration gives a small, lasting bonus. You can own one of each (${have.size} of ${TOF.DECOR_ORDER.length} so far), and the combined bonus is capped, so the village still has to grow.</p>
+      ${sum.length ? `<ul class="perks">${sum.map(t => `<li>${t}</li>`).join('')}</ul>` : '<p class="note">No decorations yet. Scarecrows and fences are a cheap start.</p>'}</article>`;
+    for (const [g, title] of DECOR_GROUPS) {
+      html += `<h3 class="group">${title}</h3>`;
+      for (const type of TOF.DECOR_ORDER.filter(t => TOF.DECOR[t].group === g)) {
+        const d = TOF.DECOR[type], owned = state.decor.find(x => x.type === type), afford = TOF.canAfford(state, d.cost);
+        let btn;
+        if (owned) btn = d.fixed ? `<p class="ok-text">Built${d.fixed === 'field' ? ' at the field' : ' beside the lighthouse'}.</p>`
+          : `<div class="btn-row"><button class="btn small" data-act="dmove" data-d="${owned.id}">Move it</button><button class="btn small" data-act="dshow" data-d="${owned.id}">Show me</button></div>`;
+        else if (d.fixed) btn = `<button class="btn ${afford ? 'primary' : ''}" data-act="dbuy" data-type="${type}" ${afford ? '' : 'disabled'}>${afford ? 'Build it' : `Need ${missingText(state, d.cost)}`}</button>`;
+        else btn = `<button class="btn ${afford ? 'primary' : ''}" data-act="dplace" data-type="${type}" ${afford ? '' : 'disabled'}>${afford ? 'Choose a spot' : `Need ${missingText(state, d.cost)}`}</button>`;
+        html += `<article class="card build decor ${owned ? 'owned' : ''} ${g === 'prestige' ? 'prestige' : ''}" data-dcard="${type}"><header class="ship-head"><img class="px b-img big" src="${Art.decorURL(type)}" alt=""><div><h3>${d.name}</h3><p>${d.desc}</p></div></header>
+          <p class="desc perk">${d.effect}</p>${owned ? '' : `<p class="cost">Cost: ${costText(state, d.cost)}</p>`}${btn}${owned ? '' : hints(state, d.cost)}</article>`;
+      }
     }
     return html;
   }
@@ -5830,7 +6455,7 @@ const UI = (() => {
       else {
         const cost = TOF.buildCost(b.type, b.level + 1), block = TOF.upgradeBlock(state, b), afford = TOF.canAfford(state, cost);
         html += `<article class="card"><h3>Upgrade to level ${b.level + 1}</h3><p class="desc">${effectText(state, b, b.level + 1)}</p>
-          <p class="cost">Cost: ${costText(state, cost)} <span class="bt">${icon('hammer', 'tiny')} ${buildTime(state, TOF.buildHours(b.level + 1))}</span></p>
+          <p class="cost">Cost: ${costText(state, cost)} <span class="bt">${icon('hammer', 'tiny')} ${buildTime(state, b.level + 1)}</span></p>
           ${block ? `<p class="lock">${esc(block)}</p>` : `<button class="btn ${afford ? 'primary' : ''}" data-act="bupgrade" data-b="${b.id}" ${afford ? '' : 'disabled'}>${afford ? `Upgrade to level ${b.level + 1}` : `Need ${missingText(state, cost)}`}</button>`}${hints(state, cost)}</article>`;
       }
     }
@@ -5842,8 +6467,9 @@ const UI = (() => {
   function beginPlacing(type, movingId) {
     closePanel();
     document.body.classList.add('placing');
-    $('#placeTitle').textContent = movingId ? `Move the ${bName(type)}` : `Place the ${bName(type)}`;
-    $('#placeOk').textContent = movingId ? 'Move here' : 'Build here';
+    const nm = TOF.DECOR[type] ? TOF.DECOR[type].name : bName(type);
+    $('#placeTitle').textContent = movingId ? `Move the ${nm}` : `Place the ${nm}`;
+    $('#placeOk').textContent = movingId ? 'Move here' : TOF.DECOR[type] ? 'Put it here' : 'Build here';
     World.startPlacing(type, movingId);
   }
   function onPlaceChange(p) {
@@ -6051,7 +6677,8 @@ const UI = (() => {
           <div><dt>Chests opened</dt><dd>${TOF.Stats.get(state, 'chestsOpened')}</dd></div><div><dt>Most coins held</dt><dd>${TOF.Stats.get(state, 'maxCoins')}</dd></div><div><dt>Harvests</dt><dd>${TOF.Stats.get(state, 'cropsHarvested')}</dd></div></dl>
         <p class="desc">${App.persistent ? `Progress saves automatically on this device. Last saved at ${clock(App.lastSaved)}.` : 'This browser blocked storage, so progress lasts only until the page closes.'}</p>
         <button class="btn danger" data-act="reset">${ui.resetArmed ? 'Tap again to erase all progress' : 'Reset progress'}</button>
-      </section>`;
+      </section>
+      <p class="note version">Tides of Fortune, version ${TOF.GAME_VERSION}</p>`;
   }
 
   // ---------- actions ----------
@@ -6096,6 +6723,11 @@ const UI = (() => {
       case 'openb': ui.building = b.dataset.b; refreshPanel(true); World.focusBuilding(b.dataset.b); break;
       case 'bback': ui.building = null; refreshPanel(true); break;
       case 'place': beginPlacing(b.dataset.type); break;
+      case 'vtab': ui.vTab = b.dataset.tab; refreshPanel(true); break;
+      case 'dplace': beginPlacing(b.dataset.type); break;
+      case 'dbuy': { const r = App.buyDecor(b.dataset.type); say(r, `${TOF.DECOR[b.dataset.type].name} built. ${TOF.DECOR[b.dataset.type].effect}`); if (r.ok) Sound.play('success'); break; }
+      case 'dmove': { const d = st.decor.find(x => x.id === b.dataset.d); if (d) beginPlacing(d.type, d.id); break; }
+      case 'dshow': closePanel(); World.focusDecor(b.dataset.d); break;
       case 'bupgrade': { const r = App.upgradeBuilding(b.dataset.b); say(r, `Builders started on the ${r.ok ? bName(r.building.type) : ''}.`); break; }
       case 'job': { const r = App.queueJob(b.dataset.b, +b.dataset.q); say(r, `Started making ${r.qty} ${unit(TOF.BUILDINGS[TOF.getBuilding(App.state, b.dataset.b).type].recipe.out, r.qty)}.`); break; }
       case 'canceljob': { const r = App.cancelJob(b.dataset.b); say(r, `Stopped. Inputs for ${r.refunded} unmade unit${r.refunded === 1 ? '' : 's'} refunded.`); break; }
@@ -6224,6 +6856,7 @@ const UI = (() => {
     }
     const info = o.info || {};
     if (info.bId) { openPanel('village', { building: info.bId }); return; }
+    if (info.dId) { const d = st.decor.find(x => x.id === info.dId); if (d) { toast(`${TOF.DECOR[d.type].name}: ${TOF.DECOR[d.type].effect}`); openPanel('village', { decor: d.type }); } return; }
     if (info.crop) { harvestField(); return; }
     if (info.action) openPanel(info.action);
     else if (info.future) toast(info.future);
@@ -6240,13 +6873,20 @@ const UI = (() => {
     });
     $('#skyChip').addEventListener('click', () => openPanel('settings'));
     Sky.onStatus(() => { if (ui.panel === 'settings') refreshPanel(); renderSkyChip(); });
-    $('#placeCancel').addEventListener('click', () => { const m = World.placing && World.placing.movingId; endPlacing(); openPanel('village', m ? { building: m } : {}); });
+    $('#placeCancel').addEventListener('click', () => { const pl = World.placing, m = pl && pl.movingId, dec = pl && TOF.DECOR[pl.type]; endPlacing(); openPanel('village', dec ? { decor: pl.type } : m ? { building: m } : {}); });
     $('#placeOk').addEventListener('click', () => {
       const p = World.placing; if (!p) return;
+      const dec = TOF.DECOR[p.type];
       if (p.movingId) {
-        const id = p.movingId, r = App.move(id, p.gx, p.gy);
+        const id = p.movingId, r = dec ? App.moveDecor(id, p.gx, p.gy) : App.move(id, p.gx, p.gy);
         if (!r.ok) { toast(r.reason, 'bad'); return; }
-        endPlacing(); Sound.play('build'); toast(`The ${bName(p.type)} has moved.`, 'good');
+        endPlacing(); Sound.play('build'); toast(dec ? `${dec.name} moved.` : `The ${bName(p.type)} has moved.`, 'good');
+        return;
+      }
+      if (dec) {
+        const r = App.placeDecor(p.type, p.gx, p.gy);
+        if (!r.ok) { toast(r.reason, 'bad'); return; }
+        endPlacing(); Sound.play('success'); toast(`${dec.name} added. ${dec.effect}`, 'good');
         return;
       }
       const r = App.place(p.type, p.gx, p.gy);
@@ -6307,9 +6947,10 @@ const UI = (() => {
   App.save();
   World.setLowPower(App.state.settings.batterySaver);
   PWA.init(show => { document.getElementById('updateBtn').hidden = !show; });
-  if (PWA.justUpdated()) setTimeout(() => UI.toast('Updated to the newest version.', 'good'), 600);
+  if (PWA.justUpdated()) setTimeout(() => UI.toast(`Updated to version ${TOF.GAME_VERSION}: decorations and a bigger harbor view.`, 'good'), 600);
   if (!PWA.sandboxed) document.addEventListener('pointerdown', function once() { document.removeEventListener('pointerdown', once); PWA.persist(); });
   World.syncBuildings(App.state);
+  World.syncDecor(App.state);
   World.syncDocks(App.state, false);
   World.syncShips(App.state, t0, false);
   UI.refresh();
@@ -6326,6 +6967,7 @@ const UI = (() => {
     const now = App.now();
     if (type === 'tickjob') { UI.refresh(); return; }
     World.syncBuildings(App.state);
+    World.syncDecor(App.state);
     if (World.syncDocks(App.state, type === 'built')) { UI.toast('Builders ran out a new jetty for the growing fleet.', 'good'); Sound.play('splash'); }
     if (type === 'settled' && data.built.length) Sound.play('success');
     if (type === 'settled') {

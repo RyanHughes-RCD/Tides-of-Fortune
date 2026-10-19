@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.2.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,34 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.2: decorations and village expansion
+
+- **Decorations** (Village → Decorations tab). Each one is placed instantly, needs no builders and gives a small, lasting bonus. You can own one of each, and the combined bonus is capped, so decorating helps without replacing the work of growing the village.
+
+  | Decoration | Bonus |
+  |---|---|
+  | Scarecrow (in the field) | The field ripens 10% faster |
+  | Field fence (round the field) | +2 food every harvest |
+  | Kitchen garden | +3 food every harvest |
+  | Barrels and boxes | +50 storage for each bulk good |
+  | Crab statue (on the shore) | +5% fishing hauls |
+  | Harbor lantern | Every trip is 3% shorter |
+  | Festival lanterns | Builders finish 5% faster |
+  | Keeper's shack (beside the lighthouse) | 5% less hull damage |
+  | Lily of the valley bed | +3% treasure-hunting hauls |
+  | Sunflower bed | +3% exploration power |
+  | Rose bed | +3% pirate-hunting power |
+  | Tulip bed | +3% fishing hauls |
+  | Fountain (freezes over in snow) | Treasure chests turn up 10% more often |
+  | Chest of gold (prestige) | +5% coins from every trip |
+
+- **Lighthouse island** is bigger, with room for the keeper's shack, and turns snowy along with the village.
+- **Bigger harbor view.** The land and sea now carry on past the edges of the village, so the screen is always full and you can pan the village right to the top and bottom of the screen.
+- **Ships at the jetties** now bob behind the planks instead of drawing over them.
+- The version number is shown at the bottom of **Options**.
+
+Saves from 1.1 load straight into 1.2.
 
 ## Good to know
 
