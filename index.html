@@ -6348,7 +6348,7 @@ const World = (() => {
         else if (o.decorType === 'hwJackClassic' || o.decorType === 'hwJackSilly') halo(o.x, o.y - 6, 18, 0.4 * sky.lights, '255,170,80');
         else if (o === cauldronObj) { halo(o.x, o.y - 30, 50, 0.5 * sky.lights, '150,255,110'); halo(o.x, o.y - 4, 30, 0.5 * sky.lights, '255,150,60'); }
         else if (o.kind === 'ghostship') halo(o.x, o.y - 20, 60, 0.45 * sky.lights * (o.alpha || 0), '140,255,190');
-        else if (eventOn && o.kind === 'building' && o.haunt === 2) halo(o.x - (o.fw - o.fd) * 4, o.y - 18, 34, 0.25 * sky.lights, ['255,140,60', '200,120,255', '150,255,110'][Math.floor(time / 2 + o.x) % 3]);
+        else if (eventOn && o.kind === 'building' && o.haunt === 2) halo(o.x - (o.fw - o.fd) * 4, o.y - 18, 34, 0.25 * sky.lights, ['255,140,60', '200,120,255', '150,255,110'][(Math.floor(time / 2 + Math.abs(o.x)) % 3 + 3) % 3]);
         else if (o.kind === 'ship' && o.alpha > 0.5) halo(o.x - 6, o.y - 8, 12, 0.3 * sky.lights, '255,190,110');
         else if (o.kind === 'building' && o.tex && o.tex.startsWith('bld_')) halo(o.x - (o.fw - o.fd) * 4, o.y - 10, 30, 0.12 * sky.lights, '255,190,120');
         else if (o.lighthouse) {
@@ -6440,7 +6440,7 @@ const World = (() => {
   const rel = e => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
 
   function onDown(e) {
-    canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId);
+    try { canvas.setPointerCapture && canvas.setPointerCapture(e.pointerId); } catch (err) { /* capture is a nicety; dragging works without it */ }
     pointers.set(e.pointerId, rel(e));
     if (pointers.size === 1) {
       const p = rel(e); gesture = { type: 'pan', startX: p.x, startY: p.y, moved: 0, t: performance.now(), pinched: false };
@@ -7746,7 +7746,7 @@ const UI = (() => {
   });
 
   let prev = performance.now(), acc = 0, frameFlip = false;
-  function loop(t) {
+  function step(t) {
     const dt = Math.max(0, Math.min(0.05, (t - prev) / 1000)); prev = Math.max(prev, t);
     acc += dt;
     if (acc > 0.25) {
@@ -7769,6 +7769,11 @@ const UI = (() => {
     World.update(dt);
     frameFlip = !frameFlip;
     if (!App.state.settings.batterySaver || frameFlip) World.render();
+  }
+  // A frame that throws must never stop the next one: the world would freeze while the menus still work.
+  let loopErr = false;
+  function loop(t) {
+    try { step(t); } catch (e) { if (!loopErr) { loopErr = true; console.error('Frame error (the game keeps running):', e); } }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
