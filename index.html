@@ -435,7 +435,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.5';
+  const GAME_VERSION = '1.5.1';
   const SAVE_VERSION = 6;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -610,6 +610,7 @@ const TOF = (() => {
   const START_HEADSTART = 50;
   const CROP_HOURS = 3, CROP_YIELD = 12;
   const MAP_SIZE = 48; // 1.4: grew from 40; the original 40x40 keeps its layout, so saves load unchanged
+  const BUILD_MIN = -6; // 1.5.1: building reaches 6 tiles past the west and east edges (negative tiles); nothing old moves
   const SKY_TIMES = ['live', 'dawn', 'day', 'dusk', 'night'];
   const SKY_WEATHER = ['live', 'sunny', 'rainy', 'snowy', 'foggy'];
   const BUILDING_MAX_LEVEL = 3;
@@ -2054,7 +2055,7 @@ const TOF = (() => {
     for (const b of (Array.isArray(raw.buildings) ? raw.buildings : [])) {
       if (!b || typeof b.id !== 'string' || !BUILDINGS[b.type] || BUILDINGS[b.type].locked || seenType.has(b.type) || seenBid.has(b.id)) continue;
       if (b.type === 'seaWitch' && !(raw.flags && raw.flags.witchFound)) continue;
-      const nb = { id: b.id, type: b.type, gx: clampInt(b.gx, 0, MAP_SIZE - 1), gy: clampInt(b.gy, 0, MAP_SIZE - 1), level: clampInt(b.level, 0, BUILDING_MAX_LEVEL), pending: null, job: null };
+      const nb = { id: b.id, type: b.type, gx: clampInt(b.gx, BUILD_MIN, MAP_SIZE - 1), gy: clampInt(b.gy, BUILD_MIN, MAP_SIZE - 1), level: clampInt(b.level, 0, BUILDING_MAX_LEVEL), pending: null, job: null };
       const f = footprint(nb.type, nb.gx, nb.gy);
       if (s.buildings.some(o => overlaps(f, footprint(o.type, o.gx, o.gy)))) continue;
       const p = b.pending;
@@ -2087,7 +2088,7 @@ const TOF = (() => {
       if (DECOR[d.type].variants) nd.v = clampInt(d.v, 0, DECOR[d.type].variants - 1);
       if (!DECOR[d.type].fixed) {
         if (!Number.isInteger(d.gx) || !Number.isInteger(d.gy)) continue;
-        nd.gx = clampInt(d.gx, 0, MAP_SIZE - 1); nd.gy = clampInt(d.gy, 0, MAP_SIZE - 1);
+        nd.gx = clampInt(d.gx, BUILD_MIN, MAP_SIZE - 1); nd.gy = clampInt(d.gy, BUILD_MIN, MAP_SIZE - 1);
         const f = footprint(nd.type, nd.gx, nd.gy);
         if (placedThings(s).some(o => overlaps(f, footprint(o.type, o.gx, o.gy)))) continue;
       }
@@ -2213,7 +2214,7 @@ const TOF = (() => {
   return {
     SAVE_VERSION, SAVE_KEY, BACKUP_KEY, HOUR_MS, DURATIONS, DEV_SPEEDS, MAX_SHIPS, MIN_SAIL_HULL,
     RESOURCES, SELLABLE, ALWAYS_SHOWN, BULK, TYPES, SHIP_CLASSES, CLASS_ORDER, UPGRADES, UPGRADE_KEYS,
-    BUILDINGS, BUILDING_ORDER, BUILD_HOURS, MAX_BUILDERS, MAP_SIZE, SKY_TIMES, SKY_WEATHER, BUILDING_MAX_LEVEL, TRADE, START_BUILDINGS,
+    BUILDINGS, BUILDING_ORDER, BUILD_HOURS, MAX_BUILDERS, MAP_SIZE, BUILD_MIN, SKY_TIMES, SKY_WEATHER, BUILDING_MAX_LEVEL, TRADE, START_BUILDINGS,
     getBuilding, buildingOfType, buildingLevel, buildersBusy, storageCap, sellPrice, tradePrice, buildCost, buildHours, footprint,
     buildLock, placeCheck, placeBuilding, upgradeBlock, upgradeBuilding, recipeSpeed, maxBatch, queueJob, cancelJob,
     settleProduction, settleBuildings, settle, trade, rumorFor, tripMods, foodFor, upgradeGate, repairPlanks,
@@ -3303,6 +3304,16 @@ function runTofTests(TOF) {
     const all = veteran(T0); all.decor = TOF.DECOR_ORDER.filter(t => !TOF.DECOR[t].hw).map((type, i) => ({ id: 'd-' + i, type, gx: null, gy: null }));
     const b = TOF.decorBonus(all);
     for (const [k, cap] of Object.entries(TOF.DECOR_CAP)) { if (typeof b[k] === 'object') for (const v of Object.values(b[k])) ok(v <= cap, k); else ok(b[k] <= cap, k); }
+  });
+  test('buildings and decorations may sit a little past the west and east edges', () => {
+    const s = veteran(T0); for (const k of Object.keys(s.resources)) s.resources[k] = 99999;
+    s.buildings.push({ id: 'b-9', type: 'sawmill', gx: -4, gy: 20, level: 1, pending: null, job: null });
+    ok(TOF.placeDecor(s, 'cottage', 4, -5).ok, 'east band');
+    const st = memStorage(); TOF.saveGame(st, s, T0); const back = TOF.loadGame(st, T0).state;
+    eq(back.buildings.find(b => b.id === 'b-9').gx, -4, 'west position kept'); eq(back.decor[0].gy, -5, 'east position kept');
+    eq(TOF.BUILD_MIN, -6, 'six tiles'); const far = { ...back.buildings.find(b => b.id === 'b-9') };
+    s.buildings.find(b => b.id === 'b-9').gx = -30; TOF.saveGame(st, s, T0); eq(TOF.loadGame(st, T0).state.buildings.find(b => b.id === 'b-9').gx, TOF.BUILD_MIN, 'no further'); void far;
+    for (const sb of TOF.START_BUILDINGS) ok(TOF.newGame(T0).buildings.some(b => b.type === sb.type && b.gx === sb.gx && b.gy === sb.gy), 'starting village unchanged');
   });
   test('the new map is bigger and keeps old positions', () => {
     eq(TOF.MAP_SIZE, 48, 'size');
@@ -5886,7 +5897,7 @@ const World = (() => {
   const bObjs = new Map(); // building id -> scene object
   const dObjs = new Map(); // decoration id -> scene object
   let lighthouseObj = null, fieldDecor = [], cauldronObj = null, ghostShipObj = null;
-  const CAULDRON_AT = { gx: -4, gy: 22 }, SHIP_MOOR = { gx: 25, gy: 6 };
+  const CAULDRON_AT = { gx: -10, gy: 22 }, SHIP_MOOR = { gx: 25, gy: 6 }; // cauldron sits past the buildable band
   let eventOn = false;
   const ghosts = [], poofs = [];
   let placing = null;      // { type, fw, fd, gx, gy, reason }
@@ -5999,7 +6010,8 @@ const World = (() => {
       if (c.x < -OX - 20 || c.x > OX + 20 || c.y < -OY - 10 || c.y > GH - OY + 40) continue;
       const jx = Math.round((hash(gx + 100, gy, 79) - 0.5) * 10), jy = Math.round((hash(gx, gy + 100, 80) - 0.5) * 4);
       const k = n < 0.15 ? 'pine' : n < 0.25 ? 'oak' : ['tree', 'tree2', 'pine', 'bush'][(hash(gx, gy, 78) * 4) | 0];
-      (gx < 0 || gy < 0 ? outerBack : outerFront).push({ tex: k, x: c.x + jx, y: c.y + jy, depth: c.y + jy });
+      if (buildable(gx, gy)) addObj({ kind: 'prop', tex: k, x: c.x + jx, y: c.y + jy, depth: c.y + jy, tree: true, gx, gy });
+      else (gx < 0 || gy < 0 ? outerBack : outerFront).push({ tex: k, x: c.x + jx, y: c.y + jy, depth: c.y + jy });
     }
     outerBack.sort((a, b) => a.depth - b.depth); outerFront.sort((a, b) => a.depth - b.depth);
     // walkable tiles
@@ -6073,16 +6085,22 @@ const World = (() => {
 
   const TERRAIN_NAME = { [T.ROAD]: 'roads', [T.WATER]: 'water', [T.DOCK]: 'the docks', [T.ROCK]: 'rocks', [T.FIELD]: 'the field' };
   // Map rules for placement. Returns null when the spot is fine, else a reason.
+  // The map plus a band TOF.BUILD_MIN tiles deep past its west (gx < 0) and east (gy < 0) edges, as far as the picture reaches.
+  function buildable(x, y) {
+    if (x < TOF.BUILD_MIN || y < TOF.BUILD_MIN || x >= N || y >= N) return false;
+    const c = tileCenter(x, y);
+    return Math.abs(c.x) <= OX - HW * 2 && c.y >= -OY + HH * 2;
+  }
   function terrainCheck(type, gx, gy, fw, fd) {
     let coastal = false;
     for (let y = gy; y < gy + fd; y++) for (let x = gx; x < gx + fw; x++) {
-      if (x < 0 || y < 0 || x >= N || y >= N) return 'That’s off the edge of the island.';
-      const t = map[y][x];
+      if (!buildable(x, y)) return 'That’s off the edge of the island.';
+      const t = typeAt(x, y);
       if (t !== T.GRASS && t !== T.SAND) return `Can’t build on ${TERRAIN_NAME[t]}.`;
       if (t === T.SAND && TOF.defOf(type).soil) return 'Flowers and gardens need grass, not sand.';
-      if (staticOcc[y][x]) return 'Something is already standing there.';
+      if (inMap(x, y) && staticOcc[y][x]) return 'Something is already standing there.';
       if (t === T.SAND) coastal = true;
-      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const a = x + dx, b = y + dy; if (a >= 0 && b >= 0 && a < N && b < N && (map[b][a] === T.WATER || map[b][a] === T.DOCK)) coastal = true; }
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (wet(typeAt(x + dx, y + dy))) coastal = true;
     }
     if (TOF.defOf(type).coastal && !coastal) return `The ${TOF.defOf(type).name} has to touch the shore.`;
     return null;
@@ -6233,14 +6251,14 @@ const World = (() => {
     }
     const night = sky.dark > 0.5;
     ghostT -= dt;
-    if (eventOn && night && st && ghostT <= 0) {
-      ghostT = 25 + Math.random() * 35;
+    if (eventOn && st && ghostT <= 0) { // 1.5.1: day and night
+      ghostT = night ? 25 + Math.random() * 35 : 35 + Math.random() * 45;
       if (ghosts.length < 3 && roadTiles.length) {
         const [gx, gy] = roadTiles[(Math.random() * roadTiles.length) | 0], c = tileCenter(gx, gy), a = Math.random() * Math.PI * 2;
         ghosts.push({ id: 'g-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), x: c.x, y: c.y - 18, vx: Math.cos(a) * 6, vy: Math.sin(a) * 3, life: 0, max: 40 + Math.random() * 15, ph: Math.random() * 6 });
       }
     }
-    if (!eventOn || !night) for (const gh of ghosts) gh.max = Math.min(gh.max, gh.life + 2); // shoo at dawn
+    if (!eventOn) for (const gh of ghosts) gh.max = Math.min(gh.max, gh.life + 2); // shoo when the event ends
     for (let i = poofs.length - 1; i >= 0; i--) { poofs[i].t += dt; if (poofs[i].t > 0.8) poofs.splice(i, 1); }
     // animated Halloween decorations
     for (const o of dObjs.values()) { const n = Art.HW_ANIM[o.decorType]; if (n) o.tex = decorKey(o.decorType, Math.floor(time * ({ 3: 4, 4: 3 }[n] || 1.5)) % n, false, o.v || 0); }
@@ -7315,7 +7333,7 @@ const UI = (() => {
     const on = TOF.halloweenActive(state, now), candy = state.resources.candy, H = state.halloween;
     const placed = state.decor.filter(d => TOF.DECOR[d.type].hw), bonus = TOF.decorBonus(state).candy, days = eventDays(now);
     let html = `<article class="card hw"><div class="hw-head">${icon('candy', 'big')}<div><span class="big-n">${candy}</span> candy<br><small>${on ? `Halloween runs October 1 to November 12.${state.settings.eventOverride === 'on' ? ' (Forced on in developer mode.)' : ` <b>${days} day${days === 1 ? '' : 's'}</b> left.`}` : 'Halloween is over for this year. Your candy and decorations keep until next October.'}</small></div></div>
-      <p class="desc">${on ? 'Every trip can bring home candy, short ones too. Friendly ghosts drift through the village at night: tap one to pop it for a little candy.' : 'The cauldron has gone cold, and no more candy turns up until next Halloween.'}</p>
+      <p class="desc">${on ? 'Every trip can bring home candy, short ones too. Friendly ghosts drift through the village, day and night: tap one to pop it for a little candy.' : 'The cauldron has gone cold, and no more candy turns up until next Halloween.'}</p>
       <p class="desc perk">Candy bonus: +${Math.round(bonus * 100)}% from ${placed.length} placed decoration${placed.length === 1 ? '' : 's'} (the most is +${Math.round(TOF.HALLOWEEN.candyCap * 100)}%).</p></article>`;
     // a decoration tapped in the village
     const sel = ui.hwDecor && state.decor.find(d => d.id === ui.hwDecor);

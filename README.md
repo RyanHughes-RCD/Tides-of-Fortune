@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.5.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.5.1.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,11 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.5.1
+
+- Friendly Halloween ghosts now drift through the village in the daytime too (a little less often than at night).
+- You can build a few tiles further out to the west, into the edge of the woods, and to the east, past the field. The starting village is unchanged, and the West Woods cauldron moved a little deeper into the trees to make room.
 
 ## What's new in 1.5: more ships and steadier screens
 
