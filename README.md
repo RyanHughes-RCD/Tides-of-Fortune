@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.5.1.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.5.2.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,11 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.5.2
+
+- The West Woods cauldron is bigger and more detailed: a stone fire pit with crackling logs, a shaded iron pot on three legs, a swirling brew with bubbles that rise and pop, steam, a stirring paddle, candles, potion jars, mushrooms and pumpkins. Its patch of dirt now fades into the grass instead of sitting as a brown circle.
+- The Sea Witch's hut stands on stilts with a ladder, under a curled witch-hat roof tipped with a gold star. It has a moon window and drying herbs, mushrooms and a bubbling pot in the yard, a broom from level 2, and a black cat on the roof at level 3.
 
 ## What's new in 1.5.1
 

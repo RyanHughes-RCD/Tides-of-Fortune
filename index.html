@@ -435,7 +435,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.5.1';
+  const GAME_VERSION = '1.5.2';
   const SAVE_VERSION = 6;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -4311,6 +4311,25 @@ const Art = (() => {
     signpost(p, q, o = {}) { p.rect(q[0], q[1] - 12, 1, 12, '#5e3b22'); p.rect(q[0] - 5, q[1] - 12, 11, 5, '#e0b44a'); p.rect(q[0] - 4, q[1] - 11, 9, 3, o.c || '#7c5131'); },
     globe(p, q) { p.rect(q[0], q[1] - 4, 1, 4, '#5e3b22'); p.circle(q[0] + 0.5, q[1] - 7, 3.2, '#3f9fd8'); p.set(q[0] - 1, q[1] - 8, '#6aad4a'); p.set(q[0] + 1, q[1] - 6, '#6aad4a'); p.set(q[0], q[1] - 9, '#6aad4a'); },
     witchPot(p, q) { p.ellipse(q[0], q[1] - 3, 4.5, 3, '#2f3236'); p.ellipse(q[0], q[1] - 5, 3.5, 1.3, '#59d1a0'); p.set(q[0] - 1, q[1] - 7, '#9be3e8'); },
+    // --- the witch's hut (1.5.2) ---
+    stilts(p, q, o) { const up = (u, v) => [q[0] + (u - v) * HW, q[1] + (u + v) * HH]; for (const [u, v] of [[0, o.fd], [o.fw, o.fd], [o.fw, 0]]) { const c = up(u, v); p.rect(c[0] - 1, c[1] - o.h, 2, o.h + 1, '#4a2f1c'); p.set(c[0] - 1, c[1] + 1, '#2a1d17'); } },
+    ladder(p, q, o) { const top = [q[0] - 2, q[1] - o.h], bot = [q[0] + 5, q[1] + 3]; p.line(top[0], top[1], bot[0], bot[1], '#6b4428'); p.line(top[0] + 4, top[1] - 2, bot[0] + 4, bot[1] - 2, '#6b4428'); for (let t = 0.2; t < 1; t += 0.3) p.line(top[0] + (bot[0] - top[0]) * t, top[1] + (bot[1] - top[1]) * t, top[0] + 4 + (bot[0] - top[0]) * t, top[1] - 2 + (bot[1] - top[1]) * t, '#8a5a33'); },
+    curlRoof(p, q, o) {
+      // the hat's tip bends over and curls into a little spiral, ending in a gold star
+      const ax = q[0], ay = q[1] - o.z, c = o.c || '#5a3f7a', pts = [];
+      for (let t = 0; t <= 1; t += 0.04) pts.push([ax - 8 * t * t, ay - 11 * t, 2.6 - t * 1.2]);
+      const [ex, ey] = pts[pts.length - 1];
+      for (let a = 0; a <= Math.PI * 1.7; a += 0.18) { const r = 4 - a * 1.3; pts.push([ex - 2 - Math.cos(a) * r * 0.9 + 2, ey - 1 + Math.sin(a) * r, Math.max(0.7, 1.3 - a * 0.25)]); }
+      for (const [x, y, w] of pts) p.circle(x, y, w, (xx) => (xx < x - 0.3 ? shade(c, 1.15) : shade(c, 0.85)));
+      const [tx, ty] = pts[pts.length - 1];
+      p.blitMap(['.y.', 'yyy', '.y.'], { y: '#f2c94c' }, tx - 1, ty - 1);
+      p.rect(ax - 6, ay + 4, 12, 1, shade(c, 0.6)); // a band round the hat
+    },
+    moonWindow(p, q, o) { const x = q[0], y = q[1] - o.z; p.circle(x, y, 3.2, '#3b2a50'); p.circle(x, y, 2.4, '#ffe48a'); p.circle(x + 1.2, y - 0.6, 1.7, '#3b2a50'); p.set(x - 1, y - 1, '#fff2b8'); },
+    herbs(p, q, o) { const x = q[0], y = q[1] - o.z; p.line(x - 4, y, x + 6, y + 5, '#5e3b22'); for (let i = 0; i < 4; i++) { const hx = x - 3 + i * 3, hy = y + 1 + i * 1.5; p.rect(hx, hy, 1, 3 + (i % 2), i % 2 ? '#4f8f5a' : '#9fbf5a'); p.set(hx, hy + 4 + (i % 2), '#7b5232'); } },
+    shrooms(p, q) { for (const [dx, dy, r] of [[-3, 0, 2.2], [1, 1, 1.6], [3, -1, 1.3]]) { p.rect(q[0] + dx, q[1] + dy - 2, 1, 2, '#efe9df'); p.ellipse(q[0] + dx + 0.5, q[1] + dy - 2.5, r, r * 0.6, '#8a5ac8'); p.set(q[0] + dx, q[1] + dy - 3, '#e8d8ff'); } },
+    broom(p, q) { p.line(q[0] - 4, q[1] - 16, q[0] + 1, q[1] - 2, '#8a5a33'); p.poly([[q[0] - 1, q[1] - 4], [q[0] + 4, q[1] - 4], [q[0] + 5, q[1] + 1], [q[0] - 2, q[1] + 1]], (x) => (x % 2 ? '#c9a040' : '#e8c050')); p.rect(q[0] - 1, q[1] - 5, 5, 1, '#7c2a26'); },
+    cat(p, q, o) { const x = q[0], y = q[1] - o.z; p.blitMap(['k...k', 'kk.kk', 'kykyk', 'kkkkk', '.kkkk.', '.kkkkk', '.kkkkkk', '......k'], { k: '#1d1622', y: '#f2e27a' }, x - 2, y - 8); },
   };
 
   // --- compositions: what each building looks like at each level ---
@@ -4406,9 +4425,16 @@ const Art = (() => {
       if (L >= 3) items.push(P('flowers', 1.6, 1.95), P('lantern', 1.95, 1.4));
       return { yard: L >= 2 ? 'cobble' : 'grass', items };
     },
+    // a crooked hut on stilts under a tall witch-hat roof with a curled tip
     seaWitch: L => {
-      const m = B(0, 0, { fw: 1.4, fd: 1.4, wall: 9, roof: 15, roofStyle: 'hip', mat: 'wood', roofC: '#5a3f7a', door: 'R', seed: 73 });
-      return { yard: 'grass', items: [m, P('witchPot', 1.7, 1.2), P('lantern', 1.9, 0.5)] };
+      const lift = 5, m = B(0.15, 0.15, { fw: 1.25, fd: 1.25, wall: 10, roof: 19, roofStyle: 'hip', mat: 'wood', roofC: '#5a3f7a', door: 'R', noRightWindows: true, seed: 73, z0: lift, found: 1 });
+      const items = [P('stilts', 0.15, 0.15, { fw: 1.25, fd: 1.25, h: lift }), m,
+        P('moonWindow', 0.78, 1.4, { z: lift + 6, late: true }), P('herbs', 1.0, 1.4, { z: lift + 9, late: true }),
+        P('ladder', 1.4, 0.78, { h: lift }), P('curlRoof', 0.78, 0.78, { z: lift + 10 + 19, late: true, top: lift + 10 + 19 + 18, c: '#5a3f7a' }),
+        P('witchPot', 1.75, 1.35), P('lantern', 1.92, 0.45), P('shrooms', 0.35, 1.8)];
+      if (L >= 2) items.push(P('broom', 1.55, 1.55));
+      if (L >= 3) items.push(P('cat', 0.6, 0.9, { z: lift + 10 + 6, late: true }), P('shrooms', 1.9, 1.9));
+      return { yard: 'grass', items };
     },
   };
 
@@ -4425,13 +4451,13 @@ const Art = (() => {
     const spec = COMP[type](level);
     const [fw, fd] = { tavern: [3, 3], dockyard: [3, 2], warehouse: [3, 2], ropemaker: [3, 2], shipwright: [2, 3] }[type] || [2, 2];
     let maxH = 0;
-    for (const it of spec.items) if (!it.prop) maxH = Math.max(maxH, (it.z0 || 0) + it.wall + it.roof + (it.flag ? 16 : 0) + (it.chimney ? 14 : 0));
+    for (const it of spec.items) if (!it.prop) maxH = Math.max(maxH, (it.z0 || 0) + it.wall + it.roof + (it.flag ? 16 : 0) + (it.chimney ? 14 : 0)); else if (it.o && it.o.top) maxH = Math.max(maxH, it.o.top);
     maxH = Math.max(maxH + 8, 40);
     const W = (fw + fd) * HW + 20, H = (fw + fd) * HH + maxH + 8;
     const p = new Pix(W, H);
     const tx = 6 + fd * HW, ty = maxH;
     const pt = (u, v) => [tx + (u - v) * HW, ty + (u + v) * HH];
-    const items = spec.items.map(it => ({ ...it, depth: it.prop ? it.u + it.v : it.late ? 99 : it.u + it.fw * 0.5 + it.v + it.fd * 0.5 + 0.5 }));
+    const items = spec.items.map(it => ({ ...it, depth: it.prop ? (it.o && it.o.late ? 100 : it.u + it.v) : it.late ? 99 : it.u + it.fw * 0.5 + it.v + it.fd * 0.5 + 0.5 }));
     items.sort((a, b) => a.depth - b.depth);
     const smoke = [];
     for (const it of items) {
@@ -4815,21 +4841,54 @@ const Art = (() => {
   };
   const HW_ANIM = { hwSkeleton: 2, hwBatRoost: 2, hwCauldron: 3 };
   // The big West Woods cauldron (three bubbling frames) and a friendly ghost (two frames).
+  // The big West Woods cauldron, four bubbling frames. The dirt sits on its own layer with no outline and
+  // thins out into dithered specks, so the clearing melts into the grass instead of ending in a hard ring.
   function bigCauldron(frame) {
-    const p = new Pix(60, 70), x = 30, g = 58;
-    p.ellipse(x, g, 26, 9, '#4a3a2a'); p.ellipse(x, g, 22, 7, '#5c4a36');
-    for (const [dx, dy] of [[-18, -2], [16, 1], [-8, 5], [10, -5]]) { p.ellipse(x + dx, g + dy, 3, 2.2, '#2f3236'); p.ellipse(x + dx, g + dy - 1, 2, 1, '#6a665f'); }
-    for (const a of [-1, 1]) p.line(x + a * 12, g + 3, x - a * 10, g - 1, '#6b4428');
-    const fl = ['#ff9a3c', '#ffd27a'];
-    for (let i = 0; i < 7; i++) { const fx = x - 9 + i * 3, fh = 4 + ((i * 7 + frame * 3) % 5); p.poly([[fx - 1.5, g], [fx + 1.5, g], [fx, g - fh]], fl[(i + frame) % 2]); }
-    for (const dx of [-11, 0, 11]) p.rect(x + dx, g - 10, 2, 8, '#2f3236');
-    p.ellipse(x, g - 18, 17, 13, '#2f3236'); p.ellipse(x - 5, g - 22, 6, 5, '#4a4f57'); p.set(x - 7, g - 25, '#7a7f87');
-    p.ellipse(x, g - 28, 16, 5, '#1d1622'); p.ellipse(x, g - 28, 14.5, 4, '#59d16a');
-    for (let i = 0; i < 6; i++) { const bx = x - 10 + i * 4, k = (i * 5 + frame * 2) % 6; p.circle(bx, g - 29 - k * 0.6, 1.4 + (k % 2) * 0.6, k > 3 ? '#d8ffb0' : '#a8f060'); }
-    for (let i = 0; i < 3; i++) { const sx = x - 6 + i * 6, sy = g - 36 - ((frame + i) % 3) * 4; p.circle(sx, sy, 2 + i % 2, '#d8f4d0', 120); }
-    p.rect(x + 12, g - 44, 2, 18, '#6b4428'); p.ellipse(x + 13, g - 44, 3, 1.5, '#8a5a33');
-    pumpkin(p, x - 22, g + 2, 4); pumpkin(p, x + 21, g + 4, 3.5);
+    const W = 104, H = 112, x = 52, g = 86, ground = new Pix(W, H), p = new Pix(W, H);
+    for (let y = g - 22; y <= g + 22; y++) for (let xx = x - 50; xx <= x + 50; xx++) {
+      const d = Math.hypot((xx - x) / 48, (y - g) / 20);
+      if (d > 1) continue;
+      const keep = Math.min(1, (1 - d) / 0.55); // solid in the middle, fading to nothing at the rim
+      if (hash(xx, y, 71) > keep * keep * 1.15) continue;
+      const n = hash(xx >> 1, y >> 1, 72);
+      ground.set(xx, y, d < 0.3 && n < 0.25 ? '#3e3024' : n < 0.5 ? '#5c4a36' : n < 0.8 ? '#6b5640' : '#7a6448');
+    }
+    for (let i = 0; i < 26; i++) { const a = hash(i, 1, 73) * Math.PI * 2, r = 0.62 + hash(i, 2, 73) * 0.4, px = x + Math.cos(a) * 46 * r, py = g + Math.sin(a) * 19 * r;
+      if (i % 3) { ground.set(px, py, '#5fa043'); ground.set(px + 1, py - 1, '#4b8636'); ground.set(px - 1, py - 1, '#78b952'); } else ground.set(px, py, '#9a9c97'); }
+    // fire pit: a ring of stones, crossed logs, coals and flames
+    for (let i = 0; i < 9; i++) { const a = (i / 9) * Math.PI * 2, sx = x + Math.cos(a) * 17, sy = g + 3 + Math.sin(a) * 6.5; p.ellipse(sx, sy, 3.2, 2.2, '#6b6e70'); p.ellipse(sx - 0.6, sy - 0.8, 2, 1.2, '#9a9c97'); }
+    p.ellipse(x, g + 3, 12, 4.5, '#2a1d17');
+    for (let i = 0; i < 14; i++) { const ex = x - 10 + hash(i, frame, 74) * 20, ey = g + 1 + hash(i, 3, 74) * 5; p.set(ex, ey, i % 3 ? '#ff7a2a' : '#ffd27a'); }
+    for (const s2 of [-1, 1]) { p.line(x - 13 * s2, g + 6, x + 11 * s2, g - 1, '#6b4428'); p.line(x - 13 * s2, g + 5, x + 11 * s2, g - 2, '#8a5a33'); }
+    for (let i = 0; i < 9; i++) { const fx = x - 10 + i * 2.5, fh = 5 + ((i * 7 + frame * 3) % 6); p.poly([[fx - 2, g + 1], [fx + 2, g + 1], [fx + ((i + frame) % 2 ? 1 : -1), g + 1 - fh]], i % 3 === 1 ? '#ffd27a' : '#ff9a3c'); if ((i + frame) % 3 === 0) p.set(fx, g - fh - 2, '#ffd27a'); }
+    // three stubby legs, the pot with shading and rivets, two handle rings
+    for (const dx of [-15, 0, 15]) { p.rect(x + dx - 1, g - 12, 3, 10, '#2f3236'); p.rect(x + dx - 2, g - 3, 5, 2, '#24262a'); }
+    p.ellipse(x, g - 24, 24, 18, (xx, yy) => { const t = (xx - (x - 24)) / 48; return t < 0.28 ? '#4a4f57' : t < 0.62 ? '#33373d' : '#24262a'; });
+    p.ellipse(x - 9, g - 30, 6, 7, '#5a6068'); p.ellipse(x - 11, g - 33, 2.5, 3, '#7a8089');
+    for (let i = -4; i <= 4; i++) { const rx = x + i * 5, ry = g - 32 + Math.abs(i) * 0.9; p.set(rx, ry, '#7a8089'); }
+    p.line(x - 22, g - 30, x + 22, g - 30, '#1d1f23');
+    for (const s2 of [-1, 1]) { for (let a = 0; a < Math.PI * 2; a += 0.3) p.set(x + s2 * 25 + Math.cos(a) * 3, g - 30 + Math.sin(a) * 3.5, '#4a4f57'); }
+    // rim and the brew
+    p.ellipse(x, g - 39, 23, 7.5, '#1d1f23'); p.ellipse(x, g - 40, 22, 6.5, '#4a4f57'); p.ellipse(x, g - 40, 19.5, 5.2, '#1d1622');
+    p.ellipse(x, g - 40, 18.5, 4.6, (xx, yy) => { const sw = Math.sin((xx - x) * 0.35 + (yy - g) * 0.9 + frame * 1.6); return sw > 0.75 ? '#a8f060' : sw > 0.1 ? '#59d16a' : '#3fae54'; });
+    for (const [dx, len] of [[-14, 7], [-4, 4], [9, 9]]) { for (let k = 0; k < len; k++) p.set(x + dx, g - 37 + k, k === len - 1 ? '#a8f060' : '#59d16a'); p.set(x + dx, g - 37 + len, '#3fae54'); }
+    const bubbles = [[-11, 0], [-4, 1], [3, 2], [10, 3], [-7, 2], [6, 0]];
+    bubbles.forEach(([dx, ph], i) => {
+      const k = (frame + ph) % 4, by = g - 42 - k * 2.5, r = [1.2, 1.8, 2.4, 0][k];
+      if (k === 3) { for (let a = 0; a < Math.PI * 2; a += 0.8) p.set(x + dx + Math.cos(a) * 3, g - 41 + Math.sin(a) * 1.2, '#d8ffb0'); }
+      else { p.circle(x + dx, by, r, i % 2 ? '#a8f060' : '#d8ffb0'); p.set(x + dx - 0.6, by - r * 0.5, '#ffffff'); }
+    });
+    for (let i = 0; i < 4; i++) { const sx = x - 9 + i * 6 + (frame % 2), sy = g - 52 - ((frame + i) % 4) * 5; p.circle(sx, sy, 2.4 + (i % 2), '#d8f4d0', 110); p.circle(sx + 2, sy - 2, 1.6, '#eefbe8', 90); }
+    // a stirring paddle leaning in the pot
+    p.line(x + 6, g - 41, x + 20, g - 70, '#6b4428'); p.line(x + 7, g - 41, x + 21, g - 70, '#8a5a33'); p.ellipse(x + 21, g - 72, 2.5, 3.5, '#8a5a33');
+    // the witch's clutter: jars, candles, mushrooms, pumpkins
+    for (const [dx, dy, c] of [[-38, 2, '#c87aff'], [-33, 5, '#7ae0c8'], [-29, 1, '#ff7a5c']]) { p.rect(x + dx - 1, g + dy - 5, 4, 5, c); p.set(x + dx, g + dy - 4, '#ffffff'); p.rect(x + dx - 1, g + dy - 6, 4, 1, '#8a5a33'); }
+    for (const [dx, dy, h] of [[30, -2, 6], [34, 1, 4], [27, 3, 5]]) { p.rect(x + dx, g + dy - h, 2, h, '#efe9df'); p.set(x + dx, g + dy - h - 1, '#ffd27a'); p.set(x + dx + 1, g + dy - h - 2, '#ff9a3c'); }
+    for (const [dx, dy] of [[-24, 12], [-20, 14], [22, 13]]) { p.rect(x + dx, g + dy - 3, 1, 3, '#efe9df'); p.ellipse(x + dx + 0.5, g + dy - 3.5, 2.6, 1.5, '#d9293b'); p.set(x + dx - 1, g + dy - 4, '#ffffff'); }
+    pumpkin(p, x - 40, g + 12, 4.5); pumpkin(p, x + 40, g + 10, 3.8); pumpkin(p, x + 34, g + 16, 3);
     p.outline(PAL.ink);
+    // lay the outlined objects over the soft dirt
+    for (let i = 0; i < W * H; i++) if (!p.d[i * 4 + 3] && ground.d[i * 4 + 3]) for (let k = 0; k < 4; k++) p.d[i * 4 + k] = ground.d[i * 4 + k];
     return sprite(p, x, g);
   }
   function ghostSprite(frame) {
@@ -5230,7 +5289,7 @@ const Art = (() => {
     T.lighthouse = lighthouseIslet(); T.lighthouseSnow = lighthouseIslet({ snow: true });
     T.lighthouseShack = lighthouseIslet({ shack: true }); T.lighthouseShackSnow = lighthouseIslet({ shack: true, snow: true });
     T.fenceU = fenceTex('u'); T.fenceV = fenceTex('v'); T.scarecrow = scarecrow();
-    for (let f = 0; f < 3; f++) T['cauldron' + f] = bigCauldron(f);
+    for (let f = 0; f < 4; f++) T['cauldron' + f] = bigCauldron(f);
     T.ghost0 = ghostSprite(0); T.ghost1 = ghostSprite(1);
     T.ghostShip = ship(-1, { L: 18, B: 6, hull: ['#1d2b2b', '#2c4040', '#3a5454'], rim: '#7fe0b0', sailC: ['#d6f4e6', '#b8e2cf', '#8fc4b0'], masts: [{ a: 7, h: 36, rig: 'square', w: 6, sails: 2 }, { a: -3, h: 42, rig: 'square', w: 7, sails: 3 }], castle: { from: -1, to: -0.55, h: 4 }, flag: '#59d1a0', glow: true }, 7);
     { const g = T.ghostShip, c = g.canvas.getContext('2d'), lit = ['#a8f060', '#d8ffb0'];
@@ -6003,7 +6062,7 @@ const World = (() => {
     outerBack = []; outerFront = [];
     for (let gy = -M; gy < N + M; gy++) for (let gx = -M; gx < N + M; gx++) {
       if (inMap(gx, gy) || typeAt(gx, gy) !== T.GRASS || lDist(gx, gy) < 2) continue;
-      if (Math.abs(gx - CAULDRON_AT.gx) <= 2 && Math.abs(gy - CAULDRON_AT.gy) <= 2) continue; // the cauldron's clearing
+      if (Math.abs(gx - CAULDRON_AT.gx) <= 3 && Math.abs(gy - CAULDRON_AT.gy) <= 3) continue; // the cauldron's clearing
       const n = hash(gx + 100, gy + 100, 77);
       if (n > 0.34) continue;
       const c = tileCenter(gx, gy);
@@ -6243,7 +6302,7 @@ const World = (() => {
       }
       if (ghostShipObj) { const base = 0.72 + 0.12 * Math.sin(time * 1.7); g.alpha = g.mode === 'arriving' ? Math.min(base, (g.alpha || 0) + dt * 0.5) : g.mode === 'leaving' ? Math.max(0, g.alpha - dt * 0.35) : base; g.depth = g.y; }
     }
-    if (cauldronObj) { cauldronObj.hidden = !eventOn; cauldronObj.tex = 'cauldron' + (Math.floor(time * 4) % 3); }
+    if (cauldronObj) { cauldronObj.hidden = !eventOn; cauldronObj.tex = 'cauldron' + (Math.floor(time * 5) % 4); }
     // friendly ghosts at night: a few at most, drifting, then fading if nobody pops them
     for (let i = ghosts.length - 1; i >= 0; i--) {
       const gh = ghosts[i]; gh.life += dt; gh.x += gh.vx * dt; gh.y += gh.vy * dt;
@@ -6595,7 +6654,7 @@ const World = (() => {
         else if (o.decorType === 'festoon') halo(o.x, o.y - 24, 30, 0.3 * sky.lights, '255,170,120');
         else if (o.decorType === 'hwLantern' || o.decorType === 'hwCauldron' || o.decorType === 'hwJackSpooky') halo(o.x, o.y - (o.decorType === 'hwLantern' ? 20 : 10), 22, 0.4 * sky.lights, '150,255,110');
         else if (o.decorType === 'hwJackClassic' || o.decorType === 'hwJackSilly') halo(o.x, o.y - 6, 18, 0.4 * sky.lights, '255,170,80');
-        else if (o === cauldronObj) { halo(o.x, o.y - 30, 50, 0.5 * sky.lights, '150,255,110'); halo(o.x, o.y - 4, 30, 0.5 * sky.lights, '255,150,60'); }
+        else if (o === cauldronObj) { halo(o.x, o.y - 42, 62, 0.5 * sky.lights, '150,255,110'); halo(o.x, o.y, 36, 0.55 * sky.lights, '255,150,60'); }
         else if (o.kind === 'ghostship') halo(o.x, o.y - 20, 60, 0.45 * sky.lights * (o.alpha || 0), '140,255,190');
         else if (eventOn && o.kind === 'building' && o.haunt === 2) halo(o.x - (o.fw - o.fd) * 4, o.y - 18, 34, 0.25 * sky.lights, ['255,140,60', '200,120,255', '150,255,110'][(Math.floor(time / 2 + Math.abs(o.x)) % 3 + 3) % 3]);
         else if (o.kind === 'ship' && o.alpha > 0.5) halo(o.x - 6, o.y - 8, 12, 0.3 * sky.lights, '255,190,110');
