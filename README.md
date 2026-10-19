@@ -66,7 +66,7 @@ When you get a new version of the game, upload the new files to the same reposit
 
 ## What's new in 1.5.4
 
-- The Sea Witch's hut is twice the size and now takes a 3x3 plot. Its roof rises to a short point that rolls over into a big spiral coil, like the curly hill on a spooky movie poster.
+- The Sea Witch's hut is twice the size and now takes a 3x3 plot. Its roof sweeps up in one curved witch-hat slope from the eaves and rolls over into a big spiral coil, like the curly hill on a spooky movie poster.
 - More detail: braced stilts, a wooden staircase to the door, a crescent-moon window, a round window, a hanging moon sign, drying herbs, a crooked stovepipe that puffs smoke, a big bubbling cauldron over a fire, pumpkins and mushrooms. Level 2 adds a broom, another pumpkin and a second lantern; level 3 adds a black cat on the roof and bats around the coil.
 - If your hut no longer fits where it stood, it moves itself to the nearest clear spot when you open the game. Nothing nearby is removed.
 

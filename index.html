@@ -4497,7 +4497,7 @@ const Art = (() => {
     seaWitch: L => {
       // ROOF picks how the coil grows out of the roof: A matches shades/shingles, B also flares from lower down,
       // C swaps the straight hip for one concave witch-hat sweep from the eaves.
-      const ROOF = 'A', V = { A: { roof: 34, drop: 14, w0: 14.6, H: 24, p: 2.2 }, B: { roof: 34, drop: 22, w0: 23, H: 32, p: 1.8 }, C: { roof: 10, drop: 10, w0: 36.3, H: 38, p: 1.7 } }[ROOF];
+      const ROOF = 'C', V = { A: { roof: 34, drop: 14, w0: 14.6, H: 24, p: 2.2 }, B: { roof: 34, drop: 22, w0: 23, H: 32, p: 1.8 }, C: { roof: 10, drop: 10, w0: 36.3, H: 38, p: 1.7 } }[ROOF];
       const lift = 10, wall = 20, roof = V.roof, fw = 2.3, u0 = 0.25, v0 = 0.3, uc = u0 + fw / 2, vc = v0 + fw / 2, ue = u0 + fw, ve = v0 + fw;
       const m = B(u0, v0, { fw, fd: fw, wall, roof, roofStyle: 'hip', mat: 'wood', roofC: '#5a3f7a', door: 'R', noRightWindows: true, seed: 73, z0: lift, found: 1 });
       const items = [P('stilts', u0, v0, { fw, fd: fw, h: lift }), m,
