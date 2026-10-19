@@ -3610,6 +3610,7 @@ const Art = (() => {
     p.poly(sh, (x, y) => (p.a(x, y) ? null : '#1d3a1a'), 70);
     const s = sprite(p, G.b[0], G.b[1]);
     s.smoke = res.smoke.map(([x, y]) => [x - G.b[0], y - G.b[1]]);
+    s.hauntInfo = { tx, ty, fw, fd, wall };
     return s;
   }
 
@@ -3967,6 +3968,7 @@ const Art = (() => {
     timber: [['....kkkkkkk.', '..kkbbbbbbbk', '.kyykbbbbbbk', 'kyoyykbbbbbk', 'kyyoykbbbbk.', '.kyykbbbbbk.', '..kkkkkkkk..'], { k: PAL.ink, y: '#e8c48a', o: '#b0864f', b: '#8a5a33' }],
     planks: [['kkkkkkkkkkkk', 'kppppppppppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk', 'kppppppppppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk'], { k: PAL.ink, p: '#c8925a', P: '#a06c40' }],
     hemp: [['.g.g.g.g.', '.ggggggg.', '..ggggg..', '..gGgGg..', '..ggggg..', '..kyyyk..', '..ggggg..', '..gGgGg..', '..ggggg..', '..ggggg..'], { k: PAL.ink, g: '#9fbf5a', G: '#6f9a3a', y: '#d9a441' }],
+    candy: [['k........k', 'kok....kok', '.kokkkkok.', '..kpwppk..', '..kppwpk..', '.kokkkkok.', 'kok....kok', 'k........k'], { k: PAL.ink, o: '#ff9a3c', p: '#a25ad0', w: '#f4ecd8' }],
     rope: [['..kkkkkk..', '.kyyyyyyk.', 'kyykkkkyyk', 'kyk....kyk', 'kyk....kyk', 'kyykkkkyyk', '.kyyyyyyk.', '..kkkkkkyk', '........kk'], { k: PAL.ink, y: '#d9b16a' }],
     ironOre: [['...kkkk...', '..kggrgk..', '.kgrggggk.', 'kggggrgggk', 'kgrggggrgk', '.kgggggk..', '..kkkkk...'], { k: PAL.ink, g: '#6b6e72', r: '#b4643c' }],
     iron: [['...kkkkkkk..', '..kwwssssk..', '.kssssssssk.', 'kssssssssssk', 'kddddddddddk', '.kkkkkkkkkk.'], { k: PAL.ink, s: '#a9b2bb', w: '#e3e8ed', d: '#6e7780' }],
@@ -4005,7 +4007,7 @@ const Art = (() => {
     seaWitch:     { fw: 2, fd: 2, wall: 11, roof: 14, mat: 'wood', roofC: '#5a3f7a', door: 'R', seed: 73, flagC: '#9be3e8' },
   };
   // ======================= Village pass: props, compositions, lighthouse =======================
-  const GLOW = new Set(['#f2c75c', '#fff2b8', '#ffe48a', '#ff9a3c', '#ffd27a', '#fff6c8', '#ff7a5c', '#7ae0c8'].map(h => C(h).join(',')));
+  const GLOW = new Set(['#f2c75c', '#fff2b8', '#ffe48a', '#ff9a3c', '#ffd27a', '#fff6c8', '#ff7a5c', '#7ae0c8', '#a8f060', '#c87aff', '#d8ffb0'].map(h => C(h).join(',')));
   // Copy of a sprite holding only its light-emitting pixels (windows, lamps, forges), for night lighting.
   function emissive(p) {
     const e = new Pix(p.w, p.h);
@@ -4267,6 +4269,8 @@ const Art = (() => {
     const s = sprite(p, G.b[0], G.b[1]);
     s.smoke = smoke.map(([x, y]) => [x - G.b[0], y - G.b[1]]);
     s.emit = emissive(p);
+    const main = spec.items.find(it => !it.prop);
+    if (main) { const q = pt(main.u, main.v); s.hauntInfo = { tx: q[0], ty: q[1], fw: main.fw, fd: main.fd, wall: main.wall }; }
     return s;
   }
 
@@ -4549,7 +4553,151 @@ const Art = (() => {
       }
     },
   };
-  const DECOR_TOP = { harborLantern: 44, festoon: 34, sunflowers: 30, garden: 24, fountain: 42, goldChest: 28 };
+  // ---------- 1.3: Halloween ----------
+  function pumpkin(p, x, y, r = 4, o = {}) {
+    const body = o.body || '#e8862a', dk = o.dark || '#b85a1a';
+    p.ellipse(x, y - r * 0.8, r * 1.25, r * 0.85, (xx) => (Math.abs(xx - x) % 3 < 1 ? dk : body));
+    p.ellipse(x - r * 0.4, y - r * 1.05, r * 0.4, r * 0.25, '#f4a24a');
+    p.rect(x, y - r * 1.7 - 1, 1, 2, '#4b8636');
+  }
+  function flagArt(p, pt, banner, emblem) {
+    const q = pt(0.5, 0.5);
+    p.ellipse(q[0], q[1], 4, 2, '#6a665f');
+    p.rect(q[0], q[1] - 30, 1, 30, '#3b3d40'); p.set(q[0], q[1] - 31, '#e0b44a');
+    const x0 = q[0] + 1, y0 = q[1] - 29;
+    for (let y = 0; y < 12; y++) for (let x = 0; x < 13; x++) { if (x > 10 && Math.abs(y - 5.5) < (x - 10) * 1.6) continue; p.set(x0 + x, y0 + y + Math.round(Math.sin(x / 2.5) * 0.8), y === 0 ? shade(banner, 1.15) : banner); }
+    emblem(p, x0, y0);
+  }
+  function jack(p, pt, face) {
+    const q = pt(0.5, 0.55);
+    p.ellipse(q[0], q[1] + 1, 7, 2.5, '#1d3a1a', 70);
+    pumpkin(p, q[0], q[1] + 1, 6, face.colors || {});
+    face.draw(p, q[0], q[1] - 4);
+  }
+  DECOR_ART.hwPumpkinFlag = (p, pt) => flagArt(p, pt, '#e8862a', (p, x, y) => { p.ellipse(x + 5, y + 6, 3.5, 3, '#2a1d17'); p.ellipse(x + 5, y + 6, 2.5, 2, '#ffd27a'); p.set(x + 4, y + 5, '#2a1d17'); p.set(x + 6, y + 5, '#2a1d17'); p.rect(x + 4, y + 7, 3, 1, '#2a1d17'); p.rect(x + 5, y + 2, 1, 2, '#4b8636'); });
+  DECOR_ART.hwGhostFlag = (p, pt) => flagArt(p, pt, '#6a3f9a', (p, x, y) => { p.ellipse(x + 5, y + 5, 3, 3, '#f4f4f0'); p.rect(x + 2, y + 5, 7, 4, '#f4f4f0'); p.set(x + 3, y + 9, '#f4f4f0'); p.set(x + 7, y + 9, '#f4f4f0'); p.set(x + 4, y + 4, '#2a1d17'); p.set(x + 6, y + 4, '#2a1d17'); p.set(x + 5, y + 6, '#2a1d17'); });
+  DECOR_ART.hwWitchFlag = (p, pt) => flagArt(p, pt, '#3f8f4f', (p, x, y) => { p.circle(x + 8, y + 3.5, 2.2, '#f2e27a'); p.line(x + 1, y + 8, x + 9, y + 6, '#5e3b22'); p.rect(x + 0, y + 7, 2, 3, '#c9a040'); p.poly([[x + 4, y + 3], [x + 6, y + 7], [x + 3, y + 7]], '#1d1622'); p.rect(x + 2, y + 3, 5, 1, '#1d1622'); p.poly([[x + 4, y], [x + 6, y + 3], [x + 3, y + 3]], '#1d1622'); });
+  DECOR_ART.hwJackClassic = (p, pt) => jack(p, pt, { draw: (p, x, y) => { const g = '#ffd27a'; p.poly([[x - 4, y + 1], [x - 1, y + 1], [x - 2.5, y - 2]], g); p.poly([[x + 1, y + 1], [x + 4, y + 1], [x + 2.5, y - 2]], g); p.rect(x - 4, y + 3, 9, 2, g); p.set(x - 2, y + 3, '#b85a1a'); p.set(x + 2, y + 4, '#b85a1a'); } });
+  DECOR_ART.hwJackSilly = (p, pt) => jack(p, pt, { colors: { body: '#f2a03a', dark: '#c26a20' }, draw: (p, x, y) => { const g = '#ffd27a'; p.circle(x - 2.5, y - 0.5, 1.6, g); p.circle(x + 3, y - 1, 2.1, g); p.set(x - 2.5, y - 0.5, '#2a1d17'); p.set(x + 3, y - 1, '#2a1d17'); p.poly([[x - 3, y + 2], [x + 4, y + 2], [x + 1, y + 5]], g); p.rect(x, y + 4, 2, 3, '#e8607a'); p.set(x, y + 6, '#c8464c'); } });
+  DECOR_ART.hwJackSpooky = (p, pt) => jack(p, pt, { colors: { body: '#c8601e', dark: '#7a3410' }, draw: (p, x, y) => { const g = '#a8f060'; p.poly([[x - 5, y - 2], [x - 1, y], [x - 4, y + 1]], g); p.poly([[x + 5, y - 2], [x + 1, y], [x + 4, y + 1]], g); p.poly([[x - 5, y + 2], [x + 5, y + 2], [x + 3, y + 5], [x - 3, y + 5]], g); for (const dx of [-3, 0, 3]) { p.set(x + dx, y + 2, '#7a3410'); p.set(x + dx, y + 3, '#7a3410'); } p.set(x - 1, y + 5, '#7a3410'); p.set(x + 1, y + 5, '#7a3410'); } });
+  DECOR_ART.hwSkeleton = (p, pt, o = {}) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1], b = '#f0ece0', d = '#b8b2a2';
+    p.ellipse(x, g, 5, 2, '#5c3a24');
+    p.rect(x - 2, g - 9, 1, 9, b); p.rect(x + 1, g - 9, 1, 9, b); p.rect(x - 2, g - 10, 4, 2, d);
+    p.rect(x - 0, g - 19, 1, 9, b); for (let i = 0; i < 4; i++) p.rect(x - 3, g - 18 + i * 2, 7, 1, i % 2 ? d : b);
+    p.line(x - 3, g - 18, x - 6, g - 12, b);
+    const up = o.frame ? [x + 7, g - 26] : [x + 8, g - 23];
+    p.line(x + 3, g - 18, x + 6, g - 21, b); p.line(x + 6, g - 21, up[0], up[1], b); p.rect(up[0] - 1, up[1] - 2, 3, 2, b);
+    p.circle(x + 0.5, g - 22, 3.2, b); p.rect(x - 1, g - 23, 1, 2, '#2a1d17'); p.rect(x + 1, g - 23, 1, 2, '#2a1d17'); p.rect(x - 1, g - 20, 3, 1, d);
+  };
+  DECOR_ART.hwScarecrow = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    p.ellipse(x, g, 5, 2, '#5c3a24');
+    p.rect(x, g - 22, 1, 22, '#4a2f1c'); p.rect(x - 8, g - 17, 17, 1, '#5e3b22');
+    p.poly([[x - 5, g - 18], [x + 6, g - 18], [x + 5, g - 7], [x + 2, g - 9], [x, g - 6], [x - 2, g - 9], [x - 4, g - 7]], (xx, yy) => ((xx + yy) % 4 === 0 ? '#3a2a4a' : '#4f3a66'));
+    p.rect(x - 8, g - 18, 3, 3, '#4f3a66'); p.rect(x + 6, g - 18, 3, 3, '#4f3a66');
+    pumpkin(p, x + 0.5, g - 18, 4);
+    p.set(x - 1, g - 22, '#a8f060'); p.set(x + 2, g - 22, '#a8f060'); p.rect(x - 1, g - 20, 4, 1, '#a8f060');
+    p.poly([[x - 4, g - 25], [x + 5, g - 25], [x + 0.5, g - 33]], '#1d1622'); p.rect(x - 6, g - 25, 13, 1, '#1d1622');
+    p.rect(x + 7, g - 21, 3, 2, '#14100c'); p.set(x + 10, g - 21, '#e0b44a'); p.set(x + 8, g - 22, '#14100c');
+  };
+  DECOR_ART.hwLantern = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    p.ellipse(x, g, 4, 2, '#5c3a24');
+    p.line(x, g, x - 2, g - 18, '#4a2f1c'); p.line(x + 1, g, x - 1, g - 18, '#5e3b22');
+    p.line(x - 2, g - 18, x + 5, g - 23, '#4a2f1c'); p.rect(x + 5, g - 23, 1, 3, '#3b3d40');
+    p.rect(x + 3, g - 20, 5, 1, '#2f3236'); p.rect(x + 3, g - 19, 5, 6, '#1d1622'); p.rect(x + 4, g - 18, 3, 4, '#a8f060'); p.set(x + 5, g - 17, '#d8ffb0'); p.rect(x + 3, g - 13, 5, 1, '#2f3236');
+  };
+  DECOR_ART.hwTombstone = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    p.ellipse(x, g, 7, 3, '#6b4428'); p.ellipse(x - 1, g - 1, 5, 2, '#7b5232');
+    p.poly([[x - 5, g - 1], [x + 4, g + 1], [x + 6, g - 11], [x - 3, g - 14]], (xx, yy) => (hash(xx, yy, 5) < 0.2 ? '#77736c' : '#a9a397'));
+    p.circle(x + 1.5, g - 12.5, 4.3, '#a9a397');
+    p.poly([[x + 4, g + 1], [x + 6, g], [x + 8, g - 11], [x + 6, g - 11]], '#77736c');
+    p.rect(x - 1, g - 11, 1, 5, '#5f5a53'); p.rect(x - 2, g - 9, 3, 1, '#5f5a53');
+    for (const dx of [-2, 0, 2]) p.set(x + dx + 1, g - 4, '#5f5a53');
+    p.set(x - 6, g - 1, '#5fa043'); p.set(x - 5, g - 2, '#5fa043'); p.set(x + 7, g, '#5fa043');
+  };
+  DECOR_ART.hwBatRoost = (p, pt, o = {}) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1], wood = '#3a2a20';
+    p.ellipse(x, g, 5, 2, '#5c3a24');
+    p.rect(x - 1, g - 16, 3, 16, wood);
+    p.line(x, g - 12, x - 8, g - 20, wood); p.line(x - 5, g - 17, x - 7, g - 25, wood);
+    p.line(x + 1, g - 14, x + 9, g - 22, wood); p.line(x + 6, g - 19, x + 10, g - 27, wood); p.line(x, g - 16, x + 1, g - 28, wood);
+    const bat = (bx, by) => p.blitMap(['.k.k.', 'kkkkk', 'kkykk', '.kkk.', '..k..'], { k: '#1d1622', y: '#ffd27a' }, bx - 2, by - 1);
+    bat(x - 7, g - 19); bat(x + 7, g - 20); bat(x - 6, g - 24); bat(x + 9, g - 26); if (o.frame) bat(x + 1, g - 27);
+  };
+  DECOR_ART.hwCauldron = (p, pt, o = {}) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    for (const dx of [-5, 0, 5]) p.rect(x + dx, g - 3, 1, 3, '#2f3236');
+    p.ellipse(x, g - 7, 7, 5.5, '#2f3236'); p.ellipse(x - 2, g - 8, 3, 2.5, '#4a4f57');
+    p.ellipse(x, g - 11, 6.5, 2.3, '#1d1622'); p.ellipse(x, g - 11, 5.5, 1.7, '#59d16a');
+    const f = o.frame || 0;
+    for (const [dx, dy] of [[-2, 0], [2, -1], [0, 1]]) { const k = (f + dx + 3) % 3; p.circle(x + dx, g - 12 - k - dy, 1, '#a8f060'); }
+    p.set(x + 1, g - 16 - f, '#d8ffb0');
+  };
+  const HW_ANIM = { hwSkeleton: 2, hwBatRoost: 2, hwCauldron: 3 };
+  // The big West Woods cauldron (three bubbling frames) and a friendly ghost (two frames).
+  function bigCauldron(frame) {
+    const p = new Pix(60, 70), x = 30, g = 58;
+    p.ellipse(x, g, 26, 9, '#4a3a2a'); p.ellipse(x, g, 22, 7, '#5c4a36');
+    for (const [dx, dy] of [[-18, -2], [16, 1], [-8, 5], [10, -5]]) { p.ellipse(x + dx, g + dy, 3, 2.2, '#2f3236'); p.ellipse(x + dx, g + dy - 1, 2, 1, '#6a665f'); }
+    for (const a of [-1, 1]) p.line(x + a * 12, g + 3, x - a * 10, g - 1, '#6b4428');
+    const fl = ['#ff9a3c', '#ffd27a'];
+    for (let i = 0; i < 7; i++) { const fx = x - 9 + i * 3, fh = 4 + ((i * 7 + frame * 3) % 5); p.poly([[fx - 1.5, g], [fx + 1.5, g], [fx, g - fh]], fl[(i + frame) % 2]); }
+    for (const dx of [-11, 0, 11]) p.rect(x + dx, g - 10, 2, 8, '#2f3236');
+    p.ellipse(x, g - 18, 17, 13, '#2f3236'); p.ellipse(x - 5, g - 22, 6, 5, '#4a4f57'); p.set(x - 7, g - 25, '#7a7f87');
+    p.ellipse(x, g - 28, 16, 5, '#1d1622'); p.ellipse(x, g - 28, 14.5, 4, '#59d16a');
+    for (let i = 0; i < 6; i++) { const bx = x - 10 + i * 4, k = (i * 5 + frame * 2) % 6; p.circle(bx, g - 29 - k * 0.6, 1.4 + (k % 2) * 0.6, k > 3 ? '#d8ffb0' : '#a8f060'); }
+    for (let i = 0; i < 3; i++) { const sx = x - 6 + i * 6, sy = g - 36 - ((frame + i) % 3) * 4; p.circle(sx, sy, 2 + i % 2, '#d8f4d0', 120); }
+    p.rect(x + 12, g - 44, 2, 18, '#6b4428'); p.ellipse(x + 13, g - 44, 3, 1.5, '#8a5a33');
+    pumpkin(p, x - 22, g + 2, 4); pumpkin(p, x + 21, g + 4, 3.5);
+    p.outline(PAL.ink);
+    return sprite(p, x, g);
+  }
+  function ghostSprite(frame) {
+    const p = new Pix(16, 20), x = 8;
+    p.circle(x, 7, 6, '#f6f6f2');
+    p.rect(x - 6, 7, 13, 7, '#f6f6f2');
+    for (let i = 0; i < 4; i++) { const hx = x - 6 + i * 3 + (frame ? 1 : 0); p.rect(hx, 14, 2, 2 + ((i + frame) % 2), '#f6f6f2'); }
+    p.ellipse(x - 2, 7, 1.2, 1.8, '#2a1d17'); p.ellipse(x + 2.5, 7, 1.2, 1.8, '#2a1d17');
+    p.ellipse(x, 10.5, 1.3, 1, '#2a1d17'); p.set(x - 4, 9, '#f2a0b0'); p.set(x + 4, 9, '#f2a0b0');
+    p.rect(x - 5, 4, 2, 2, '#ffffff');
+    p.outline('#5a6878');
+    return sprite(p, x, 16);
+  }
+  // Seasonal dressing for a building: drawn over its sprite, never part of it, so nothing is altered for good.
+  // kind picks the mix: webs and bats, pumpkins, coloured lights, tombstones.
+  function hauntOverlay(s, kind) {
+    const k = '_h' + kind;
+    if (s[k] !== undefined) return s[k];
+    const hi = s.hauntInfo;
+    if (!hi) return (s[k] = null);
+    const p = new Pix(s.w, s.h);
+    const G = corners(hi.tx, hi.ty, hi.fw, hi.fd), up = q => [q[0], q[1] - hi.wall], U = { l: up(G.l), b: up(G.b), r: up(G.r), t: up(G.t) };
+    const lerp = (a, b, t) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    const web = (c) => {
+      const w = '#e8ecf1';
+      for (const [dx, dy] of [[9, 4.5], [0, 8], [6, 7]]) p.line(c[0], c[1], c[0] + dx, c[1] + dy, w);
+      for (const r of [3, 6]) p.line(c[0] + r, c[1] + r * 0.5, c[0], c[1] + r * 1.3, w);
+    };
+    const bat = (q) => { const x = Math.round(q[0]), y = Math.round(q[1]); p.line(x, y, x, y + 3, '#3b3d40'); p.blitMap(['k.....k', 'kk.k.kk', 'kkkkkkk', '.kykyk.', '..kkk..'], { k: '#1d1622', y: '#ff9a3c' }, x - 3, y + 4); };
+    const tomb = (q) => { p.rect(q[0] - 2, q[1] - 6, 5, 6, '#a9a397'); p.rect(q[0] - 1, q[1] - 7, 3, 1, '#a9a397'); p.rect(q[0] + 2, q[1] - 6, 1, 6, '#77736c'); p.set(q[0], q[1] - 4, '#5f5a53'); p.rect(q[0] - 2, q[1], 5, 1, '#5c3a24'); };
+    const lights = () => {
+      const cols = ['#ff9a3c', '#c87aff', '#a8f060'];
+      const a = lerp(U.l, U.b, 0.06), b = lerp(U.l, U.b, 0.94), n = Math.max(3, Math.floor((b[0] - a[0]) / 4));
+      p.line(a[0], a[1] + 1, b[0], b[1] + 1, '#2f3236');
+      for (let i = 0; i <= n; i++) { const q = lerp(a, b, i / n); p.rect(q[0], q[1] + 2, 2, 2, cols[i % 3]); }
+    };
+    if (kind === 0 || kind === 3) { web([U.l[0] + 1, U.l[1] + 1]); bat(lerp(U.l, U.b, 0.62)); bat(lerp(U.b, U.r, 0.35)); }
+    if (kind === 1 || kind === 3) { pumpkin(p, G.b[0] - 6, G.b[1] + 2, 3); pumpkin(p, lerp(G.l, G.b, 0.35)[0], lerp(G.l, G.b, 0.35)[1] + 3, 2.6); }
+    if (kind === 2) { lights(); web([U.b[0] - 1, U.b[1] + 1]); }
+    if (kind === 4) { for (const t of [0.2, 0.5, 0.8]) tomb([lerp(G.l, G.b, t)[0], lerp(G.l, G.b, t)[1] + 2]); web([U.l[0] + 1, U.l[1] + 1]); }
+    return (s[k] = { canvas: p.canvas(), emit: emissive(p) });
+  }
+
+  const DECOR_TOP = { harborLantern: 44, festoon: 34, sunflowers: 30, garden: 24, fountain: 42, goldChest: 28,
+    hwPumpkinFlag: 36, hwGhostFlag: 36, hwWitchFlag: 36, hwSkeleton: 32, hwScarecrow: 38, hwLantern: 30, hwBatRoost: 34, hwTombstone: 24, hwCauldron: 26 };
   const _dtex = {};
   // variant: { frame, ice } for animated / seasonal decorations.
   function decorTex(type, o = {}) {
@@ -4814,6 +4962,12 @@ const Art = (() => {
     T.lighthouse = lighthouseIslet(); T.lighthouseSnow = lighthouseIslet({ snow: true });
     T.lighthouseShack = lighthouseIslet({ shack: true }); T.lighthouseShackSnow = lighthouseIslet({ shack: true, snow: true });
     T.fenceU = fenceTex('u'); T.fenceV = fenceTex('v'); T.scarecrow = scarecrow();
+    for (let f = 0; f < 3; f++) T['cauldron' + f] = bigCauldron(f);
+    T.ghost0 = ghostSprite(0); T.ghost1 = ghostSprite(1);
+    T.ghostShip = ship(-1, { L: 18, B: 6, hull: ['#1d2b2b', '#2c4040', '#3a5454'], rim: '#7fe0b0', sailC: ['#d6f4e6', '#b8e2cf', '#8fc4b0'], masts: [{ a: 7, h: 36, rig: 'square', w: 6, sails: 2 }, { a: -3, h: 42, rig: 'square', w: 7, sails: 3 }], castle: { from: -1, to: -0.55, h: 4 }, flag: '#59d1a0', glow: true }, 7);
+    { const g = T.ghostShip, c = g.canvas.getContext('2d'), lit = ['#a8f060', '#d8ffb0'];
+      // eerie lanterns at bow and stern
+      for (const [fx, fy] of [[0.22, 0.7], [0.8, 0.62], [0.5, 0.66]]) { c.fillStyle = lit[0]; c.fillRect(Math.round(g.w * fx), Math.round(g.h * fy), 2, 2); c.fillStyle = lit[1]; c.fillRect(Math.round(g.w * fx), Math.round(g.h * fy), 1, 1); } }
     T.rock = rock(1); T.rock2 = rock(2);
     T.crate = crate(); T.barrel = barrel(); T.lamp = lamp(); T.post = post();
     { const p = new Pix(9, 12); p.blitMap(['..rrr..', '.rwwwr.', '.rrrrr.', '.wwwww.', 'rrrrrrr', '.rrrrr.'], { r: '#c8463c', w: '#f4ecd8' }, 1, 3); p.rect(4, 1, 1, 3, '#3b3d40'); p.outline(PAL.ink); T.buoy = sprite(p, 4, 9); }
@@ -4830,7 +4984,7 @@ const Art = (() => {
     return T;
   }
 
-  return { decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
+  return { hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
 })();
 
 </script>
