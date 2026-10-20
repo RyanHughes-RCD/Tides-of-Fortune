@@ -172,3 +172,7 @@ Saves from 1.2 load straight into 1.3. In **Options → Developer mode** you can
 - **The link shows a 404 page:** Pages takes a few minutes the first time. Check that `index.html` is at the top level of the repository, not inside a folder.
 - **Still showing an old version:** close the app completely and open it again (twice if needed), or tap the update button when it appears.
 - **No Add to Home Screen option:** make sure you're in Safari, not Chrome or a link preview inside another app.
+
+## Also in this repository: Tides Dice Studio
+
+The `dice_studio/` folder holds a separate desktop app for designing 7-piece resin dice sets and exporting them as STL files. It doesn't affect the game. See [dice_studio/README.md](dice_studio/README.md); on Windows, double-click `dice_studio/run_windows.bat`.

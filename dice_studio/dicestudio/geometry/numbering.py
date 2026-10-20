@@ -11,7 +11,7 @@ Up directions follow the usual conventions:
 
 * D6:            towards an edge midpoint;
 * D8, D12, D20:  towards a vertex (configurable: vertex / edge);
-* D10, D100:     towards the kite's apex (the die's pole);
+* D10, D100 and all bipyramids:  towards the die's pole (the apex of the face);
 * D4:            numbers sit at the corners and each points at its own corner
                  ("apex" style, read at the top) or along the bottom edge
                  ("base" style, read at the bottom).
@@ -48,7 +48,7 @@ class FaceFrame:
     n: np.ndarray
     offset: float  # plane offset (n . x = offset on the face)
     polygon: Polygon  # final face outline in frame coordinates
-    base_polygon: Polygon  # un-chamfered outline in frame coordinates
+    base_polygon: Polygon  # base solid outline in frame coordinates
     base_vertices2d: np.ndarray
 
     def to3d(self, xy, z=0.0):
@@ -103,8 +103,13 @@ def _poly_centroid3d(pts):
     return acc / tot
 
 
-def build_frames(die, poly: ConvexPolyhedron, base: ConvexPolyhedron, align=None):
-    """Return {face tag: FaceFrame} for all numbered faces."""
+def build_frames(die, poly: ConvexPolyhedron, base: ConvexPolyhedron, align=None, pole=None):
+    """Return {face tag: FaceFrame} for all numbered faces.
+
+    ``pole``: numerals point towards the die's pole (bipyramids, trapezohedra).
+    """
+    if pole is None:
+        pole = die in ("d10", "d100")
     align = align or DEFAULT_ALIGN.get(die, "vertex")
     if align not in ALIGN_MODES:
         raise GeometryError(f"alignment must be one of {ALIGN_MODES}")
@@ -115,7 +120,7 @@ def build_frames(die, poly: ConvexPolyhedron, base: ConvexPolyhedron, align=None
         fpts = poly.vertices[f.vertex_ids]
         origin = _poly_centroid3d(fpts)
         bc = _poly_centroid3d(bpts)
-        if die in ("d10", "d100"):
+        if pole:
             apex = bpts[np.argmax(np.abs(bpts[:, 2]))]
             up = apex - bc
         elif die == "d4":
@@ -151,11 +156,23 @@ def _vertex_faces(base):
     return vf
 
 
+_BALANCE_CACHE = {}
+
+
 def balanced_assignment(base, n):
     """Assign 1..n so opposite faces sum to n+1 and vertex sums are as even as possible.
 
-    Deterministic local search (fixed RNG seed) over pair placements.
+    Deterministic local search (fixed RNG seed) over pair placements.  The base
+    polyhedron's face tags and topology depend only on the die type, so the
+    result is cached per (n, face normals).
     """
+    key = (n, tuple(np.round(np.concatenate([f.normal for f in base.die_faces()]), 6)))
+    if key not in _BALANCE_CACHE:
+        _BALANCE_CACHE[key] = _balanced_assignment(base, n)
+    return dict(_BALANCE_CACHE[key])
+
+
+def _balanced_assignment(base, n):
     opp = opposite_face_map(base)
     pairs = []
     seen = set()
@@ -207,8 +224,7 @@ def balanced_assignment(base, n):
 def assign_values(die, base, opts):
     """Return {face tag: value}.  D4 'apex' returns vertex values separately."""
     if die == "d6":
-        # 1-2-3 counter-clockwise around a corner, opposite faces sum to 7
-        return {0: 1, 2: 2, 4: 3, 5: 4, 3: 5, 1: 6}
+        return _d6_assignment(base)
     if die in ("d8", "d12", "d20"):
         return balanced_assignment(base, {"d8": 8, "d12": 12, "d20": 20}[die])
     if die in ("d10", "d100"):
@@ -224,6 +240,25 @@ def assign_values(die, base, opts):
     if die == "d4":
         return {f.tag: f.tag + 1 for f in base.die_faces()}
     raise GeometryError(die)
+
+
+def _d6_assignment(base):
+    """1-2-3 counter-clockwise (seen from outside) around one corner; opposite faces sum to 7."""
+    opp = opposite_face_map(base)
+    vf = _vertex_faces(base)
+    score = base.vertices @ _REF
+    vid = max((v for v in vf if len(vf[v]) == 3), key=lambda v: score[v])
+    w = unit(base.vertices[vid])
+    tags = vf[vid]
+    normals = {t: base.face_by_tag(t).normal for t in tags}
+    a = unit(normals[tags[0]] - w * (normals[tags[0]] @ w))
+    b = np.cross(w, a)
+    tags = sorted(tags, key=lambda t: math.atan2(normals[t] @ b, normals[t] @ a))
+    vals = {}
+    for i, t in enumerate(tags):
+        vals[t] = i + 1
+        vals[opp[t]] = 6 - i
+    return vals
 
 
 def validate_d10_top(top):

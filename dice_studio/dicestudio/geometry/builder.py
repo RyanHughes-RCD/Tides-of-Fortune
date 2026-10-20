@@ -19,12 +19,13 @@ from shapely import affinity
 from shapely.geometry import Point, Polygon
 from shapely.ops import polylabel
 
-from . import decoration as deco
+from . import design as dsg
 from . import logo as logomod
 from .mesh3d import BooleanError, apply_features, manifold_arrays, polyhedron_to_manifold, prism
 from .numbering import NumeralPlacement, build_frames, numeral_placements
-from .polyhedra import FACE_COUNTS, GeometryError, ShapeParams, die_polyhedron, offset_polyhedron
-from .text import BuiltinFont, FontError, as_multipolygon, load_font, polygons_of, text_shape
+from .polyhedra import (FACE_COUNTS, POLE_FAMILIES, REGULAR_FAMILIES, GeometryError, ShapeParams, die_polyhedron,
+                        offset_polyhedron)
+from .text import BuiltinFont, FontError, as_multipolygon, load_font, polygons_of, robust_op, text_shape
 from .validate import validate_mesh
 
 log = logging.getLogger(__name__)
@@ -87,7 +88,7 @@ def section_polygon(frame, poly, depth, wall=0.0):
         hp = _halfplane(a, b, c)
         if hp is None:
             continue
-        region = region.intersection(hp)
+        region = robust_op("intersection", region, hp)
         if region.is_empty:
             break
     return region
@@ -99,7 +100,7 @@ def safe_region(frame, poly, depth, edge_margin, min_wall):
     if depth <= 0:
         return top
     bottom = section_polygon(frame, poly, depth, wall=min_wall)
-    return top.intersection(bottom)
+    return robust_op("intersection", top, bottom)
 
 
 # ---------------------------------------------------------------------------
@@ -152,6 +153,7 @@ class DieResult:
             "blank_check": self.blank_check,
             "faces": [f.__dict__ for f in self.faces],
             "info": self.info,
+            "planes": [[*n, off] for n, off, _ in self.plane_data],
         }
 
 
@@ -180,11 +182,13 @@ def _numeral_centers(die, frames, placements, opts):
                 c = -dirn * reach * float(opts.get("d4_radius", 0.42)) * 1.25
             p.center = (float(c[0]), float(c[1]))
         else:
-            if die in ("d10", "d100"):
+            if opts.get("_regular", False):
+                c = (0.0, 0.0)  # regular polygon: centroid == incentre
+            else:
+                # irregular congruent faces (kites, isosceles triangles, rhombi, pyritohedral
+                # pentagons): centre the numeral on the largest inscribed circle
                 pl = polylabel(fr.polygon, tolerance=0.01)
                 c = (pl.x, pl.y)
-            else:
-                c = (0.0, 0.0)
             p.center = (c[0] + float(off[0]), c[1] + float(off[1]))
     return placements
 
@@ -219,6 +223,7 @@ def _layout_ok(placements_by_face, regions, height, font, fallback, opts, cache,
 
 
 def fit_numerals(die, frames, placements, regions, font, fallback, opts, cache):
+    """Largest numeral height that fits every face's safe region (binary search)."""
     by_face = {}
     for p in placements:
         by_face.setdefault(p.face_tag, []).append(p)
@@ -228,7 +233,7 @@ def fit_numerals(die, frames, placements, regions, font, fallback, opts, cache):
     for tag, pls in by_face.items():
         widths[tag] = max(len(p.text) + (0.5 if p.marker else 0) for p in pls)
     probe_tags = sorted(by_face, key=lambda t: -widths[t])[:3]
-    if die == "d4" or die in ("d10", "d100"):
+    if die == "d4" or not opts.get("_regular", False):
         probe_tags = list(by_face)
     probe = {t: by_face[t] for t in probe_tags}
     gap = 0.6
@@ -267,6 +272,12 @@ def build_die(spec, asset_loader=None, validate=True):
         res.info["retry_available"] = not spec.get("quality", {}).get("safe_mode", False)
         log.warning("build of %s failed: %s", die, exc)
         return res
+    except Exception as exc:  # unexpected kernel/library error: report it, never crash the request
+        log.exception("unexpected error building %s", die)
+        res.errors.append(f"{die.upper()}: unexpected geometry error ({type(exc).__name__}: {exc})")
+        res.info["error_stage"] = "internal"
+        res.info["retry_available"] = not spec.get("quality", {}).get("safe_mode", False)
+        return res
     if validate:
         res.outer_report = validate_mesh(res.outer_vertices, res.outer_tris, f"{die}", expect_genus=0).to_dict()
         res.blank_report = validate_mesh(res.blank_vertices, res.blank_tris, f"{die}_blank", expect_genus=0).to_dict()
@@ -276,22 +287,19 @@ def build_die(spec, asset_loader=None, validate=True):
 
 def _build(spec, res, asset_loader):
     die = spec["die"]
-    design = deco.validate_design(spec["design"])
+    design = dsg.validate_design(spec["design"])
     num = spec["numbers"]
     quality = spec.get("quality", {})
     safe_mode = bool(quality.get("safe_mode", False))
     nopts = dict(num)
     nopts["curve_segments"] = 5 if safe_mode else int(quality.get("curve_segments", 8))
 
-    shape = ShapeParams(
-        size_mm=float(spec["size_mm"]) * float(design["size_scale"]),
-        edge_chamfer_mm=float(design["edge_chamfer_mm"]),
-        vertex_trunc_mm=float(design["vertex_trunc_mm"]),
-        d10_elongation=float(design["d10_elongation"]),
-    )
+    family, param = dsg.shape_of(design, die)
+    shape = ShapeParams(size_mm=float(spec["size_mm"]) * float(design["size_scale"]), family=family, param=param)
     poly, base, w = die_polyhedron(die, shape)
     res.warnings += w
-    frames = build_frames(die, poly, base, num.get("align"))
+    nopts["_regular"] = family in REGULAR_FAMILIES
+    frames = build_frames(die, poly, base, num.get("align"), pole=family in POLE_FAMILIES)
     placements = numeral_placements(die, frames, base, nopts)
     placements = _numeral_centers(die, frames, placements, nopts)
 
@@ -325,22 +333,9 @@ def _build(spec, res, asset_loader):
             placements = [p for p in placements if p.face_tag != logo_tag]
 
     # numeral regions & size
-    reserve = deco.numeral_reserve(design)
-    regions = {}
-    for tag, fr in frames.items():
-        sr = safe_region(fr, poly, depth, edge_margin, min_wall)
-        inner = sr.intersection(fr.polygon.buffer(-reserve, join_style="mitre", mitre_limit=5.0)) if reserve else sr
-        regions[tag] = inner
+    regions = {tag: safe_region(fr, poly, depth, edge_margin, min_wall) for tag, fr in frames.items()}
     cache = {}
     h_fit = fit_numerals(die, frames, placements, regions, font, fallback, nopts, cache) if placements else 99
-    fill_est = float(num.get("size_fill", 0.88)) if not num.get("height_mm") else 1.0
-    if placements and h_fit * fill_est < MIN_READABLE_MM and reserve:
-        # not enough room inside the border: let numerals use the full safe area
-        res.info.setdefault("notes", []).append(
-            "small faces: numerals use the border area (the border is trimmed around them)")
-        regions = {tag: safe_region(fr, poly, depth, edge_margin, min_wall) for tag, fr in frames.items()}
-        cache.clear()
-        h_fit = fit_numerals(die, frames, placements, regions, font, fallback, nopts, cache)
     if placements and h_fit <= 0:
         raise BuildError("numerals do not fit on the faces at any size; reduce weight, depth or wall settings",
                          "numbers")
@@ -377,55 +372,33 @@ def _build(spec, res, asset_loader):
         logo_geom = _build_logo(logo_spec, frames[logo_tag], poly, edge_margin, min_wall, res, asset_loader,
                                 numeral_geoms.get(logo_tag), safe_mode)
 
-    # cutters / adders
-    cutters, adders = [], []
+    # cutters: the numerals and the optional logo are the only cuts
+    cutters = []
     cut_depths = {t: 0.0 for t in frames}
     top = 1.5
     seg_simplify = 0.01 if safe_mode else 0.0
     for tag, fr in frames.items():
         M = fr.matrix()
-        keep = []
         if tag in numeral_geoms:
-            keep.append(numeral_geoms[tag])
             if engrave:
                 cutters.append(prism(numeral_geoms[tag], M, -depth, top, seg_simplify))
                 cut_depths[tag] = max(cut_depths[tag], depth)
         res.layout[tag] = {"origin": fr.origin, "u": fr.u, "v": fr.v, "n": fr.n, "offset": fr.offset,
                            "polygon": fr.polygon, "numerals": numeral_geoms.get(tag), "logo": None,
-                           "decor_cut": [], "numeral_depth": depth if engrave else 0.0}
+                           "numeral_depth": depth if engrave else 0.0}
         if logo_geom is not None and tag == logo_tag:
             res.layout[tag]["logo"] = logo_geom
             res.layout[tag]["logo_depth"] = logo_depth
-            keep.append(logo_geom)
             cutters.append(prism(logo_geom, M, -logo_depth, top, seg_simplify))
             cut_depths[tag] = max(cut_depths[tag], logo_depth)
-        if safe_mode or not spec.get("decorate", True):
-            continue
-        keepout = shapely.union_all(keep).buffer(KEEPOUT_GAP_MM) if keep else None
-        center = placements_center(placements, tag, die)
-        pat = deco.face_pattern(fr.polygon, fr.base_vertices2d, design, keepout, center)
-        sr_cache = {}
-        for g, dd in pat["cut"]:
-            key = round(dd, 4)
-            if key not in sr_cache:
-                sr_cache[key] = safe_region(fr, poly, dd, edge_margin, min_wall)
-            g = deco.clean_printable(g.intersection(sr_cache[key]))
-            if not g.is_empty:
-                res.layout[tag]["decor_cut"].append((g, dd))
-                cutters.append(prism(g, M, -dd, top, seg_simplify))
-                cut_depths[tag] = max(cut_depths[tag], dd)
-        for g, hh in pat["raise"]:
-            g = deco.clean_printable(g.intersection(fr.polygon.buffer(-edge_margin, join_style="mitre")))
-            if not g.is_empty:
-                adders.append(prism(g, M, -0.05, hh, seg_simplify))
     res.cut_depths = cut_depths
 
     body = polyhedron_to_manifold(poly)
     try:
-        outer = apply_features(body, cutters, adders)
+        outer = apply_features(body, cutters, [])
     except BooleanError as exc:
-        raise BooleanError(f"{exc}. Use 'Retry with safe geometry' to rebuild with simplified outlines "
-                           "and no decorations.") from exc
+        raise BooleanError(f"{exc}. Use 'Retry with safe geometry' to rebuild with simplified "
+                           "outlines.") from exc
     res.outer_vertices, res.outer_tris = manifold_arrays(outer)
 
     # internal blank
@@ -454,16 +427,10 @@ def _build(spec, res, asset_loader):
         "logo_face": logo_tag,
         "outer_volume_mm3": float(outer.volume()),
         "safe_mode": safe_mode,
+        "design": design,
+        "shape": family,
+        "shape_param": param,
     })
-
-
-def placements_center(placements, tag, die):
-    if die == "d4":
-        return (0.0, 0.0)
-    for p in placements:
-        if p.face_tag == tag and p.role == "primary":
-            return p.center
-    return (0.0, 0.0)
 
 
 def _build_logo(ls, frame, poly, edge_margin, min_wall, res, asset_loader, numeral_geom, safe_mode):
@@ -477,7 +444,7 @@ def _build_logo(ls, frame, poly, edge_margin, min_wall, res, asset_loader, numer
         raise BuildError("logo depth must be between 0.1 and 3.0 mm", "logo")
     region = safe_region(frame, poly, depth, edge_margin + 0.1, min_wall)
     if numeral_geom is not None:
-        region = region.difference(numeral_geom.buffer(KEEPOUT_GAP_MM))
+        region = robust_op("difference", region, numeral_geom.buffer(KEEPOUT_GAP_MM))
     width = float(ls.get("width_mm", 6.0))
     rot = float(ls.get("rotation_deg", 0.0))
     off = ls.get("offset_mm") or [0.0, 0.0]
@@ -567,9 +534,6 @@ def _build_blank(spec, poly, outer, cut_depths, res):
     nf_blank = sum(1 for f in blank.faces if f.kind == "face")
     if nf_blank != nf_outer:
         check["issues"].append(f"blank lost {nf_outer - nf_blank} of its main faces")
-    lost_aux = sum(1 for f in poly.faces if f.kind != "face") - sum(1 for f in blank.faces if f.kind != "face")
-    if lost_aux > 0:
-        check["notes"] = [f"{lost_aux} small chamfer/truncation face(s) disappear at this clearance"]
     # 3. true containment inside the engraved outer solid
     bman = polyhedron_to_manifold(blank)
     outside = m3d.Manifold.batch_boolean([bman, outer], m3d.OpType.Subtract)

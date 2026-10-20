@@ -1,0 +1,6 @@
+# Tides Dice Studio runtime dependencies (all have prebuilt Windows wheels)
+numpy>=1.26,<3
+manifold3d>=3.0,<4
+shapely>=2.0.4,<3
+fonttools>=4.47,<5
+Pillow>=10.0,<13

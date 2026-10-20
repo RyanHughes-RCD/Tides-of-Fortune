@@ -11,8 +11,8 @@ from dicestudio.geometry.polyhedra import DIE_TYPES
 
 
 def test_seed_reproducibility(engine):
-    a = proj.default_project(seed=777, style="crystalline", density=0.8)
-    b = proj.default_project(seed=777, style="crystalline", density=0.8)
+    a = proj.default_project(seed=777, style="crystal", density=0.8)
+    b = proj.default_project(seed=777, style="crystal", density=0.8)
     assert a["design"] == b["design"]
     ha = {d: proj.resolve_die_spec(a, d)["hash"] for d in DIE_TYPES}
     hb = {d: proj.resolve_die_spec(b, d)["hash"] for d in DIE_TYPES}
@@ -21,26 +21,26 @@ def test_seed_reproducibility(engine):
     from dicestudio.geometry.builder import build_die
     rb = build_die(proj.resolve_die_spec(b, "d12"), engine.store.get)  # fresh, uncached build
     assert (ra.outer_vertices == rb.outer_vertices).all() and (ra.outer_tris == rb.outer_tris).all()
-    c = proj.default_project(seed=778, style="crystalline", density=0.8)
+    c = proj.default_project(seed=778, style="crystal", density=0.8)
     assert c["design"] != a["design"]
 
 
 def test_randomize_respects_locks():
     p = proj.default_project(seed=1, style="geometric")
-    p["locks"] = ["border_style", "edge_chamfer_mm"]
-    p["design"]["border_style"] = "ridge"
-    p["design"]["edge_chamfer_mm"] = 0.95
+    p["locks"] = ["d20_shape", "d8_height"]
+    p["design"]["d20_shape"] = "bipyramid"
+    p["design"]["d8_height"] = 1.33
     changed = False
     for s in range(2, 12):
         q = proj.randomize_set(p, seed=s)
-        assert q["design"]["border_style"] == "ridge"
-        assert q["design"]["edge_chamfer_mm"] == 0.95
+        assert q["design"]["d20_shape"] == "bipyramid"
+        assert q["design"]["d8_height"] == 1.33
         changed |= q["design"] != p["design"]
     assert changed
 
 
 def test_regenerate_single_die_only_changes_that_die():
-    p = proj.default_project(seed=5, style="art_deco", density=0.9)
+    p = proj.default_project(seed=5, style="mixed", density=0.9)
     before = {d: proj.resolve_die_spec(p, d)["hash"] for d in DIE_TYPES}
     for _ in range(3):
         p = proj.regenerate_die(p, "d12")
@@ -58,8 +58,8 @@ def test_validation_messages():
     with pytest.raises(proj.ProjectError, match="Engraving depth"):
         proj.validate_project(bad)
     bad = copy.deepcopy(p)
-    bad["design"]["border_style"] = "lace"
-    with pytest.raises(proj.ProjectError, match="Face border"):
+    bad["design"]["d12_shape"] = "sphere"
+    with pytest.raises(proj.ProjectError, match="D12 Shape"):
         proj.validate_project(bad)
     bad = copy.deepcopy(p)
     bad["numbers"]["d10_top_order"] = [1, 8, 3, 9, 5]
@@ -70,7 +70,7 @@ def test_validation_messages():
 def test_save_and_reopen_with_assets(engine, store, tmp_path):
     font = store.put(make_font("otf"), "MyFont.otf", "font")
     logo = store.put(make_logo_png(), "MyLogo.png", "logo")
-    p = proj.default_project(seed=99, style="modern_gothic", name="Gothic Set")
+    p = proj.default_project(seed=99, style="geometric", name="Geo Set")
     p["font"]["asset"] = {"id": font["id"], "name": font["name"]}
     p["logo"].update({"asset": {"id": logo["id"], "name": logo["name"]}, "enabled": True, "threshold": 90})
     p["blank"]["clearance_mm"] = 0.6

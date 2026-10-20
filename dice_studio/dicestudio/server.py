@@ -23,7 +23,7 @@ import numpy as np
 from . import project as proj
 from .assets import AssetError, AssetStore, default_workspace
 from .engine import Engine, ExportError
-from .geometry import decoration as deco
+from .geometry import design as deco
 from .geometry import logo as logomod
 from .geometry.polyhedra import DEFAULT_SIZES_MM, DIE_TYPES, SIZE_MEANING
 from .geometry.text import (BuiltinFont, DIGITS, FontError, check_font_digits, geometry_to_svg_path, load_font,
@@ -57,15 +57,15 @@ class App:
             "size_meaning": SIZE_MEANING,
             "styles": deco.STYLES,
             "design_schema": deco.DESIGN_SCHEMA,
-            "variant_keys": deco.VARIANT_KEYS,
+            "die_keys": deco.DIE_KEYS,
             "projects_dir": str(self.projects_dir),
             "export_dir": str(self.workspace / "exports"),
             "bundled_fonts": sorted(p.name for p in BUNDLED_FONTS.glob("*.ttf")),
         }
 
     def api_new(self, body):
-        return {"project": proj.default_project(body.get("seed"), body.get("style", "art_deco"),
-                                                float(body.get("density", 0.55)), body.get("name") or "MySet")}
+        return {"project": proj.default_project(body.get("seed"), body.get("style", "classic"),
+                                                float(body.get("density", 0.5)), body.get("name") or "MySet")}
 
     def api_validate_project(self, body):
         return {"project": proj.validate_project(body["project"])}

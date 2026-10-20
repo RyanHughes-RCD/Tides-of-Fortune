@@ -61,6 +61,7 @@ def logo_project(store, base_project):
     ref = store.put(make_logo_png(), "logo.png", "logo")
     p = copy.deepcopy(base_project)
     p["logo"].update({"asset": {"id": ref["id"], "name": ref["name"]}, "enabled": True, "width_mm": 5.0})
+    p["design"]["d20_shape"] = "icosahedron"
     return validate_project(p)
 
 

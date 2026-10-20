@@ -165,8 +165,8 @@ def count_self_intersections(V, T, max_pairs=20_000_000):
         return 0, 0
     a = np.concatenate(pa)
     b = np.concatenate(pb)
-    pair = np.unique(np.stack([np.minimum(a, b), np.maximum(a, b)], axis=1), axis=0)
-    a, b = pair[:, 0], pair[:, 1]
+    k = np.unique(np.minimum(a, b).astype(np.int64) * nt + np.maximum(a, b))  # 1-D keys sort fast
+    a, b = k // nt, k % nt
     # AABB overlap
     ov = np.all((lo[a] <= hi[b]) & (lo[b] <= hi[a]), axis=1)
     a, b = a[ov], b[ov]
@@ -204,17 +204,18 @@ def validate_mesh(vertices, tris, name="mesh", check_self_intersection=True, exp
     r.area_mm2 = float(areas.sum())
     r.volume_mm3 = float(np.einsum("ij,ij->i", p[:, 0], np.cross(p[:, 1], p[:, 2])).sum() / 6.0)
     # duplicates
-    st = np.sort(T, axis=1)
-    _, cnt = np.unique(st, axis=0, return_counts=True)
+    nv = np.int64(len(V))
+    st = np.sort(T, axis=1).astype(np.int64)
+    _, cnt = np.unique((st[:, 0] * nv + st[:, 1]) * nv + st[:, 2], return_counts=True)
     r.duplicate_triangles = int((cnt > 1).sum())
-    # edges
-    directed = np.concatenate([T[:, [0, 1]], T[:, [1, 2]], T[:, [2, 0]]])
+    # edges (encoded as 1-D integer keys)
+    directed = np.concatenate([T[:, [0, 1]], T[:, [1, 2]], T[:, [2, 0]]]).astype(np.int64)
     und = np.sort(directed, axis=1)
-    _, ucount = np.unique(und, axis=0, return_counts=True)
+    _, ucount = np.unique(und[:, 0] * nv + und[:, 1], return_counts=True)
     r.boundary_edges = int((ucount == 1).sum())
     r.nonmanifold_edges = int((ucount > 2).sum())
     r.watertight = r.boundary_edges == 0 and r.nonmanifold_edges == 0
-    _, dcount = np.unique(directed, axis=0, return_counts=True)
+    _, dcount = np.unique(directed[:, 0] * nv + directed[:, 1], return_counts=True)
     r.winding_consistent = bool((dcount == 1).all()) and r.watertight
     r.outward = r.volume_mm3 > 0
     r.components = _components(len(V), T)

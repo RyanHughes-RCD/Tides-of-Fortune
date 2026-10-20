@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tides Dice Studio</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Cpath d=%22M8 1l6 3.5v7L8 15l-6-3.5v-7z%22 fill=%22%23d4a72c%22/%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three/three.module.min.js",
+               "three/addons/": "./vendor/three/addons/" } }
+</script>
+</head>
+<body>
+<header id="toolbar">
+  <div class="brand">⬢ Tides Dice Studio</div>
+  <button id="btn-new" title="Generate a new set (choose style, density and seed)">New set</button>
+  <button id="btn-random" title="New random seed; locked features are kept">🎲 Randomize</button>
+  <span class="sep"></span>
+  <button id="btn-undo" title="Undo (Ctrl+Z)">↶ Undo</button>
+  <button id="btn-redo" title="Redo (Ctrl+Y)">↷ Redo</button>
+  <span class="sep"></span>
+  <button id="btn-save" title="Save project (Ctrl+S)">Save</button>
+  <button id="btn-saveas" title="Save project as a new file">Save as…</button>
+  <button id="btn-open" title="Open a saved project">Open…</button>
+  <button id="btn-dup" title="Duplicate this design before experimenting">Duplicate</button>
+  <span class="sep"></span>
+  <button id="btn-validate" title="Validate all 14 meshes">✔ Validate</button>
+  <button id="btn-export" class="primary" title="Export STL files">⇩ Export</button>
+  <div id="busy" class="busy hidden">generating…</div>
+  <div id="project-name" class="pname"></div>
+</header>
+
+<main>
+  <aside id="dice-list"></aside>
+
+  <section id="viewport">
+    <canvas id="three"></canvas>
+    <div class="vp-controls">
+      <label>View
+        <select id="view-mode">
+          <option value="rendered">Rendered</option>
+          <option value="wireframe">Wireframe / mesh</option>
+          <option value="validation">Geometry validation</option>
+          <option value="blank">Blank inside (ghost)</option>
+          <option value="cutaway">Cutaway with blank</option>
+          <option value="blankonly">Blank only</option>
+          <option value="compare">Compare with baseline</option>
+        </select>
+      </label>
+      <label>Show
+        <select id="focus-mode">
+          <option value="set">Whole set</option>
+          <option value="die">Selected die</option>
+        </select>
+      </label>
+      <label>Resin <input type="color" id="resin-color" value="#c9a227"></label>
+      <label title="tint surfaces by their true depth below the outer faces (recesses darker)"><input type="checkbox" id="depth-shade" checked> Depth shading</label>
+      <button id="btn-frame" title="Frame the view">⤢ Frame</button>
+      <button id="btn-baseline" title="Remember the current state as the comparison baseline">📌 Set baseline</button>
+    </div>
+    <div id="vp-info" class="vp-info"></div>
+    <div id="face-bar" class="face-bar"></div>
+    <div class="vp-help">Left-drag: orbit · Right-drag: pan · Wheel: zoom · Click: select die</div>
+  </section>
+
+  <aside id="panel">
+    <nav id="tabs">
+      <button data-tab="design" class="active">Design</button>
+      <button data-tab="numbers">Numbers</button>
+      <button data-tab="logo">D20 Logo</button>
+      <button data-tab="blank">Blank</button>
+      <button data-tab="export">Export</button>
+    </nav>
+    <div id="tab-design" class="tab active"></div>
+    <div id="tab-numbers" class="tab"></div>
+    <div id="tab-logo" class="tab"></div>
+    <div id="tab-blank" class="tab"></div>
+    <div id="tab-export" class="tab"></div>
+  </aside>
+</main>
+
+<footer id="messages"></footer>
+
+<div id="modal" class="modal hidden"><div class="modal-box"><div id="modal-body"></div></div></div>
+<input type="file" id="file-font" accept=".ttf,.otf" class="hidden">
+<input type="file" id="file-logo" accept=".png,image/png" class="hidden">
+<input type="file" id="file-project" accept=".tdice" class="hidden">
+<script type="module" src="app.js"></script>
+</body>
+</html>

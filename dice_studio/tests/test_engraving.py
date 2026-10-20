@@ -78,7 +78,7 @@ def test_safe_region_keeps_minimum_wall(built_set):
     from dicestudio.geometry.numbering import build_frames
     from dicestudio.geometry.polyhedra import ShapeParams, die_polyhedron
 
-    poly, base, _ = die_polyhedron("d4", ShapeParams(20.0, 0.5))
+    poly, base, _ = die_polyhedron("d4", ShapeParams(20.0, "disphenoid", 1.3))
     frames = build_frames("d4", poly, base)
     fr = frames[0]
     sr = safe_region(fr, poly, 0.75, 0.45, 0.6)
@@ -109,7 +109,8 @@ def test_numeral_layout_fits_and_is_readable(built_set):
             assert parts
             if die == "d4":
                 continue
-            # the numeral is centred on its face (within 1 mm, D10 kites use the widest point)
+            # the numeral is centred on the face's largest inscribed circle
+            from shapely.ops import polylabel
             c = lay["numerals"].envelope.centroid
-            if die not in ("d10", "d100"):
-                assert abs(c.x) < 0.8 and abs(c.y) < 1.5
+            pl = polylabel(lay["polygon"], tolerance=0.01)
+            assert abs(c.x - pl.x) < 0.8 and abs(c.y - pl.y) < 1.5, (die, tag)

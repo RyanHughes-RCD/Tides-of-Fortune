@@ -35,6 +35,27 @@ class FontError(ValueError):
 # shapely helpers
 # ---------------------------------------------------------------------------
 
+def robust_op(op, a, b):
+    """Overlay ``a <op> b`` (intersection/difference/union/symmetric_difference).
+
+    GEOS can raise a TopologyException on nearly-coincident edges produced by
+    earlier buffers.  The fallback snap-rounds the inputs to a 1 nm and then a
+    10 nm grid (far below any printable dimension) and retries.
+    """
+    from shapely.errors import GEOSException
+
+    try:
+        return getattr(a, op)(b)
+    except GEOSException:
+        pass
+    for grid in (1e-6, 1e-5, 1e-4):
+        try:
+            return getattr(shapely, op)(shapely.make_valid(a), shapely.make_valid(b), grid_size=grid)
+        except GEOSException:
+            continue
+    raise FontError(f"2D {op} failed even with snap-rounding")
+
+
 def polygons_of(geom):
     if geom is None or geom.is_empty:
         return []
@@ -66,7 +87,7 @@ def contours_to_geometry(contours, fill_rule=m3d.FillRule.NonZero):
     # holes CW), so an even-odd combination reconstructs it exactly.
     geom = Polygon()
     for r in rings:
-        geom = geom.symmetric_difference(Polygon(r))
+        geom = robust_op("symmetric_difference", geom, Polygon(r))
     return as_multipolygon(shapely.make_valid(geom))
 
 

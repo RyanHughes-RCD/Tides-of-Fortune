@@ -104,7 +104,7 @@ def engine(store):
 
 @pytest.fixture(scope="session")
 def base_project():
-    return default_project(seed=1234, style="art_deco", density=0.6, name="TestSet")
+    return default_project(seed=1234, style="mixed", density=0.6, name="TestSet")
 
 
 @pytest.fixture(scope="session")

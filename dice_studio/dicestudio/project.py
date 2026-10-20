@@ -1,6 +1,8 @@
 """Project model: defaults, validation, randomisation, per-die specs, save/open.
 
-A project is a JSON-compatible dict.  It stores the *resolved* family design
+A project is a JSON-compatible dict.  ``style`` and ``density`` (shown as
+"shape variation") drive the random choice of congruent-face shape families
+and proportions.  It stores the *resolved* family design
 as well as the seed, so reopening reproduces the exact geometry even if the
 random generator is later changed, while the seed still allows regeneration.
 
@@ -16,7 +18,7 @@ import random
 import zipfile
 from pathlib import Path
 
-from .geometry import decoration as deco
+from .geometry import design as deco
 from .geometry.builder import spec_hash
 from .geometry.numbering import (ALIGN_MODES, D4_STYLES, D10_STYLES, D100_STYLES, DEFAULT_D10_TOP,
                                  MARKER_STYLES, validate_d10_top)
@@ -48,7 +50,7 @@ def _die_defaults():
     }
 
 
-def default_project(seed=None, style="art_deco", density=0.55, name="MySet"):
+def default_project(seed=None, style="classic", density=0.5, name="MySet"):
     if seed is None:
         seed = random.SystemRandom().randrange(1, 10**9)
     p = {
@@ -91,7 +93,6 @@ def default_project(seed=None, style="art_deco", density=0.55, name="MySet"):
         "blank": {"clearance_mm": 0.5, "reference": "deepest_cut_uniform", "min_thickness_mm": 2.0},
         "export": {"directory": "", "prefix": name, "unit": "mm", "allow_invalid": False},
         "quality": {"curve_segments": 8},
-        "decorate": True,
         "dice": {d: _die_defaults() for d in DIE_TYPES},
     }
     return p
@@ -119,7 +120,7 @@ def validate_project(p):
     """Return a normalised deep copy, raising ProjectError with a readable message."""
     if not isinstance(p, dict):
         raise ProjectError("project must be an object")
-    base = default_project(seed=p.get("seed", 1), style=p.get("style", "art_deco"),
+    base = default_project(seed=p.get("seed", 1), style=p.get("style", "classic"),
                            density=p.get("density", 0.5)) if p.get("style") in deco.STYLES else None
     if base is None:
         raise ProjectError(f"unknown style {p.get('style')!r}; choose one of {list(deco.STYLES)}")
@@ -187,7 +188,6 @@ def validate_project(p):
     q = {**base["quality"], **(p.get("quality") or {})}
     q["curve_segments"] = int(_num(q["curve_segments"], 3, 24, "Curve segments"))
     out["quality"] = q
-    out["decorate"] = bool(p.get("decorate", True))
     dice = p.get("dice") or {}
     for d in DIE_TYPES:
         dd = {**_die_defaults(), **(dice.get(d) or {})}
@@ -233,7 +233,7 @@ def safe_filename(s):
 
 def die_design(p, die):
     d = p["dice"][die]
-    des = deco.die_variant(p["design"], p["seed"], die, d["variant"], p["locks"])
+    des = deco.die_variant(p["design"], p["seed"], die, d["variant"], p["locks"], p["style"], p["density"])
     des.update(d["design_overrides"])
     return deco.validate_design(des)
 
@@ -260,7 +260,8 @@ def regenerate_design(p):
 def regenerate_die(p, die):
     p = copy.deepcopy(p)
     p["dice"][die]["variant"] += 1
-    p["dice"][die]["design_overrides"] = {}
+    p["dice"][die]["design_overrides"] = {
+        k: v for k, v in p["dice"][die]["design_overrides"].items() if k in p["locks"]}
     return p
 
 
@@ -311,7 +312,6 @@ def resolve_die_spec(p, die):
                  "weight": font["weight"]},
         "blank": dict(p["blank"]),
         "quality": {**p["quality"], "safe_mode": d["safe_mode"]},
-        "decorate": p["decorate"],
     }
     if die == "d20":
         lg = dict(p["logo"])

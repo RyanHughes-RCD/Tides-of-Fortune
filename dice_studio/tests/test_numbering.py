@@ -13,7 +13,7 @@ OPTS = {"d10_top_order": [1, 7, 3, 9, 5], "six_nine_marker": "underline"}
 
 
 def _setup(die, **kw):
-    poly, base, _ = die_polyhedron(die, ShapeParams(DEFAULT_SIZES_MM[die], 0.4, 0.0))
+    poly, base, _ = die_polyhedron(die, ShapeParams(DEFAULT_SIZES_MM[die]))
     frames = build_frames(die, poly, base)
     pl = numeral_placements(die, frames, base, {**OPTS, **kw})
     return poly, base, frames, pl

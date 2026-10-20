@@ -23,7 +23,7 @@ import shapely
 from PIL import Image, UnidentifiedImageError
 from shapely import affinity
 
-from .text import as_multipolygon, polygons_of
+from .text import as_multipolygon, polygons_of, robust_op
 
 MAX_TRACE_PX = 360
 MAX_COMPONENTS = 400
@@ -166,7 +166,7 @@ def _fine_detail_report(geom, min_feature_mm, min_gap_mm):
         return {"thin_fraction": 0, "narrow_gap_area": 0, "tiny_islands": 0, "warnings": ["logo is empty"]}
     r = min_feature_mm / 2
     opened = geom.buffer(-r, join_style="mitre").buffer(r, join_style="mitre")
-    thin = max(0.0, area - opened.intersection(geom).area)
+    thin = max(0.0, area - robust_op("intersection", opened, geom).area)
     thin_frac = thin / area
     rg = min_gap_mm / 2
     closed = geom.buffer(rg, join_style="mitre").buffer(-rg, join_style="mitre")
@@ -184,7 +184,7 @@ def _fine_detail_report(geom, min_feature_mm, min_gap_mm):
 
 def remove_fine_details(geom, min_feature_mm=0.3):
     r = min_feature_mm / 2
-    g = geom.buffer(-r, join_style="mitre").buffer(r, join_style="mitre").intersection(geom)
+    g = robust_op("intersection", geom.buffer(-r, join_style="mitre").buffer(r, join_style="mitre"), geom)
     return as_multipolygon(shapely.MultiPolygon([p for p in polygons_of(g) if p.area > (min_feature_mm ** 2)]))
 
 

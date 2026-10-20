@@ -4,7 +4,7 @@ Every die body is the intersection of half-spaces ``n . x <= d`` (unit outward
 normal ``n``, offset ``d``).  This H-representation gives us:
 
 * exact, always-convex, watertight bodies (no mesh repair needed);
-* edge chamfers / vertex truncations as extra planes;
+* randomised proportions that keep every face congruent (fair dice);
 * the internal blank as the *same* planes moved inward along their own
   normals (a true face offset, not a uniform scale).
 
@@ -23,11 +23,11 @@ PHI = (1.0 + math.sqrt(5.0)) / 2.0
 DIE_TYPES = ["d4", "d6", "d8", "d10", "d12", "d20", "d100"]
 FACE_COUNTS = {"d4": 4, "d6": 6, "d8": 8, "d10": 10, "d12": 12, "d20": 20, "d100": 10}
 
-# Default sizes.  D4: edge length.  Every other die: face-to-opposite-face distance.
+# Default sizes.  D4: longest edge length.  Every other die: face-to-opposite-face distance.
 DEFAULT_SIZES_MM = {"d4": 20.0, "d6": 16.0, "d8": 15.0, "d10": 16.0, "d12": 18.0, "d20": 19.0, "d100": 16.0}
 SIZE_LIMITS_MM = (8.0, 40.0)
 SIZE_MEANING = {
-    "d4": "edge length",
+    "d4": "longest edge length",
     "d6": "face-to-face distance",
     "d8": "face-to-face distance",
     "d10": "face-to-face distance",
@@ -35,12 +35,6 @@ SIZE_MEANING = {
     "d20": "face-to-face distance",
     "d100": "face-to-face distance",
 }
-
-# Pentagonal trapezohedron (D10 / D100) apex height relative to the equator
-# radius.  Any positive value is a valid trapezohedron; this range keeps the
-# kites a sensible, rollable shape.
-D10_ELONGATION_LIMITS = (0.75, 1.45)
-
 
 def unit(v):
     v = np.asarray(v, dtype=float)
@@ -187,31 +181,54 @@ def halfspace_intersection(planes, tol=None):
 
 
 # ---------------------------------------------------------------------------
-# Base die shapes (unit normals; offsets give an inradius of 1)
+# Congruent-face shape families
 # ---------------------------------------------------------------------------
+# Every family is *isohedral* (face-transitive): all faces of a die are congruent
+# and equidistant from the centre, so the dice stay fair whatever the random
+# proportions.  Families are restricted to ones where every face has a parallel
+# opposite face (except the D4, which is read at a vertex), so the die rests flat
+# with a number face pointing straight up.
+#
+#   die   family          parameter (meaning, range)
+#   D4    tetrahedron     -
+#         disphenoid      stretch: z/x ratio of the bounding box (0.8-1.3; 1 = regular)
+#   D6    cube            -
+#         rhombohedron    face-normal elevation in degrees (26-46; 35.26 = cube)
+#   D8    octahedron      -
+#         bipyramid       apex height / ring radius (0.75-1.4; 1 = octahedron)
+#   D10   trapezohedron   apex height / ring radius (0.8-1.35)
+#   D12   dodecahedron    -
+#         pyritohedron    normal tilt t in (0,1,t) (1.15-2.3; 1.618 = regular)
+#         rhombic         - (rhombic dodecahedron)
+#         bipyramid       apex height / ring radius (0.9-1.4), hexagonal
+#   D20   icosahedron     -
+#         bipyramid       apex height / ring radius (1.2-1.6), decagonal
 
-def _base_normals(die, elongation=1.0):
-    if die == "d4":
-        verts = np.array([(1, 1, 1), (1, -1, -1), (-1, 1, -1), (-1, -1, 1)], float)
-        return unit(-verts)  # face i is opposite vertex i
-    if die == "d6":
-        return np.array([(0, 0, 1), (0, 0, -1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)], float)
-    if die == "d8":
-        return unit(np.array([(sx, sy, sz) for sz in (1, -1) for sy in (1, -1) for sx in (1, -1)], float))
-    if die == "d12":
-        n = []
-        for a, b in itertools.product((1, -1), repeat=2):
-            n += [(0, a, b * PHI), (a, b * PHI, 0), (b * PHI, 0, a)]
-        return unit(np.array(n, float))
-    if die == "d20":
-        n = [(sx, sy, sz) for sx in (1, -1) for sy in (1, -1) for sz in (1, -1)]
-        ip = 1.0 / PHI
-        for a, b in itertools.product((1, -1), repeat=2):
-            n += [(0, a * ip, b * PHI), (a * ip, b * PHI, 0), (b * PHI, 0, a * ip)]
-        return unit(np.array(n, float))
-    if die in ("d10", "d100"):
-        return _trapezohedron_normals(elongation)
-    raise GeometryError(f"unknown die type {die!r}")
+FAMILIES = {
+    "d4": {"tetrahedron": None, "disphenoid": (0.8, 1.3, 1.0)},
+    "d6": {"cube": None, "rhombohedron": (26.0, 46.0, 35.26)},
+    "d8": {"octahedron": None, "bipyramid": (0.75, 1.4, 1.0)},
+    "d10": {"trapezohedron": (0.8, 1.35, 1.05)},
+    "d12": {"dodecahedron": None, "pyritohedron": (1.15, 2.3, PHI), "rhombic": None, "bipyramid": (0.9, 1.4, 1.15)},
+    "d20": {"icosahedron": None, "bipyramid": (1.2, 1.6, 1.4)},
+}
+FAMILIES["d100"] = FAMILIES["d10"]
+POLE_FAMILIES = {"bipyramid", "trapezohedron"}  # numerals point to the pole on these
+REGULAR_FAMILIES = {"tetrahedron", "cube", "octahedron", "dodecahedron", "icosahedron"}
+
+
+def _normal_through(a, b, c):
+    n = unit(np.cross(b - a, c - a))
+    return n if n @ (a + b + c) > 0 else -n
+
+
+def _bipyramid_normals(n, h):
+    """n-gonal bipyramid, ring radius 1, apexes at +-h.  Upper faces 0..n-1 CCW, then lower."""
+    top, bot = np.array([0, 0, h]), np.array([0, 0, -h])
+    ring = [np.array([math.cos(2 * math.pi * k / n), math.sin(2 * math.pi * k / n), 0.0]) for k in range(n)]
+    up = [_normal_through(top, ring[k], ring[(k + 1) % n]) for k in range(n)]
+    lo = [_normal_through(bot, ring[(k + 1) % n], ring[k]) for k in range(n)]
+    return np.array(up + lo)
 
 
 def _trapezohedron_normals(h):
@@ -229,10 +246,7 @@ def _trapezohedron_normals(h):
         a1 = math.radians(72 * (k + 1))
         u0 = np.array([math.cos(a0), math.sin(a0), z0])
         u1 = np.array([math.cos(a1), math.sin(a1), z0])
-        n = np.cross(u0 - top, u1 - top)
-        if n @ (top + u0 + u1) < 0:
-            n = -n
-        normals.append(unit(n))
+        normals.append(_normal_through(top, u0, u1))
     for k in range(5):
         a = math.radians(36)
         n = normals[k]
@@ -242,99 +256,112 @@ def _trapezohedron_normals(h):
     return np.array(normals)
 
 
-def size_to_inradius(die, size_mm, elongation=1.0):
-    if die == "d4":
-        return size_mm / (2.0 * math.sqrt(6.0))  # edge -> inradius
-    return size_mm / 2.0
+def _pyrito_normals(t):
+    n = []
+    for a, b in itertools.product((1, -1), repeat=2):
+        n += [(0, a, b * t), (a, b * t, 0), (b * t, 0, a)]
+    return unit(np.array(n, float))
+
+
+def family_normals(die, family, param=None):
+    fams = FAMILIES.get(die)
+    if fams is None:
+        raise GeometryError(f"unknown die type {die!r}")
+    if family not in fams:
+        raise GeometryError(f"{die.upper()} shape must be one of {list(fams)}")
+    rng = fams[family]
+    if rng is not None:
+        param = rng[2] if param is None else float(param)
+        if not (rng[0] - 1e-9 <= param <= rng[1] + 1e-9):
+            raise GeometryError(f"{die.upper()} {family} parameter must be between {rng[0]} and {rng[1]}")
+    if family == "tetrahedron":
+        family, param = "disphenoid", 1.0
+    if family == "disphenoid":
+        k = param
+        verts = np.array([(1, 1, k), (1, -1, -k), (-1, 1, -k), (-1, -1, k)], float)
+        return np.array([_normal_through(*[verts[j] for j in range(4) if j != i]) for i in range(4)])
+    if family == "cube":
+        return np.array([(0, 0, 1), (0, 0, -1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)], float)
+    if family == "rhombohedron":
+        e = math.radians(param)
+        up = [(math.cos(e) * math.cos(a), math.cos(e) * math.sin(a), math.sin(e))
+              for a in (math.radians(x) for x in (90, 210, 330))]
+        return np.array(up + [tuple(-np.array(u)) for u in up], float)
+    if family == "octahedron":
+        return _bipyramid_normals(4, 1.0)
+    if family == "bipyramid":
+        return _bipyramid_normals({"d8": 4, "d12": 6, "d20": 10}[die], param)
+    if family == "trapezohedron":
+        return _trapezohedron_normals(param)
+    if family == "dodecahedron":
+        return _pyrito_normals(PHI)
+    if family == "pyritohedron":
+        return _pyrito_normals(param)
+    if family == "rhombic":
+        return _pyrito_normals(1.0)
+    if family == "icosahedron":
+        n = [(sx, sy, sz) for sx in (1, -1) for sy in (1, -1) for sz in (1, -1)]
+        ip = 1.0 / PHI
+        for a, b in itertools.product((1, -1), repeat=2):
+            n += [(0, a * ip, b * PHI), (a * ip, b * PHI, 0), (b * PHI, 0, a * ip)]
+        return unit(np.array(n, float))
+    raise GeometryError(family)
+
+
+DEFAULT_FAMILY = {"d4": "tetrahedron", "d6": "cube", "d8": "octahedron", "d10": "trapezohedron",
+                  "d12": "dodecahedron", "d20": "icosahedron", "d100": "trapezohedron"}
 
 
 @dataclass
 class ShapeParams:
     size_mm: float
-    edge_chamfer_mm: float = 0.0  # width of the chamfer strip along each edge
-    vertex_trunc_mm: float = 0.0  # depth of the cut at each vertex, along the vertex axis
-    d10_elongation: float = 1.0
+    family: str = None
+    param: float = None
 
     def validate(self, die):
-        errs = []
         lo, hi = SIZE_LIMITS_MM
         if not (lo <= self.size_mm <= hi):
-            errs.append(f"size {self.size_mm:.2f} mm outside {lo}-{hi} mm")
-        if not (0.0 <= self.edge_chamfer_mm <= 3.0):
-            errs.append("edge chamfer must be between 0 and 3 mm")
-        if not (0.0 <= self.vertex_trunc_mm <= 4.0):
-            errs.append("vertex truncation must be between 0 and 4 mm")
-        lo, hi = D10_ELONGATION_LIMITS
-        if die in ("d10", "d100") and not (lo <= self.d10_elongation <= hi):
-            errs.append(f"D10 elongation must be between {lo} and {hi}")
-        if errs:
-            raise GeometryError("; ".join(errs))
-
-
-MIN_FEATURE_FACE_MM = 0.15  # chamfers / truncations narrower than this are dropped
-
-
-def base_polyhedron(die, size_mm, elongation=1.0):
-    r = size_to_inradius(die, size_mm, elongation)
-    normals = _base_normals(die, elongation)
-    if die in ("d10", "d100"):
-        # all kites are congruent, so a common offset is correct; rescale so the
-        # face-to-face distance equals size_mm
-        pass
-    planes = [Plane(n, r, "face", i) for i, n in enumerate(normals)]
-    return halfspace_intersection(planes)
+            raise GeometryError(f"size {self.size_mm:.2f} mm outside {lo}-{hi} mm")
 
 
 def die_polyhedron(die, params: ShapeParams):
-    """Return (final polyhedron, base polyhedron, warnings)."""
+    """Return (polyhedron, base polyhedron, warnings).
+
+    All faces lie at the same distance from the centre (inradius 1 before
+    scaling); the solid is then scaled so that the D4's longest edge, or every
+    other die's face-to-face distance, equals ``size_mm``.
+    """
+    if die not in FAMILIES:
+        raise GeometryError(f"unknown die type {die!r}")
     params.validate(die)
-    warnings = []
-    base = base_polyhedron(die, params.size_mm, params.d10_elongation)
-    planes = list(base.planes)
-    edges = base.edges()
-    min_edge = min(np.linalg.norm(base.vertices[a] - base.vertices[b]) for a, b in edges)
-
-    chamfer = params.edge_chamfer_mm
-    max_chamfer = 0.22 * min_edge
-    if chamfer > max_chamfer:
-        warnings.append(f"edge chamfer reduced from {chamfer:.2f} to {max_chamfer:.2f} mm to keep faces intact")
-        chamfer = max_chamfer
-    if 0 < chamfer < MIN_FEATURE_FACE_MM:
-        chamfer = 0.0
-    if chamfer > 0:
-        for (a, b), fis in sorted(edges.items()):
-            f1, f2 = base.faces[fis[0]], base.faces[fis[1]]
-            ne = unit(f1.normal + f2.normal)
-            cos_t = float(np.clip(ne @ f1.normal, -1, 1))
-            theta = math.acos(cos_t)
-            depth = chamfer * math.tan(theta) / 2.0
-            de = float(ne @ base.vertices[a]) - depth
-            planes.append(Plane(ne, de, "edge", (int(f1.tag), int(f2.tag))))
-
-    trunc = params.vertex_trunc_mm
-    if trunc > 0:
-        # limit so that the truncation never swallows a whole face
-        max_trunc = 0.3 * min_edge
-        if trunc > max_trunc:
-            warnings.append(f"vertex truncation reduced from {trunc:.2f} to {max_trunc:.2f} mm")
-            trunc = max_trunc
-    if trunc >= MIN_FEATURE_FACE_MM:
-        vfaces = {}
-        for fi, f in enumerate(base.faces):
-            for vid in f.vertex_ids:
-                vfaces.setdefault(vid, []).append(f)
-        for vid, fs in sorted(vfaces.items()):
-            nv = unit(sum(f.normal for f in fs))
-            dv = float(nv @ base.vertices[vid]) - trunc
-            planes.append(Plane(nv, dv, "vertex", int(vid)))
-
-    poly = halfspace_intersection(planes)
+    family = params.family or DEFAULT_FAMILY[die]
+    normals = family_normals(die, family, params.param)
+    unit_poly = halfspace_intersection([Plane(n, 1.0, "face", i) for i, n in enumerate(normals)])
+    if die == "d4":
+        longest = max(np.linalg.norm(unit_poly.vertices[a] - unit_poly.vertices[b]) for a, b in unit_poly.edges())
+        r = params.size_mm / longest
+    else:
+        r = params.size_mm / 2.0
+    poly = halfspace_intersection([Plane(n, r, "face", i) for i, n in enumerate(normals)])
     if len(poly.die_faces()) != FACE_COUNTS[die]:
-        raise GeometryError(
-            f"{die.upper()} would have {len(poly.die_faces())} number faces instead of {FACE_COUNTS[die]}; "
-            "reduce chamfer/truncation"
-        )
-    return poly, base, warnings
+        raise GeometryError(f"{die.upper()} {family} has {len(poly.die_faces())} faces instead of {FACE_COUNTS[die]}")
+    poly.family = family
+    return poly, poly, []
+
+
+def face_congruence_error(poly):
+    """Max difference (mm / rad) between the sorted edge lengths and angles of any two faces."""
+    sigs = []
+    for f in poly.die_faces():
+        pts = poly.vertices[f.vertex_ids]
+        k = len(pts)
+        e = sorted(np.linalg.norm(pts[i] - pts[(i + 1) % k]) for i in range(k))
+        a = sorted(math.acos(np.clip(unit(pts[i - 1] - pts[i]) @ unit(pts[(i + 1) % k] - pts[i]), -1, 1))
+                   for i in range(k))
+        sigs.append(np.array(e + a))
+    if len({len(s) for s in sigs}) != 1:
+        return float("inf")
+    return float(max(np.abs(s - sigs[0]).max() for s in sigs))
 
 
 def offset_polyhedron(poly: ConvexPolyhedron, offsets):
