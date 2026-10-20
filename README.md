@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.5.4.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.6.0.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,24 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.6: fifteen new decorations
+
+**Ten new village decorations** (Village panel, Decorations tab):
+- **Kraken Skeleton** (Prestige, like the Chest of Gold): +5% power on every kind of trip.
+- **Beehives**: field ripens 5% faster. **Smokehouse**: +2 food every harvest.
+- **Net Drying Rack** (by the water): +3% fishing hauls. **Mermaid Figurehead**: +3% exploration power. **Salute Cannon**: +3% pirate-hunting power. **Great Anchor**: 3% less hull damage.
+- **Weather Vane**: trips 2% shorter. **Treasure Map Board**: chests turn up 5% more often. **Rowboat Planter**: +3% treasure-hunting hauls.
+
+**Five new Halloween decorations** (from the West Woods cauldron):
+- **Old Graveyard** (Very rare, 2x2): ghosts appear 25% more often, +12% chance of a **Big Ghost**, and +100% ghost candy in the event's final hour.
+- **Bat Cave** (Rare, 2x2): bats flit around it at night.
+- **Pumpkin Patch** (Uncommon, 2x2): every 4 hours, tap it to harvest 3 or 4 preserved food.
+- **Creaky Coffin** (Common) and **Giant Spider Web** (Uncommon).
+
+**Ghosts:** Crooked Tombstones now make ghosts appear 5% more often each and add +25% ghost candy in the event's final hour. Copies stack, up to +75% spawns, a 35% Big Ghost chance and +200% final-hour candy. A Big Ghost pays 4 to 6 candy but still counts as one of the 4 ghosts that pay each hour.
+
+**Bat Roost:** now **Legendary**, redrawn as a tall L-shaped post. It stands empty by day; at night a great bat hangs from it. Roosts you already own are kept.
 
 ## What's new in 1.5.4
 

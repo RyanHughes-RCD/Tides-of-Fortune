@@ -84,6 +84,7 @@ img.px.big { height: 34px; }
 .rar { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 7px; border: 2px solid var(--ink); border-radius: 999px; }
 .rar-common { background: #e3ddd0; color: var(--ink); } .rar-uncommon { background: #9fdc8a; color: var(--ink); }
 .rar-rare { background: #8fc0f0; color: var(--ink); } .rar-veryRare { background: #c89af0; color: var(--ink); }
+.rar-legendary { background: linear-gradient(90deg, #f2c94c, #f08f2c); color: var(--ink); box-shadow: 0 0 0 1px #fff6c0 inset; }
 .hw-head { display: flex; align-items: center; gap: 12px; }
 .hw-head .big-n { font-size: 30px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .card.hw { background: linear-gradient(160deg, rgba(255,154,60,.28), rgba(162,90,208,.18) 70%), var(--sail-2); }
@@ -435,7 +436,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.5.4';
+  const GAME_VERSION = '1.6.0';
   const SAVE_VERSION = 6;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -654,6 +655,17 @@ const TOF = (() => {
     topiary:      { name: 'Topiary Hedge', group: 'square', size: [1, 1], multi: true, variants: 3, soil: true, cost: { coins: 120, timber: 5 }, bonus: { yield: { treasure: 0.03 } }, effect: '+3% treasure-hunting hauls.', desc: 'Clipped into a ball, a cone or a spiral: your choice.' },
     pond:         { name: 'Duck Pond', group: 'square', size: [2, 2], multi: true, variants: 2, soil: true, cost: { coins: 350, timber: 10 }, bonus: { power: { exploration: 0.03 } }, effect: '+3% exploration power.', desc: 'Lily pads, reeds and two very opinionated ducks.' },
     statue:       { name: 'Founder’s Statue', group: 'square', size: [1, 1], multi: true, variants: 2, cost: { coins: 600, iron: 15, relics: 1 }, bonus: { power: { combat: 0.03 } }, effect: '+3% pirate-hunting power.', desc: 'The harbor’s first captain in bronze, or the mermaid who guided her home.' },
+    // 1.6: ten more. The Kraken Skeleton sits in the Chest of Gold's prestige tier with a bonus of the same weight.
+    krakenBones:  { name: 'Kraken Skeleton', group: 'prestige', size: [2, 2], cost: { coins: 6500, pearls: 12, relics: 6 }, bonus: { power: { fishing: 0.05, treasure: 0.05, combat: 0.05, exploration: 0.05 } }, effect: '+5% power on every kind of trip.', desc: 'The bleached bones of the beast that sank the old fleet, hauled ashore at last. Crews sail braver past it.' },
+    beehives:     { name: 'Beehives', group: 'farm', size: [1, 1], soil: true, cost: { coins: 220, timber: 15, hemp: 5 }, bonus: { cropSpeed: 0.05 }, effect: 'The field ripens 5% faster.', desc: 'Three straw skeps humming with bees that work the field’s flowers.' },
+    smokehouse:   { name: 'Smokehouse', group: 'farm', size: [1, 1], cost: { coins: 350, timber: 20, iron: 4 }, bonus: { cropFood: 2 }, effect: '+2 food every harvest.', desc: 'A little brick hut that turns the harvest into food that keeps.' },
+    netRack:      { name: 'Net Drying Rack', group: 'seaside', size: [1, 1], coastal: true, cost: { coins: 180, timber: 10, rope: 8 }, bonus: { yield: { fishing: 0.03 } }, effect: '+3% fishing hauls.', desc: 'Nets hung out to dry by the water, floats and all.' },
+    figurehead:   { name: 'Mermaid Figurehead', group: 'seaside', size: [1, 1], cost: { coins: 450, planks: 15, pearls: 2 }, bonus: { power: { exploration: 0.03 } }, effect: '+3% exploration power.', desc: 'Carved for a ship long gone, she still points the way to open water.' },
+    saluteCannon: { name: 'Salute Cannon', group: 'seaside', size: [1, 1], cost: { coins: 400, iron: 12 }, bonus: { power: { combat: 0.03 } }, effect: '+3% pirate-hunting power.', desc: 'Fired once for every crew that comes home from a fight.' },
+    greatAnchor:  { name: 'Great Anchor', group: 'seaside', size: [1, 1], cost: { coins: 380, iron: 10, rope: 6 }, bonus: { damage: 0.03 }, effect: '3% less hull damage on every trip.', desc: 'A giant’s anchor set in the ground. Sailors touch it for a safe return.' },
+    weathervane:  { name: 'Weather Vane', group: 'square', size: [1, 1], cost: { coins: 260, planks: 6, iron: 5 }, bonus: { trip: 0.02 }, effect: 'Every trip is 2% shorter.', desc: 'A copper ship on a tall pole, always turned to the wind.' },
+    mapBoard:     { name: 'Treasure Map Board', group: 'square', size: [1, 1], cost: { coins: 500, planks: 10, relics: 1 }, bonus: { chest: 0.05 }, effect: 'Treasure chests turn up 5% more often.', desc: 'Rumors, sketches and an X marked in red, pinned up for every captain to read.' },
+    rowboatPlanter:{ name: 'Rowboat Planter', group: 'flowers', size: [1, 1], cost: { coins: 160, timber: 6, planks: 8 }, bonus: { yield: { treasure: 0.03 } }, effect: '+3% treasure-hunting hauls.', desc: 'An old rowboat retired to dry land and filled with marigolds.' },
     well:         { name: 'Village Well', group: 'square', size: [1, 1], multi: true, cost: { coins: 220, timber: 15, iron: 4 }, bonus: { trip: 0.02 }, effect: 'Every trip is 2% shorter.', desc: 'Fresh water for the barrels before every voyage.' },
     // Halloween collection: won from the West Woods cauldron, never bought. Copies stack (see HALLOWEEN.candyCap).
     hwPumpkinFlag:  { name: 'Pumpkin Flag', hw: true, rarity: 'common', candy: 0.04, desc: 'An orange banner with a grinning pumpkin.' },
@@ -665,13 +677,23 @@ const TOF = (() => {
     hwSkeleton:     { name: 'Waving Skeleton', hw: true, rarity: 'rare', candy: 0.08, desc: 'Rattles a cheerful hello at passing sailors.' },
     hwScarecrow:    { name: 'Haunted Scarecrow', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'Pumpkin head, glowing eyes, crows that never leave.' },
     hwLantern:      { name: 'Eerie Lantern', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'A crooked post with a green flame that never goes out.' },
-    hwTombstone:    { name: 'Crooked Tombstone', hw: true, rarity: 'common', candy: 0.04, desc: '“Here lies Old Barnacle. He went fishing.”' },
-    hwBatRoost:     { name: 'Bat Roost', hw: true, rarity: 'rare', candy: 0.08, desc: 'A dead little tree hung with sleepy bats.' },
+    hwTombstone:    { name: 'Crooked Tombstone', hw: true, rarity: 'common', candy: 0.04, ghosts: { spawn: 0.05, finalHour: 0.25 }, desc: '“Here lies Old Barnacle. He went fishing.”' },
+    hwBatRoost:     { name: 'Bat Roost', hw: true, rarity: 'legendary', candy: 0.12, extra: 'Empty by day; at night a great bat hangs from it.', desc: 'A tall, crooked L-shaped post. Come nightfall, an enormous bat folds itself up on the arm.' },
     hwCauldron:     { name: 'Miniature Cauldron', hw: true, rarity: 'veryRare', candy: 0.1, desc: 'A bubbling pot of something green. Do not taste.' },
+    // 1.6
+    hwGraveyard:    { name: 'Old Graveyard', hw: true, rarity: 'veryRare', candy: 0.1, size: [2, 2], ghosts: { spawn: 0.25, big: 0.12, finalHour: 1 }, desc: 'A fenced plot of leaning headstones under a twisted tree. Something big stirs here.' },
+    hwBatCave:      { name: 'Bat Cave', hw: true, rarity: 'rare', candy: 0.08, size: [2, 2], bats: 3, extra: 'Bats flit around it at night.', desc: 'A dark mouth in a mossy rock. At dusk the bats pour out.' },
+    hwPumpkinPatch: { name: 'Pumpkin Patch', hw: true, rarity: 'uncommon', candy: 0.06, size: [2, 2], soil: true, extra: 'Every 4 hours, tap it to harvest 3 or 4 preserved food.', desc: 'Fat pumpkins on curling vines. Pickled, they keep all winter.' },
+    hwCoffin:       { name: 'Creaky Coffin', hw: true, rarity: 'common', candy: 0.04, desc: 'Propped against a post, lid just ajar. Probably empty.' },
+    hwSpiderWeb:    { name: 'Giant Spider Web', hw: true, rarity: 'uncommon', candy: 0.06, desc: 'Strung between two dead posts. The spider is very proud of it.' },
   };
-  for (const d of Object.values(DECOR)) if (d.hw) { d.group = 'halloween'; d.size = [1, 1]; d.bonus = { candy: d.candy }; d.effect = `+${Math.round(d.candy * 100)}% candy from trips (stacks).`; }
+  for (const d of Object.values(DECOR)) if (d.hw) {
+    d.group = 'halloween'; d.size = d.size || [1, 1]; d.bonus = { candy: d.candy };
+    const g = d.ghosts, ghostText = g ? [g.spawn && `ghosts ${Math.round(g.spawn * 100)}% more often`, g.big && `+${Math.round(g.big * 100)}% Big Ghost chance`, g.finalHour && `+${Math.round(g.finalHour * 100)}% ghost candy in the event’s final hour`].filter(Boolean).join(', ') : '';
+    d.effect = `+${Math.round(d.candy * 100)}% candy from trips (stacks).` + (ghostText ? ` Each one: ${ghostText}.` : '') + (d.extra ? ' ' + d.extra : '');
+  }
   const HW_DECOR = Object.keys(DECOR).filter(k => DECOR[k].hw);
-  const RARITY = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', veryRare: 'Very rare' };
+  const RARITY = { common: 'Common', uncommon: 'Uncommon', rare: 'Rare', veryRare: 'Very rare', legendary: 'Legendary' };
 
   // ======================= 1.3: Halloween event =======================
   // Every number that tunes the event lives here. Dates are the player's local calendar (inclusive),
@@ -683,24 +705,29 @@ const TOF = (() => {
     shortTrip: 0.8,     // a 15-minute trip rolls at (0.25 ^ shortTrip) of an hour's chance, so short trips still can
     candyCap: 0.5,      // placed Halloween decorations add at most +50% candy
     ghost: { candy: [1, 2], maxPerHour: 4 }, // 1.4: ghosts are a treat, trips are the main source
+    // 1.6: tombstones and graveyards (placed copies add up, then cap). A Big Ghost pays bigCandy but still uses one
+    // of the hour's maxPerHour pops. finalHour multiplies ghost candy only in the last hour before the event ends.
+    ghostDecor: { bigBase: 0.03, bigCap: 0.35, bigCandy: [4, 6], spawnCap: 0.75, finalHourCap: 2 },
+    pumpkin: { hours: 4, food: [3, 4] }, // the Pumpkin Patch: one harvest per cycle however many are placed
     ship: { firstDelayMin: 20, stayMin: 25, gapHours: [5, 10], offers: 3, bigChance: 0.35 },
   };
   // The cauldron: pay a tier's candy, roll a rarity on the tier's odds, then an item in that rarity by weight.
   // `qty` multiplies coin and resource rewards (decorations always come one at a time).
   const CAULDRON = {
     tiers: {
-      handful:  { name: 'Small handful', cost: 12, qty: 1, odds: { common: 62, uncommon: 28, rare: 8.5, veryRare: 1.5 } },
-      generous: { name: 'Generous handful', cost: 30, qty: 2, odds: { common: 38, uncommon: 36, rare: 20, veryRare: 6 } },
-      dump:     { name: 'Big cauldron dump', cost: 60, qty: 4, odds: { common: 16, uncommon: 30, rare: 32, veryRare: 22 } },
+      handful:  { name: 'Small handful', cost: 12, qty: 1, odds: { common: 62, uncommon: 28, rare: 8.3, veryRare: 1.5, legendary: 0.2 } },
+      generous: { name: 'Generous handful', cost: 30, qty: 2, odds: { common: 38, uncommon: 36, rare: 19, veryRare: 6, legendary: 1 } },
+      dump:     { name: 'Big cauldron dump', cost: 60, qty: 4, odds: { common: 16, uncommon: 30, rare: 30, veryRare: 21, legendary: 3 } },
     },
     pool: {
-      common: [{ decor: 'hwPumpkinFlag', w: 3 }, { decor: 'hwJackClassic', w: 3 }, { decor: 'hwTombstone', w: 3 },
+      common: [{ decor: 'hwPumpkinFlag', w: 3 }, { decor: 'hwJackClassic', w: 3 }, { decor: 'hwTombstone', w: 3 }, { decor: 'hwCoffin', w: 3 },
         { items: { coins: 40 }, w: 1.5 }, { items: { timber: 12, hemp: 8 }, w: 1.5 }],
-      uncommon: [{ decor: 'hwGhostFlag', w: 3 }, { decor: 'hwJackSilly', w: 3 }, { decor: 'hwScarecrow', w: 3 }, { decor: 'hwLantern', w: 3 },
+      uncommon: [{ decor: 'hwGhostFlag', w: 3 }, { decor: 'hwJackSilly', w: 3 }, { decor: 'hwScarecrow', w: 3 }, { decor: 'hwLantern', w: 3 }, { decor: 'hwSpiderWeb', w: 3 }, { decor: 'hwPumpkinPatch', w: 3 },
         { items: { coins: 150 }, w: 1.5 }, { key: 1, w: 1.5 }, { items: { planks: 10, rope: 6 }, w: 1 }],
-      rare: [{ decor: 'hwWitchFlag', w: 3 }, { decor: 'hwSkeleton', w: 3 }, { decor: 'hwBatRoost', w: 3 },
+      rare: [{ decor: 'hwWitchFlag', w: 3 }, { decor: 'hwSkeleton', w: 3 }, { decor: 'hwBatCave', w: 3 },
         { items: { coins: 450 }, w: 1.5 }, { key: 2, w: 1.5 }, { items: { pearls: 2, relics: 1 }, w: 1 }],
-      veryRare: [{ decor: 'hwJackSpooky', w: 3 }, { decor: 'hwCauldron', w: 3 }, { items: { coins: 1500 }, w: 1.5 }, { key: 3, w: 1 }],
+      veryRare: [{ decor: 'hwJackSpooky', w: 3 }, { decor: 'hwCauldron', w: 3 }, { decor: 'hwGraveyard', w: 3 }, { items: { coins: 1500 }, w: 1.5 }, { key: 3, w: 1 }],
+      legendary: [{ decor: 'hwBatRoost', w: 3 }, { items: { coins: 4000 }, w: 1 }],
     },
   };
   // What the ghost ship trades for candy. A visit offers HALLOWEEN.ship.offers of the regular ones, sometimes plus one big one.
@@ -715,7 +742,7 @@ const TOF = (() => {
     { id: 'hoard', name: 'Captain’s hoard', candy: 45, get: { planks: 30, rope: 20, iron: 15 }, big: true },
     { id: 'cargo', name: 'Phantom cargo hold', candy: 40, get: { timber: 60, hemp: 40, ironOre: 40 }, big: true },
   ];
-  const emptyHalloween = () => ({ lastBrew: null, brewSeq: 0, popped: [], pops: [], ship: null, nextShipAt: null });
+  const emptyHalloween = () => ({ lastBrew: null, brewSeq: 0, popped: [], pops: [], ship: null, nextShipAt: null, pumpkinAt: null });
   const DECOR_ORDER = Object.keys(DECOR);
   const DECOR_COPIES = 12; // most copies of one repeatable decoration
   // Hard ceilings on the combined decoration bonus, so the collection helps without carrying you.
@@ -1659,6 +1686,7 @@ const TOF = (() => {
       spend(state, DECOR[type].cost);
     }
     const d = { id: 'd-' + state.nextDecorId++, type, gx, gy };
+    if (type === 'hwPumpkinPatch' && !Number.isFinite(state.halloween.pumpkinAt)) state.halloween.pumpkinAt = Date.now() + HALLOWEEN.pumpkin.hours * HOUR_MS;
     if (DECOR[type].variants) d.v = state.decor.filter(x => x.type === type).length % DECOR[type].variants; // each new copy starts in the next colour
     state.decor.push(d);
     return { ok: true, decor: d };
@@ -1721,7 +1749,21 @@ const TOF = (() => {
     return { ok: true, brew: H.lastBrew };
   }
   function brewSeen(state, id) { const b = state.halloween.lastBrew; if (b && b.id === id) b.seen = true; return { ok: !!b }; }
-  // A friendly ghost popped in the village at night. Each ghost pays once; past maxPerHour they just giggle.
+  // 1.6: what placed tombstones and graveyards do to ghosts. Each placed copy adds its share; each total is capped.
+  function ghostBoost(state) {
+    const c = HALLOWEEN.ghostDecor, out = { spawn: 0, big: c.bigBase, finalHour: 0 };
+    for (const d of state.decor || []) { const g = DECOR[d.type] && DECOR[d.type].ghosts; if (g) { out.spawn += g.spawn || 0; out.big += g.big || 0; out.finalHour += g.finalHour || 0; } }
+    return { spawn: round3(Math.min(c.spawnCap, out.spawn)), big: round3(Math.min(c.bigCap, out.big)), finalHour: round3(Math.min(c.finalHourCap, out.finalHour)) };
+  }
+  // When the event's candy stops: midnight at the end of HALLOWEEN.end, local time. None while forced on.
+  function halloweenEndsAt(state, now) {
+    if (!halloweenActive(state, now) || (state.settings && state.settings.eventOverride === 'on')) return null;
+    const d = new Date(now);
+    return new Date(d.getFullYear(), HALLOWEEN.end[0] - 1, HALLOWEEN.end[1] + 1, 0, 0, 0).getTime();
+  }
+  function ghostFinalHour(state, now) { const end = halloweenEndsAt(state, now); return end !== null && now >= end - HOUR_MS && now < end; }
+  // A friendly ghost popped in the village. Each ghost pays once; past maxPerHour they just giggle.
+  // Big Ghosts (ids starting 'gb-', spawned by the world at ghostBoost().big odds) pay more but count as one pop.
   function popGhost(state, ghostId, now, seed) {
     if (!halloweenActive(state, now)) return { ok: false, reason: 'No ghosts out tonight.' };
     const H = state.halloween, id = String(ghostId || '').slice(0, 40);
@@ -1729,11 +1771,38 @@ const TOF = (() => {
     H.popped.push(id); if (H.popped.length > 40) H.popped = H.popped.slice(-40);
     H.pops = H.pops.filter(t => t > now - HOUR_MS && t <= now);
     if (H.pops.length >= HALLOWEEN.ghost.maxPerHour) return { ok: true, candy: 0 };
-    const [a, b] = HALLOWEEN.ghost.candy, candy = a + Math.floor(mulberry32(seedOr(seed))() * (b - a + 1));
+    const big = id.startsWith('gb-'), [a, b] = big ? HALLOWEEN.ghostDecor.bigCandy : HALLOWEEN.ghost.candy;
+    let candy = a + Math.floor(mulberry32(seedOr(seed))() * (b - a + 1));
+    const finalHour = ghostFinalHour(state, now), boost = finalHour ? ghostBoost(state).finalHour : 0;
+    candy = Math.round(candy * (1 + boost));
     H.pops.push(now);
     addItems(state, { candy });
     Stats.add(state, 'candyFound', candy);
-    return { ok: true, candy };
+    return { ok: true, candy, big, finalHour: finalHour && boost > 0 };
+  }
+  // 1.6: the Pumpkin Patch. One shared timer however many patches are placed; it starts when the first goes down,
+  // keeps running (and keeps its place) while patches are packed away, and resets only on a harvest.
+  const pumpkinPlaced = state => (state.decor || []).some(d => d.type === 'hwPumpkinPatch');
+  function settlePumpkins(state, now) {
+    const H = state.halloween;
+    if (!pumpkinPlaced(state) || Number.isFinite(H.pumpkinAt)) return false;
+    H.pumpkinAt = now + HALLOWEEN.pumpkin.hours * HOUR_MS;
+    return true;
+  }
+  function pumpkinStatus(state, now) {
+    const at = state.halloween.pumpkinAt, placed = pumpkinPlaced(state);
+    return { placed, readyAt: Number.isFinite(at) ? at : null, ready: placed && Number.isFinite(at) && now >= at };
+  }
+  function harvestPumpkins(state, now, seed) {
+    const st = pumpkinStatus(state, now);
+    if (!st.placed) return { ok: false, reason: 'Place a Pumpkin Patch first.' };
+    if (!st.ready) return { ok: false, reason: st.readyAt ? 'The pumpkins are still growing.' : 'The pumpkins have only just been planted.' };
+    const [a, b] = HALLOWEEN.pumpkin.food, food = a + Math.floor(mulberry32(seedOr(seed))() * (b - a + 1));
+    const room = storageCap(state) - state.resources.food;
+    if (room < food) return { ok: false, reason: `No room for the preserves (storage ${storageCap(state)}).` };
+    addItems(state, { food });
+    state.halloween.pumpkinAt = now + HALLOWEEN.pumpkin.hours * HOUR_MS;
+    return { ok: true, food };
   }
   // The ghost ship drifts in now and then while the event runs, stays a while, then fades away.
   function settleGhostShip(state, now, rnd = Math.random) {
@@ -1874,7 +1943,7 @@ const TOF = (() => {
   }
 
   function settle(state, now) {
-    return { built: settleBuildings(state, now), produced: settleProduction(state, now) };
+    return { built: settleBuildings(state, now), produced: settleProduction(state, now), pumpkins: settlePumpkins(state, now) };
   }
 
   // ---------- refined goods ----------
@@ -2128,6 +2197,8 @@ const TOF = (() => {
     H.popped = Array.isArray(rh.popped) ? rh.popped.filter(x => typeof x === 'string').slice(-40) : [];
     H.pops = Array.isArray(rh.pops) ? rh.pops.filter(Number.isFinite).slice(-HALLOWEEN.ghost.maxPerHour) : [];
     H.nextShipAt = Number.isFinite(rh.nextShipAt) ? rh.nextShipAt : null;
+    // a timer further out than one cycle (a clock change) is pulled back, so it can't stall or be skipped
+    H.pumpkinAt = Number.isFinite(rh.pumpkinAt) ? Math.min(rh.pumpkinAt, now + HALLOWEEN.pumpkin.hours * HOUR_MS) : null;
     const sh = rh.ship;
     if (sh && typeof sh.id === 'string' && Number.isFinite(sh.arriveAt) && Number.isFinite(sh.leaveAt) && Array.isArray(sh.offers))
       H.ship = { id: sh.id, arriveAt: sh.arriveAt, leaveAt: Math.min(sh.leaveAt, sh.arriveAt + HALLOWEEN.ship.stayMin * 60000),
@@ -2242,7 +2313,7 @@ const TOF = (() => {
     repairCost, repair, sell, sellAll, canAfford, upgradeCost, buyUpgrade,
     migrate, sanitize, loadGame, saveGame, resetSave, mulberry32, exportSave, importSave,
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
-    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
+    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     DECOR_COPIES, repaintDecor,
     GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
   };
@@ -3440,6 +3511,98 @@ function runTofTests(TOF) {
     for (let i = 2; i <= 20; i++) total += TOF.popGhost(s, 'g-' + i, now + i, i).candy || 0;
     ok(total <= TOF.HALLOWEEN.ghost.maxPerHour * TOF.HALLOWEEN.ghost.candy[1], 'hourly limit'); eq(s.resources.candy, total, 'matches');
     ok(TOF.popGhost(s, 'g-99', now + 2 * H, 1).candy > 0, 'pays again later');
+  });
+  // ---------- 1.6 ----------
+  const live = () => { const s = veteran(at(2026, 10, 20)); s.settings.eventOverride = null; return s; };
+  const putDecor = (s, type, n = 1) => { for (let i = 0; i < n; i++) s.decor.push({ id: 'd-t' + type + i + Math.random(), type, gx: 0, gy: 0 }); };
+  const NEW_REG = ['krakenBones', 'beehives', 'smokehouse', 'netRack', 'figurehead', 'saluteCannon', 'greatAnchor', 'weathervane', 'mapBoard', 'rowboatPlanter'];
+  const NEW_HW = ['hwGraveyard', 'hwBatCave', 'hwPumpkinPatch', 'hwCoffin', 'hwSpiderWeb'];
+  test('1.6: ten new regular decorations are on sale, each with a real effect and one prestige piece', () => {
+    eq(new Set(NEW_REG).size, 10, 'ten'); eq(TOF.DECOR_ORDER.filter(t => NEW_REG.includes(t)).length, 10, 'registered once each');
+    for (const t of NEW_REG) { const d = TOF.DECOR[t]; ok(!d.hw && d.cost && d.bonus && d.effect && d.desc && d.size, t + ' complete'); }
+    const k = TOF.DECOR.krakenBones, g = TOF.DECOR.goldChest;
+    eq(k.group, g.group, 'same tier as the Chest of Gold');
+    const s = veteran(T0); s.resources.coins = 1e6; s.resources.pearls = 99; s.resources.relics = 99;
+    ok(TOF.placeDecor(s, 'krakenBones', 20, 20, () => null).ok, 'buyable');
+    const b = TOF.decorBonus(s);
+    for (const t of Object.keys(TOF.TYPES)) eq(b.power[t], 0.05, t + ' power +5%');
+    ok(/You already have one/.test(TOF.placeDecor(s, 'krakenBones', 25, 25, () => null).reason), 'one of each');
+  });
+  test('1.6: five new Halloween decorations come from the cauldron; the Bat Roost is Legendary', () => {
+    for (const t of NEW_HW) ok(TOF.HW_DECOR.includes(t), t + ' registered');
+    eq(TOF.HW_DECOR.length, 17, 'twelve old plus five new');
+    const where = t => Object.entries(TOF.CAULDRON.pool).filter(([, l]) => l.some(x => x.decor === t)).map(([r]) => r);
+    for (const t of TOF.HW_DECOR) eq(where(t).join(), TOF.DECOR[t].rarity, t + ' sits in its own rarity pool only');
+    eq(TOF.DECOR.hwBatRoost.rarity, 'legendary', 'roost is legendary'); eq(TOF.RARITY.legendary, 'Legendary', 'tier named');
+    eq(TOF.DECOR.hwGraveyard.size.join(), '2,2', 'graveyard is large');
+    for (const t of Object.values(TOF.CAULDRON.tiers)) eq(Math.round(Object.values(t.odds).reduce((a, x) => a + x, 0) * 10) / 10, 100, t.name + ' odds total 100');
+    const st = spooky(); st.resources.candy = 1e6; const got = new Set();
+    for (let i = 1; i <= 4000; i++) { const r = TOF.brew(st, 'dump', at(2026, 10, 20), i * 7919); if (r.brew.decor) got.add(r.brew.decor); }
+    for (const t of [...NEW_HW, 'hwBatRoost']) ok(got.has(t), t + ' can be won');
+  });
+  test('1.6: old saves keep their Bat Roost (placed and stashed) after the rarity change', () => {
+    const st = memStorage(), s = spooky();
+    s.decorInv.hwBatRoost = 2; s.decor.push({ id: 'd-77', type: 'hwBatRoost', gx: 5, gy: 30 }); s.nextDecorId = 78;
+    s.halloween.lastBrew = { id: 3, tier: 'generous', at: T0, seen: false, rarity: 'rare', items: {}, decor: 'hwBatRoost' }; s.halloween.brewSeq = 3;
+    ok(TOF.saveGame(st, s, T0), 'saved');
+    const { state } = TOF.loadGame(st, T0);
+    eq(state.decorInv.hwBatRoost, 2, 'stash kept'); ok(state.decor.some(d => d.id === 'd-77'), 'placed one kept');
+    eq(state.halloween.lastBrew.decor, 'hwBatRoost', 'an unseen old prize still shows');
+  });
+  test('1.6: tombstones and graveyards stack ghost bonuses up to clear caps', () => {
+    const s = spooky(), c = TOF.HALLOWEEN.ghostDecor;
+    let g = TOF.ghostBoost(s); eq(g.spawn, 0, 'none'); eq(g.big, c.bigBase, 'base Big Ghost chance'); eq(g.finalHour, 0, 'no final-hour bonus');
+    putDecor(s, 'hwTombstone', 2);
+    g = TOF.ghostBoost(s); eq(g.spawn, 0.1, 'two tombstones +10% spawns'); eq(g.big, c.bigBase, 'tombstones leave Big Ghosts alone'); eq(g.finalHour, 0.5, '+50% final hour');
+    putDecor(s, 'hwGraveyard');
+    g = TOF.ghostBoost(s); eq(g.spawn, 0.35, 'graveyard +25%'); eq(g.big, 0.15, 'graveyard +12% Big Ghost'); eq(g.finalHour, 1.5, '+100%');
+    putDecor(s, 'hwGraveyard', 5); putDecor(s, 'hwTombstone', 30);
+    g = TOF.ghostBoost(s); eq(g.spawn, c.spawnCap, 'spawn capped'); eq(g.big, c.bigCap, 'big capped'); eq(g.finalHour, c.finalHourCap, 'final hour capped');
+  });
+  test('1.6: Big Ghosts pay more but still count toward the hourly limit', () => {
+    const s = spooky(), now = at(2026, 10, 20, 22), [lo, hi] = TOF.HALLOWEEN.ghostDecor.bigCandy;
+    const r = TOF.popGhost(s, 'gb-1', now, 3); ok(r.ok && r.big && r.candy >= lo && r.candy <= hi, 'big pay');
+    ok(lo > TOF.HALLOWEEN.ghost.candy[1], 'more than any normal ghost');
+    ok(!TOF.popGhost(s, 'gb-1', now, 3).ok, 'pays once');
+    for (let i = 2; i <= TOF.HALLOWEEN.ghost.maxPerHour; i++) ok(TOF.popGhost(s, 'g-' + i, now + i, i).candy > 0, 'normal ' + i);
+    eq(TOF.popGhost(s, 'gb-2', now + 99, 4).candy, 0, 'a Big Ghost past the limit just giggles');
+  });
+  test('1.6: the final-hour ghost bonus applies only in the event’s last hour, and never revives candy after it', () => {
+    const s = live(); putDecor(s, 'hwGraveyard'); putDecor(s, 'hwTombstone', 2); // +150%
+    const end = TOF.halloweenEndsAt(s, at(2026, 11, 12, 20));
+    eq(end, new Date(2026, 10, 13, 0, 0, 0).getTime(), 'candy stops at midnight after November 12');
+    ok(!TOF.ghostFinalHour(s, end - H - 1), 'not before the last hour'); ok(TOF.ghostFinalHour(s, end - H), 'last hour starts'); ok(TOF.ghostFinalHour(s, end - 1), 'still in it'); ok(!TOF.ghostFinalHour(s, end), 'over at the cutoff');
+    const early = TOF.popGhost(s, 'g-a', end - 2 * H, 1); ok(early.candy <= TOF.HALLOWEEN.ghost.candy[1] && !early.finalHour, 'normal pay before');
+    const late = TOF.popGhost(s, 'g-b', end - 30 * 60000, 1), base = TOF.HALLOWEEN.ghost.candy[0] + Math.floor(1 * 0);
+    ok(late.finalHour && late.candy >= Math.round(TOF.HALLOWEEN.ghost.candy[0] * 2.5) && late.candy <= Math.round(TOF.HALLOWEEN.ghost.candy[1] * 2.5), 'x2.5 in the last hour'); void base;
+    ok(!TOF.popGhost(s, 'g-c', end + 1000, 1).ok, 'no candy after the cutoff, decorations or not');
+    const bare = live(); ok(!TOF.popGhost(bare, 'g-d', end - 30 * 60000, 1).finalHour, 'no bonus without the decorations');
+    const forced = spooky(); putDecor(forced, 'hwGraveyard'); eq(TOF.halloweenEndsAt(forced, at(2026, 11, 12, 23)), null, 'no cutoff while forced on, so no final hour');
+  });
+  test('1.6: the Pumpkin Patch harvests 3-4 preserves per 4-hour cycle, once, across a reload', () => {
+    const s = veteran(T0), cyc = TOF.HALLOWEEN.pumpkin.hours * H;
+    ok(/Place a Pumpkin Patch/.test(TOF.harvestPumpkins(s, T0).reason), 'needs a patch');
+    putDecor(s, 'hwPumpkinPatch', 3);
+    ok(TOF.settlePumpkins(s, T0), 'timer starts'); eq(s.halloween.pumpkinAt, T0 + cyc, 'one cycle out');
+    ok(!TOF.harvestPumpkins(s, T0 + cyc - 1).ok, 'not ripe yet');
+    const st = memStorage(); ok(TOF.saveGame(st, s, T0), 'saved');
+    const { state } = TOF.loadGame(st, T0 + cyc + 5);
+    eq(state.halloween.pumpkinAt, T0 + cyc, 'progress survives closing the app');
+    const f0 = state.resources.food, r = TOF.harvestPumpkins(state, T0 + cyc + 5, 9);
+    ok(r.ok && r.food >= 3 && r.food <= 4, 'three or four'); eq(state.resources.food, f0 + r.food, 'credited');
+    ok(!TOF.harvestPumpkins(state, T0 + cyc + 6).ok, 'no second claim'); eq(state.resources.food, f0 + r.food, 'still once');
+    eq(state.halloween.pumpkinAt, T0 + cyc + 5 + cyc, 'next cycle'); // three patches still give one harvest
+    state.halloween.pumpkinAt = T0; state.resources.food = TOF.storageCap(state);
+    ok(/No room/.test(TOF.harvestPumpkins(state, T0 + 1).reason), 'full storage refuses'); eq(state.halloween.pumpkinAt, T0, 'and keeps it ripe');
+    const sk = veteran(T0); sk.halloween.pumpkinAt = T0 + 999 * H; putDecor(sk, 'hwPumpkinPatch');
+    const st2 = memStorage(); TOF.saveGame(st2, sk, T0);
+    ok(TOF.loadGame(st2, T0).state.halloween.pumpkinAt <= T0 + cyc, 'a far-future timer is pulled back');
+  });
+  test('1.6: a 2x2 graveyard places like other large decorations and blocks its tiles', () => {
+    const s = spooky(); s.decorInv.hwGraveyard = 1; s.decorInv.hwCoffin = 1;
+    ok(TOF.placeDecor(s, 'hwGraveyard', 30, 30, () => null).ok, 'placed'); eq(s.decorInv.hwGraveyard, 0, 'from the stash');
+    ok(/Too close/.test(TOF.placeDecor(s, 'hwCoffin', 31, 31, () => null).reason), 'its far tile is taken');
+    ok(TOF.placeDecor(s, 'hwCoffin', 32, 30, () => null).ok, 'next to it is fine');
   });
   test('the ghost ship visits now and then, trades once per offer, then leaves', () => {
     const s = spooky(), now = at(2026, 10, 20);
@@ -4896,14 +5059,26 @@ const Art = (() => {
     for (const dx of [-2, 0, 2]) p.set(x + dx + 1, g - 4, '#5f5a53');
     p.set(x - 6, g - 1, '#5fa043'); p.set(x - 5, g - 2, '#5fa043'); p.set(x + 7, g, '#5fa043');
   };
+  // 1.6: a tall L-shaped post. Frame 0 is the empty daytime post; frames 1-2 (night only) have a great bat hanging
+  // from the arm, its wings folded or half open. The world picks the frame from the sky.
   DECOR_ART.hwBatRoost = (p, pt, o = {}) => {
-    const q = pt(0.5, 0.55), x = q[0], g = q[1], wood = '#3a2a20';
-    p.ellipse(x, g, 5, 2, '#5c3a24');
-    p.rect(x - 1, g - 16, 3, 16, wood);
-    p.line(x, g - 12, x - 8, g - 20, wood); p.line(x - 5, g - 17, x - 7, g - 25, wood);
-    p.line(x + 1, g - 14, x + 9, g - 22, wood); p.line(x + 6, g - 19, x + 10, g - 27, wood); p.line(x, g - 16, x + 1, g - 28, wood);
-    const bat = (bx, by) => p.blitMap(['.k.k.', 'kkkkk', 'kkykk', '.kkk.', '..k..'], { k: '#1d1622', y: '#ffd27a' }, bx - 2, by - 1);
-    bat(x - 7, g - 19); bat(x + 7, g - 20); bat(x - 6, g - 24); bat(x + 9, g - 26); if (o.frame) bat(x + 1, g - 27);
+    const q = pt(0.5, 0.55), x = q[0] + 3, g = q[1], wood = '#3a2a20', lit = '#5a4030', top = g - 44, armX = x - 16;
+    p.ellipse(x, g, 6, 2.4, '#5c3a24'); p.ellipse(x - 1, g - 1, 4, 1.4, '#6b4428');
+    p.rect(x - 1, top, 4, g - top, wood); p.rect(x - 1, top, 1, g - top, lit); // the upright, gnarled with knots
+    for (const k of [10, 22, 31]) p.set(x + 2, g - k, '#24180f');
+    p.rect(armX, top, x - armX + 3, 3, wood); p.rect(armX, top, x - armX + 3, 1, lit); p.rect(armX - 1, top + 1, 1, 2, '#24180f'); // the arm
+    p.line(x - 1, top + 12, x - 9, top + 3, wood); p.line(x - 1, top + 11, x - 8, top + 3, lit); // the brace
+    p.rect(x - 2, top - 2, 6, 2, '#2a1d14'); // a cap on the post
+    p.set(x + 3, g - 3, '#5fa043'); p.set(x - 4, g - 1, '#5fa043');
+    if (!o.frame) { p.line(armX + 2, top + 3, armX + 2, top + 6, '#8a7a6a'); return; } // just a frayed bit of rope by day
+    // the bat: feet on the arm, hanging head-down, wings wrapped (frame 1) or half spread (frame 2)
+    const bx = armX + 6, by = top + 3, k = '#1d1622', m = '#3a2a40', open = o.frame === 2, K = 1.45, P = (dx, dy) => [bx + dx * K, by + dy * K];
+    p.set(bx - 1, by, k); p.set(bx + 1, by, k);
+    p.ellipse(bx, by + 7 * K, 3.2 * K, 5.5 * K, m); p.ellipse(bx, by + 7 * K, 2 * K, 4.5 * K, '#4a3550');
+    if (open) { p.poly([P(-3, 2), P(-10, 4), P(-9, 9), P(-7, 8), P(-6, 12), P(-3, 10)], k); p.poly([P(3, 2), P(10, 4), P(9, 9), P(7, 8), P(6, 12), P(3, 10)], k); }
+    else { p.poly([P(-4, 1), P(-5, 9), P(-2, 13), P(-1, 3)], k); p.poly([P(4, 1), P(5, 9), P(2, 13), P(1, 3)], k); }
+    p.circle(bx, by + 14 * K, 2.6 * K, m); p.set(bx - 3, by + 18 * K, k); p.set(bx + 3, by + 18 * K, k); p.set(bx - 3, by + 17 * K, k); p.set(bx + 3, by + 17 * K, k); // head, ears pointing down
+    p.set(bx - 1, by + 14 * K, '#ffd27a'); p.set(bx + 2, by + 14 * K, '#ffd27a');
   };
   DECOR_ART.hwCauldron = (p, pt, o = {}) => {
     const q = pt(0.5, 0.55), x = q[0], g = q[1];
@@ -4914,7 +5089,7 @@ const Art = (() => {
     for (const [dx, dy] of [[-2, 0], [2, -1], [0, 1]]) { const k = (f + dx + 3) % 3; p.circle(x + dx, g - 12 - k - dy, 1, '#a8f060'); }
     p.set(x + 1, g - 16 - f, '#d8ffb0');
   };
-  const HW_ANIM = { hwSkeleton: 2, hwBatRoost: 2, hwCauldron: 3 };
+  const HW_ANIM = { hwSkeleton: 2, hwCauldron: 3 }; // (the Bat Roost follows the sky instead, see World)
   // The big West Woods cauldron (three bubbling frames) and a friendly ghost (two frames).
   // The big West Woods cauldron, four bubbling frames. The dirt sits on its own layer with no outline and
   // thins out into dithered specks, so the clearing melts into the grass instead of ending in a hard ring.
@@ -4977,6 +5152,30 @@ const Art = (() => {
     p.outline('#5a6878');
     return sprite(p, x, 16);
   }
+  // 1.6: the Big Ghost, half again the size, with a wobbly crown so it stands out from the crowd.
+  function bigGhostSprite(frame) {
+    const p = new Pix(26, 32), x = 13;
+    p.circle(x, 13, 10, '#f2f6ff');
+    p.rect(x - 10, 12, 21, 11, '#f2f6ff');
+    for (let i = 0; i < 5; i++) { const hx = x - 10 + i * 4 + (frame ? 1 : 0); p.rect(hx, 23, 3, 3 + ((i + frame) % 2) * 2, '#f2f6ff'); }
+    p.ellipse(x - 4, 12, 2, 3, '#2a1d17'); p.ellipse(x + 4, 12, 2, 3, '#2a1d17'); p.set(x - 4, 11, '#ffffff'); p.set(x + 4, 11, '#ffffff');
+    p.ellipse(x, 18, 3, 2.2, '#2a1d17'); p.rect(x - 1, 19, 3, 1, '#c8463c');
+    p.rect(x - 8, 15, 2, 1, '#f2a0b0'); p.rect(x + 7, 15, 2, 1, '#f2a0b0');
+    p.poly([[x - 6, 5], [x + 6, 5], [x + 6, 1], [x + 3, 3], [x, 0], [x - 3, 3], [x - 6, 1]], '#e0b44a'); p.set(x, 3, '#c8463c');
+    p.rect(x - 8, 7, 3, 3, '#ffffff');
+    p.outline('#5a6878');
+    return sprite(p, x, 26);
+  }
+  // 1.6: a bat in flight from the Bat Cave (two wing beats), drawn like the gulls.
+  function batFly(f) {
+    const p = new Pix(13, 8);
+    p.blitMap(f === 0
+      ? ['k.........k', 'kk...k...kk', '.kkkkkkkkk.', '...kkkkk...', '....k.k....']
+      : ['...........', '....k.k....', '..kkkkkkk..', '.kk.kkk.kk.', 'k....k....k'], { k: '#1d1622' }, 1, 1);
+    p.set(5, 3, '#ffd27a'); p.set(7, 3, '#ffd27a');
+    p.outline('#7a6a9a'); // a moonlit rim so they read against the dark
+    return sprite(p, 6, 4);
+  }
   // Seasonal dressing for a building: drawn over its sprite, never part of it, so nothing is altered for good.
   // kind picks the mix: webs and bats, pumpkins, coloured lights, tombstones.
   function hauntOverlay(s, kind) {
@@ -5008,7 +5207,7 @@ const Art = (() => {
   }
 
   const DECOR_TOP = { harborLantern: 44, festoon: 34, sunflowers: 30, garden: 24, fountain: 42, goldChest: 28,
-    hwPumpkinFlag: 36, hwGhostFlag: 36, hwWitchFlag: 36, hwSkeleton: 32, hwScarecrow: 38, hwLantern: 30, hwBatRoost: 34, hwTombstone: 24, hwCauldron: 26 };
+    hwPumpkinFlag: 36, hwGhostFlag: 36, hwWitchFlag: 36, hwSkeleton: 32, hwScarecrow: 38, hwLantern: 30, hwBatRoost: 52, hwTombstone: 24, hwCauldron: 26 };
   // ---------- 1.4: village buildings and square pieces (o.v = chosen look) ----------
   const ROOFS = ['#c0443a', '#3f6fb0', '#4f8f5a', '#d98a3a', '#8a5aa0', '#3f8f8f'];
   const blockAt = (p, pt, u, v, o) => drawBlock(p, ...pt(u, v), o);
@@ -5100,6 +5299,182 @@ const Art = (() => {
   Object.assign(DECOR_TOP, { cottage: 36, windmill: 56, bellTower: 48, fisherHut: 26, gazebo: 44, stall: 26, topiary: 30, pond: 16, statue: 38, well: 32 });
   HW_ANIM.windmill = 4;
 
+  // ---------- 1.6: ten more regular decorations ----------
+  const bone = '#e8e0cc', boneD = '#b8ad94';
+  DECOR_ART.krakenBones = (p, pt, o = {}) => {
+    p.poly([pt(0.1, 0.2), pt(1.9, 0.1), pt(1.9, 1.9), pt(0.15, 1.85)], (x, y) => (hash(x, y, 31) < 0.18 ? '#d9c79a' : hash(x, y, 32) < 0.5 ? '#e6d6a8' : '#efe1b6'));
+    // arching tentacle bones, back to front, each a chain of tapering vertebrae
+    const arm = (u0, v0, du, dv, h, n) => { for (let i = 0; i <= n; i++) { const t = i / n, q = pt(u0 + du * t, v0 + dv * t), y = q[1] - Math.sin(t * Math.PI) * h, r = 2.6 - 1.6 * t; p.circle(q[0], y, r, (xx, yy) => (yy < y - r * 0.3 ? bone : boneD)); if (i % 2) p.set(q[0], y - r + 1, '#fffaf0'); } };
+    arm(0.3, 0.5, 1.4, -0.3, 16, 16); arm(0.5, 1.6, 1.3, 0.1, 10, 14);
+    // the skull, half buried, with hollow eyes and a beak
+    const s0 = pt(0.75, 0.85);
+    p.ellipse(s0[0], s0[1] - 10, 11, 9, (xx, yy) => (yy < s0[1] - 13 ? bone : xx < s0[0] ? '#d8cfb8' : boneD));
+    p.ellipse(s0[0] - 4, s0[1] - 10, 2.6, 3.2, '#2a2420'); p.ellipse(s0[0] + 4, s0[1] - 10, 2.6, 3.2, '#2a2420');
+    p.set(s0[0] - 4, s0[1] - 11, '#7fe0b0'); p.set(s0[0] + 4, s0[1] - 11, '#7fe0b0');
+    p.poly([[s0[0] - 3, s0[1] - 5], [s0[0] + 3, s0[1] - 5], [s0[0], s0[1] + 1]], '#5c544a');
+    arm(1.2, 1.1, 0.6, 0.7, 14, 10); arm(0.2, 1.3, -0.1, 0.55, 8, 6);
+    p.set(pt(1.5, 1.6)[0], pt(1.5, 1.6)[1] - 1, '#e0b44a'); p.set(pt(0.4, 0.4)[0], pt(0.4, 0.4)[1], '#f4ecd8'); // a coin and a shell in the sand
+  };
+  DECOR_ART.beehives = (p, pt) => {
+    const b0 = pt(0.5, 0.55);
+    p.rect(b0[0] - 9, b0[1] - 2, 18, 2, '#7c5131'); p.rect(b0[0] - 8, b0[1], 1, 3, '#5e3b22'); p.rect(b0[0] + 7, b0[1], 1, 3, '#5e3b22');
+    const skep = (x, y, k) => { for (let i = 0; i < 4; i++) { const w = 4.6 * k - i * 0.9 * k, yy = y - i * 2.6 * k; p.ellipse(x, yy, w, 1.7 * k, (xx) => (xx < x - 1 ? '#e8c050' : '#c9a040')); p.rect(Math.round(x - w + 1), Math.round(yy + 1), Math.round(w * 2 - 2), 1, '#a8822e'); } p.rect(x - 1, y - 1, 3, 2, '#3a2416'); };
+    skep(b0[0] - 5, b0[1] - 3, 1); skep(b0[0] + 5, b0[1] - 3, 1); skep(b0[0], b0[1] - 9, 0.8);
+    for (const [dx, dy] of [[-9, -16], [8, -18], [2, -22], [-3, -19]]) { p.set(b0[0] + dx, b0[1] + dy, '#2a1d17'); p.set(b0[0] + dx + 1, b0[1] + dy, '#f2e27a'); }
+    p.set(b0[0] - 10, b0[1] + 1, '#e58ea8'); p.set(b0[0] + 10, b0[1], '#f4f0e8');
+  };
+  DECOR_ART.smokehouse = (p, pt) => {
+    blockAt(p, pt, 0.18, 0.22, { fw: 0.66, fd: 0.62, wall: 10, roof: 6, mat: 'stone', roofC: '#5c6670', chimney: true, door: 'R', noRightWindows: true, seed: 140 });
+    const q = pt(0.5, 0.95);
+    p.rect(q[0] - 6, q[1] - 1, 5, 2, '#7c5131'); p.rect(q[0] - 6, q[1] - 3, 5, 2, '#9c6a3d'); // a stack of logs
+    p.circle(q[0] + 5, q[1] - 2, 2, '#8a5a33'); p.set(q[0] + 5, q[1] - 2, '#c9a06a');
+  };
+  DECOR_ART.netRack = (p, pt) => {
+    const a = pt(0.12, 0.8), b = pt(0.88, 0.2), h = 20, L = b[0] - a[0];
+    for (const q of [a, b]) { p.rect(q[0], q[1] - h, 2, h, '#6b4428'); p.set(q[0], q[1] - h, '#8a5a33'); }
+    p.rect(a[0], a[1] - h + 1, L + 2, 1, '#7c5131');
+    const top = a[1] - h + 2, sag = t => Math.sin(t * Math.PI) * 3;
+    for (let i = 0; i <= 8; i++) { const t = i / 8, x = Math.round(a[0] + 2 + (L - 2) * t); p.line(x, top, x, top + 10 + sag(t), '#c9b88f'); } // strands
+    for (let r = 1; r <= 3; r++) for (let x = a[0] + 2; x <= b[0]; x++) { const t = (x - a[0]) / L; p.set(x, Math.round(top + r * 3 + sag(t) * r / 3), '#b0a07a'); } // knots across
+    for (const t of [0.2, 0.5, 0.8]) { const x = a[0] + 2 + (L - 2) * t; p.circle(x, top + 12 + sag(t), 1.6, t === 0.5 ? '#f4ecd8' : '#d9583b'); }
+    const pu = pt(0.55, 0.75); p.ellipse(pu[0], pu[1], 4, 1.5, '#3f9fd8');
+  };
+  DECOR_ART.figurehead = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    isoBox(p, [x, g], 7, 6, '#9c6a3d', '#8a5a33', '#6b4428');
+    const y0 = g - 6;
+    p.poly([[x + 1, y0 - 2], [x + 5, y0 - 1], [x + 4, y0 - 8], [x + 1, y0 - 11]], '#3f8f8f'); p.poly([[x + 4, y0 - 1], [x + 8, y0 - 3], [x + 7, y0 - 5]], '#4fa8a0'); // the tail curling round
+    p.poly([[x - 3, y0 - 10], [x + 2, y0 - 10], [x + 1, y0 - 19], [x - 4, y0 - 18]], (xx) => (xx < x - 1 ? '#f0c8a0' : '#d9a878')); // the body, leaning out
+    p.circle(x - 2, y0 - 22, 3.2, '#f0c8a0'); p.set(x - 3, y0 - 22, '#2a1d17');
+    p.poly([[x - 1, y0 - 26], [x + 3, y0 - 24], [x + 3, y0 - 15], [x + 1, y0 - 17], [x + 1, y0 - 22]], '#e0b44a'); // hair down her back
+    p.line(x - 4, y0 - 17, x - 8, y0 - 22, '#d9a878'); p.set(x - 8, y0 - 23, '#f0c8a0'); // pointing the way
+    p.rect(x - 3, y0 - 13, 4, 2, '#7c2a26');
+  };
+  DECOR_ART.saluteCannon = (p, pt) => {
+    const q = pt(0.45, 0.55);
+    p.ellipse(q[0], q[1] + 1, 8, 3, '#8a7d68');
+    PROPS.cannon(p, [q[0] - 1, q[1]]); PROPS.balls(p, pt(0.85, 0.75));
+    const f = pt(0.15, 0.3); p.rect(f[0], f[1] - 22, 1, 22, '#3b3d40'); p.rect(f[0] + 1, f[1] - 22, 7, 4, '#c8463c'); p.rect(f[0] + 1, f[1] - 20, 7, 1, '#f4ecd8'); p.set(f[0], f[1] - 23, '#e0b44a');
+  };
+  DECOR_ART.greatAnchor = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1], ir = '#3b3d40', hi = '#6e7780';
+    p.ellipse(x, g, 7, 2.6, '#6b5b48');
+    p.rect(x - 1, g - 26, 3, 24, ir); p.rect(x - 1, g - 26, 1, 24, hi); // shank
+    p.circle(x + 0.5, g - 29, 3, ir); p.set(x, g - 29, '#9aa3a8'); p.set(x + 1, g - 29, '#9aa3a8'); // ring
+    p.rect(x - 6, g - 22, 14, 2, ir); p.rect(x - 7, g - 22, 2, 3, ir); p.rect(x + 7, g - 22, 2, 3, ir); // stock
+    for (let i = 0; i <= 10; i++) { const a = Math.PI * (0.1 + 0.8 * i / 10), xx = x + 0.5 - Math.cos(a) * 9, yy = g - 9 + Math.sin(a) * 6; p.rect(Math.round(xx), Math.round(yy), 2, 2, ir); }
+    p.poly([[x - 10, g - 11], [x - 7, g - 9], [x - 9, g - 6]], ir); p.poly([[x + 11, g - 11], [x + 8, g - 9], [x + 10, g - 6]], ir); // flukes
+    for (let i = 0; i < 8; i++) p.set(x + 2 + (i % 2), g - 24 + i * 2, '#c9a06a'); // rope wound round the shank
+    p.ellipse(x + 6, g - 1, 3, 1.4, '#a06c40'); p.set(x + 6, g - 1, '#7c5131');
+  };
+  DECOR_ART.weathervane = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1], cu = '#3f9f8f', cuD = '#2f7a6e';
+    p.ellipse(x, g, 4, 1.6, '#77736c');
+    p.rect(x, g - 36, 1, 36, '#3b3d40'); p.rect(x - 1, g - 3, 3, 3, '#2f3236');
+    p.rect(x - 7, g - 26, 15, 1, '#3b3d40'); p.rect(x - 4, g - 28, 1, 5, '#3b3d40'); // the compass arms
+    p.set(x - 8, g - 26, '#e0b44a'); p.set(x + 8, g - 26, '#e0b44a');
+    // a copper ship on top
+    p.poly([[x - 8, g - 38], [x + 8, g - 38], [x + 5, g - 35], [x - 6, g - 35]], cuD);
+    p.poly([[x - 1, g - 39], [x - 1, g - 48], [x - 7, g - 40]], cu); p.poly([[x + 1, g - 39], [x + 1, g - 46], [x + 6, g - 40]], cu);
+    p.rect(x, g - 49, 1, 11, cuD); p.set(x + 1, g - 49, '#c8463c');
+  };
+  DECOR_ART.mapBoard = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    p.rect(x - 7, g - 20, 2, 20, '#5e3b22'); p.rect(x + 6, g - 20, 2, 20, '#5e3b22');
+    p.rect(x - 9, g - 24, 18, 2, '#7c5131'); p.rect(x - 8, g - 26, 16, 2, '#6b4428'); // little roof
+    p.rect(x - 7, g - 21, 15, 12, '#a06c40');
+    p.rect(x - 6, g - 20, 9, 9, '#f0dfb0'); p.rect(x - 6, g - 20, 9, 1, '#e0c890');
+    p.line(x - 5, g - 13, x - 2, g - 17, '#7c5131'); p.line(x - 2, g - 17, x + 1, g - 15, '#7c5131'); p.set(x - 4, g - 18, '#3f9fd8'); p.set(x - 5, g - 19, '#3f9fd8');
+    p.set(x + 1, g - 16, '#c8463c'); p.set(x + 2, g - 15, '#c8463c'); p.set(x + 2, g - 16, '#c8463c'); p.set(x + 1, g - 15, '#c8463c'); // X
+    p.rect(x + 4, g - 20, 3, 4, '#f4f0e8'); p.rect(x + 4, g - 14, 3, 4, '#e8d8a8'); p.set(x + 5, g - 19, '#5c544a'); p.set(x + 5, g - 13, '#5c544a');
+    p.set(x - 2, g - 20, '#c8463c'); // a pin
+  };
+  DECOR_ART.rowboatPlanter = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    p.ellipse(x, g - 1, 10, 3.2, '#5c3a22');
+    p.poly([[x - 11, g - 6], [x + 11, g - 6], [x + 8, g], [x - 8, g]], (xx, yy) => (yy > g - 3 ? '#7c5131' : '#9c6a3d'));
+    p.rect(x - 11, g - 7, 22, 1, '#c8463c'); p.set(x + 11, g - 7, '#e0b44a');
+    for (let i = 0; i < 14; i++) { const fx = x - 9 + (i * 37 % 19), fy = g - 8 - (i * 13 % 5); p.circle(fx, fy, 1.3, i % 3 ? '#e8862a' : '#f2c94c'); p.set(fx, fy, '#7c2a26'); }
+    for (const dx of [-6, -1, 4, 8]) p.set(x + dx, g - 7, '#4b8636');
+    p.line(x + 3, g - 6, x + 12, g - 12, '#a06c40'); p.rect(x + 11, g - 14, 3, 3, '#a06c40'); // an oar left in
+  };
+  Object.assign(DECOR_TOP, { krakenBones: 34, beehives: 28, smokehouse: 30, netRack: 24, figurehead: 36, saluteCannon: 28, greatAnchor: 34, weathervane: 54, mapBoard: 30, rowboatPlanter: 20 });
+
+  // ---------- 1.6: five more Halloween decorations ----------
+  const stone = (xx, yy) => (hash(xx, yy, 5) < 0.2 ? '#77736c' : '#a9a397');
+  DECOR_ART.hwGraveyard = (p, pt, o = {}) => {
+    p.poly([pt(0.05, 0.05), pt(1.95, 0.05), pt(1.95, 1.95), pt(0.05, 1.95)], (x, y) => (hash(x, y, 41) < 0.12 ? '#4a6b3a' : hash(x, y, 42) < 0.5 ? '#557a42' : '#5f8a48'));
+    // a twisted dead tree at the back
+    const t = pt(0.35, 0.3), wood = '#3a2a20';
+    p.rect(t[0] - 1, t[1] - 26, 3, 26, wood); p.line(t[0], t[1] - 18, t[0] - 9, t[1] - 27, wood); p.line(t[0] - 6, t[1] - 24, t[0] - 7, t[1] - 32, wood);
+    p.line(t[0] + 1, t[1] - 22, t[0] + 9, t[1] - 30, wood); p.line(t[0] + 6, t[1] - 27, t[0] + 11, t[1] - 29, wood); p.line(t[0], t[1] - 26, t[0] + 2, t[1] - 34, wood);
+    p.set(t[0] + 9, t[1] - 31, '#1d1622'); p.set(t[0] + 10, t[1] - 31, '#1d1622'); // a crow
+    const graves = [[0.9, 0.35, 'r'], [1.5, 0.45, 'c'], [0.55, 0.95, 's'], [1.15, 0.95, 'r'], [1.6, 1.15, 's'], [0.75, 1.5, 'c']].map(([u, v, k]) => ({ q: pt(u, v), k })).sort((a, b) => a.q[1] - b.q[1]);
+    const box = (x, y, w, h) => { for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) p.set(x + i, y + j, stone(x + i, y + j)); };
+    for (const { q, k } of graves) {
+      const [x, g] = q;
+      p.ellipse(x + 1, g + 2, 5, 2, '#4a3a28'); // a little mound
+      if (k === 'r') { box(x - 3, g - 9, 7, 9); p.circle(x + 0.5, g - 9, 3.5, stone); p.rect(x - 1, g - 8, 3, 1, '#5f5a53'); p.rect(x + 4, g - 9, 1, 9, '#77736c'); }
+      else if (k === 'c') { box(x, g - 13, 2, 13); box(x - 3, g - 10, 8, 2); p.rect(x + 2, g - 13, 1, 13, '#77736c'); }
+      else { p.poly([[x - 4, g], [x + 4, g + 1], [x + 3, g - 7], [x - 4, g - 8]], stone); p.rect(x - 2, g - 5, 4, 1, '#5f5a53'); }
+      p.set(x - 4, g, '#4b8636');
+    }
+    // low iron railings along the two near edges, with a gate
+    const rail = (a, b, n) => { for (let i = 0; i <= n; i++) { const tt = i / n, x = a[0] + (b[0] - a[0]) * tt, y = a[1] + (b[1] - a[1]) * tt; if (i % 4 === 2) continue; p.rect(Math.round(x), Math.round(y) - 7, 1, 7, '#2f3236'); p.set(Math.round(x), Math.round(y) - 8, '#5a5f66'); } p.line(a[0], a[1] - 5, b[0], b[1] - 5, '#2f3236'); };
+    rail(pt(0.05, 1.95), pt(1.95, 1.95), 18); rail(pt(1.95, 0.05), pt(1.95, 1.95), 18);
+    const l = pt(1.95, 1.95); p.rect(l[0] - 1, l[1] - 11, 3, 11, '#2f3236'); p.rect(l[0] - 1, l[1] - 14, 3, 3, '#a8f060'); // a corner lantern, green-lit
+  };
+  DECOR_ART.hwBatCave = (p, pt, o = {}) => {
+    const c = pt(1, 1), x = c[0], g = c[1];
+    p.ellipse(x, g + 2, 26, 9, '#4a3a28');
+    p.ellipse(x - 2, g - 9, 24, 15, (xx, yy) => { const h = hash(xx >> 1, yy >> 1, 51); return yy < g - 18 ? (h < 0.3 ? '#8a8a7c' : '#9c9c8e') : xx < x - 6 ? (h < 0.3 ? '#77776a' : '#86867a') : (h < 0.3 ? '#5f5f55' : '#6b6b60'); });
+    p.ellipse(x + 10, g - 4, 11, 8, (xx, yy) => (hash(xx >> 1, yy >> 1, 52) < 0.3 ? '#5f5f55' : '#6b6b60'));
+    for (const [dx, dy, r] of [[-12, -20, 5], [3, -22, 6], [14, -12, 4]]) p.ellipse(x + dx, g + dy, r, r * 0.5, '#5f8a48'); // moss on top
+    // the cave mouth with teeth of rock
+    p.ellipse(x - 6, g - 5, 8, 9, '#1d1622'); p.rect(x - 14, g - 5, 16, 6, '#1d1622'); p.ellipse(x - 6, g - 5, 5, 6, '#100c14');
+    for (const dx of [-11, -7, -3]) p.poly([[x + dx - 1, g - 13 + Math.abs(dx + 7) / 2], [x + dx + 2, g - 13 + Math.abs(dx + 7) / 2], [x + dx + 0.5, g - 9 + Math.abs(dx + 7) / 3]], '#86867a');
+    p.set(x - 8, g - 6, '#ffd27a'); p.set(x - 6, g - 6, '#ffd27a'); // eyes in the dark
+    for (const [dx, dy] of [[6, -26], [-4, -30]]) p.blitMap(['k...k', 'kk.kk', '.kkk.'], { k: '#1d1622' }, x + dx, g + dy);
+    p.set(x + 18, g + 2, '#5fa043'); p.set(x - 22, g, '#5fa043');
+  };
+  // frame 0: still growing (small, some green); frame 1: ripe and ready to pick
+  DECOR_ART.hwPumpkinPatch = (p, pt, o = {}) => {
+    const ripe = o.frame === 1, c = [pt(0.1, 0.1), pt(1.9, 0.1), pt(1.9, 1.9), pt(0.1, 1.9)];
+    p.poly(c, (x, y) => { const v = ((y - c[0][1]) + (x - c[0][0]) * 0.5) / 3; return Math.floor(v) % 2 ? (hash(x, y, 61) < 0.3 ? '#6e4627' : '#7b5232') : '#5c3a22'; });
+    const spots = [[0.45, 0.4, 1], [1.3, 0.35, 0.8], [0.9, 0.8, 1.2], [1.55, 0.95, 0.9], [0.4, 1.25, 0.85], [1.05, 1.45, 1.1], [1.6, 1.6, 0.7]].map(([u, v, k]) => ({ q: pt(u, v), k })).sort((a, b) => a.q[1] - b.q[1]);
+    for (let i = 0; i < spots.length - 1; i++) { const a = spots[i].q, b = spots[i + 1].q; for (let t = 0; t <= 1; t += 0.08) p.set(Math.round(a[0] + (b[0] - a[0]) * t), Math.round(a[1] + (b[1] - a[1]) * t + Math.sin(t * 9) * 1.5), '#3f7a32'); }
+    spots.forEach(({ q, k }, i) => {
+      const [x, y] = q, s = ripe ? k : k * 0.6, green = !ripe && i % 2 === 1;
+      p.ellipse(x - 3, y - 1, 3, 1.4, '#4f8f3a'); p.ellipse(x + 3, y, 2.5, 1.2, '#5fa043'); // leaves
+      p.ellipse(x, y - 3 * s, 4.2 * s, 3.2 * s, (xx) => (green ? ((xx - x + 9) % 3 < 1 ? '#6a9a3a' : '#7fb048') : ((xx - x + 9) % 3 < 1 ? '#d8701e' : '#f08f2c')));
+      p.rect(x, Math.round(y - 6.5 * s), 1, 2, '#4f6b2a');
+      if (ripe && i === 2) { p.set(x - 2, y - 4, '#ffe48a'); p.set(x + 1, y - 4, '#ffe48a'); p.rect(x - 2, y - 2, 4, 1, '#ffe48a'); } // one jack among them
+    });
+    if (ripe) for (const [u, v] of [[0.9, 0.8], [1.3, 0.35], [1.05, 1.45]]) { const q = pt(u, v); p.set(q[0] + 4, q[1] - 9, '#fff6c0'); p.set(q[0] + 5, q[1] - 10, '#ffffff'); p.set(q[0] + 3, q[1] - 10, '#fff6c0'); }
+  };
+  DECOR_ART.hwCoffin = (p, pt) => {
+    const q = pt(0.5, 0.55), x = q[0], g = q[1];
+    p.ellipse(x, g, 7, 2.6, '#5c3a24');
+    p.rect(x + 5, g - 26, 2, 26, '#4a2f1c'); // the post it leans on
+    const body = [[x - 4, g], [x + 4, g + 1], [x + 6, g - 15], [x + 4, g - 24], [x - 3, g - 25], [x - 6, g - 16]];
+    p.poly(body, '#1d1622'); // dark inside, showing past the lid
+    p.poly([[x - 5, g - 1], [x + 3, g], [x + 4, g - 15], [x + 2, g - 23], [x - 4, g - 24], [x - 7, g - 15]], (xx, yy) => (xx < x - 3 ? '#8a5a33' : '#6b4428'));
+    p.rect(x - 2, g - 20, 1, 9, '#c9a040'); p.rect(x - 4, g - 17, 5, 1, '#c9a040'); // a brass cross
+    p.set(x + 3, g - 8, '#c9a040');
+    p.set(x + 5, g - 13, '#efe9df'); p.set(x + 5, g - 12, '#efe9df'); // a bony finger, just visible
+  };
+  DECOR_ART.hwSpiderWeb = (p, pt) => {
+    const a = pt(0.1, 0.85), b = pt(0.9, 0.15), wood = '#3a2a20';
+    p.rect(a[0], a[1] - 24, 2, 24, wood); p.rect(b[0], b[1] - 26, 2, 26, wood); p.set(a[0], a[1] - 25, wood); p.set(b[0] + 1, b[1] - 27, wood);
+    const cx = (a[0] + b[0]) / 2 + 1, cy = (a[1] + b[1]) / 2 - 14, web = '#e8eef2';
+    const ends = [[a[0] + 2, a[1] - 22], [a[0] + 2, a[1] - 12], [a[0] + 2, a[1] - 4], [b[0], b[1] - 24], [b[0], b[1] - 13], [b[0], b[1] - 5], [cx, cy - 11], [cx - 1, cy + 11]];
+    for (const [ex, ey] of ends) p.line(cx, cy, ex, ey, web);
+    for (const r of [0.35, 0.65, 0.9]) for (let i = 0; i < ends.length; i++) { const order = [0, 6, 3, 4, 5, 7, 2, 1], A = ends[order[i]], B = ends[order[(i + 1) % ends.length]]; p.line(Math.round(cx + (A[0] - cx) * r), Math.round(cy + (A[1] - cy) * r), Math.round(cx + (B[0] - cx) * r), Math.round(cy + (B[1] - cy) * r), '#c8d2da'); }
+    p.circle(cx + 3, cy + 3, 2, '#1d1622'); p.circle(cx + 3, cy + 0.5, 1.3, '#1d1622'); p.set(cx + 3, cy + 4, '#c8463c');
+    for (const [dx, dy] of [[-2, 1], [-2, 4], [7, 1], [7, 5], [-1, 6], [6, 7]]) p.set(cx + 3 + Math.sign(dx) * (Math.abs(dx) > 3 ? 3 : 2), cy + dy, '#1d1622');
+  };
+  Object.assign(DECOR_TOP, { hwGraveyard: 40, hwBatCave: 34, hwPumpkinPatch: 14, hwCoffin: 30, hwSpiderWeb: 30 });
+
   const _dtex = {};
   // variant: { frame, ice } for animated / seasonal decorations.
   function decorTex(type, o = {}) {
@@ -5141,6 +5516,8 @@ const Art = (() => {
     if (type === 'scarecrow') return (_durl[type] = cropURL(scarecrow()));
     if (type === 'fieldFence') { const c = document.createElement('canvas'); c.width = 40; c.height = 30; const x = c.getContext('2d'); x.drawImage(fenceTex('v').canvas, 17, 1); x.drawImage(fenceTex('u').canvas, 2, 1); return (_durl[type] = c.toDataURL()); }
     if (type === 'keeperShack') return (_durl[type] = cropURL(lighthouseIslet({ shack: true, iconOnly: true })));
+    if (type === 'hwBatRoost') return (_durl[type] = cropURL(decorTex(type, { frame: 1 }))); // its icon shows the bat
+    if (type === 'hwPumpkinPatch') return (_durl[type] = cropURL(decorTex(type, { frame: 1 })));
     return (_durl[type] = cropURL(decorTex(type)));
   }
 
@@ -5365,7 +5742,7 @@ const Art = (() => {
     T.lighthouseShack = lighthouseIslet({ shack: true }); T.lighthouseShackSnow = lighthouseIslet({ shack: true, snow: true });
     T.fenceU = fenceTex('u'); T.fenceV = fenceTex('v'); T.scarecrow = scarecrow();
     for (let f = 0; f < 4; f++) T['cauldron' + f] = bigCauldron(f);
-    T.ghost0 = ghostSprite(0); T.ghost1 = ghostSprite(1);
+    T.ghost0 = ghostSprite(0); T.ghost1 = ghostSprite(1); T.bigGhost0 = bigGhostSprite(0); T.bigGhost1 = bigGhostSprite(1); T.bat0 = batFly(0); T.bat1 = batFly(1);
     T.ghostShip = ship(-1, { L: 18, B: 6, hull: ['#1d2b2b', '#2c4040', '#3a5454'], rim: '#7fe0b0', sailC: ['#d6f4e6', '#b8e2cf', '#8fc4b0'], masts: [{ a: 7, h: 36, rig: 'square', w: 6, sails: 2 }, { a: -3, h: 42, rig: 'square', w: 7, sails: 3 }], castle: { from: -1, to: -0.55, h: 4 }, flag: '#59d1a0', glow: true }, 7);
     { const g = T.ghostShip, c = g.canvas.getContext('2d'), lit = ['#a8f060', '#d8ffb0'];
       // eerie lanterns at bow and stern
@@ -6208,6 +6585,9 @@ const World = (() => {
       if (!o.tex || o.v !== (d.v || 0)) o.tex = decorKey(d.type, 0, false, d.v || 0);
       o.v = d.v || 0; o.x = p.x; o.y = p.y; o.depth = p.y - (fw + fd) * 2; o.fw = fw; o.fd = fd;
     }
+    caves = (state.decor || []).filter(d => d.type === 'hwBatCave').map(d => { const q = isoTop(d.gx + 1, d.gy + 1); return { x: q.x, y: q.y }; });
+    for (const b of bats) if (!caves.some(c => c.x === b.cx && c.y === b.cy + 30)) b.cx = NaN; // a moved or packed-away cave's bats leave
+    for (let i = bats.length - 1; i >= 0; i--) if (Number.isNaN(bats[i].cx)) bats.splice(i, 1);
     hideTrees(state);
     decorReady = true;
   }
@@ -6386,22 +6766,45 @@ const World = (() => {
     const night = sky.dark > 0.5;
     ghostT -= dt;
     if (eventOn && st && ghostT <= 0) { // 1.5.1: day and night
-      ghostT = night ? 25 + Math.random() * 35 : 35 + Math.random() * 45;
-      if (ghosts.length < 3 && roadTiles.length) {
-        const [gx, gy] = roadTiles[(Math.random() * roadTiles.length) | 0], c = tileCenter(gx, gy), a = Math.random() * Math.PI * 2;
-        ghosts.push({ id: 'g-' + Date.now() + '-' + Math.floor(Math.random() * 1e6), x: c.x, y: c.y - 18, vx: Math.cos(a) * 6, vy: Math.sin(a) * 3, life: 0, max: 40 + Math.random() * 15, ph: Math.random() * 6 });
+      // 1.6: tombstones and graveyards shorten the wait (TOF.ghostBoost); a graveyard lets one more ghost out at once,
+      // and Big Ghosts turn up at boost.big odds, half of them rising straight out of a graveyard
+      const boost = TOF.ghostBoost(st), yards = (st.decor || []).filter(d => d.type === 'hwGraveyard');
+      ghostT = (night ? 25 + Math.random() * 35 : 35 + Math.random() * 45) / (1 + boost.spawn);
+      if (ghosts.length < 3 + (yards.length ? 1 : 0) && roadTiles.length) {
+        const big = Math.random() < boost.big, yard = big && yards.length && Math.random() < 0.5 ? yards[(Math.random() * yards.length) | 0] : null;
+        const [gx, gy] = yard ? [yard.gx + 1, yard.gy + 1] : roadTiles[(Math.random() * roadTiles.length) | 0], c = yard ? isoTop(yard.gx + 1, yard.gy + 1) : tileCenter(gx, gy), a = Math.random() * Math.PI * 2, sp = big ? 4 : 6;
+        ghosts.push({ id: (big ? 'gb-' : 'g-') + Date.now() + '-' + Math.floor(Math.random() * 1e6), big, x: c.x, y: c.y - (big ? 24 : 18), vx: Math.cos(a) * sp, vy: Math.sin(a) * sp / 2, life: 0, max: (big ? 50 : 40) + Math.random() * 15, ph: Math.random() * 6 });
       }
     }
     if (!eventOn) for (const gh of ghosts) gh.max = Math.min(gh.max, gh.life + 2); // shoo when the event ends
     for (let i = poofs.length - 1; i >= 0; i--) { poofs[i].t += dt; if (poofs[i].t > 0.8) poofs.splice(i, 1); }
     // animated Halloween decorations
     for (const o of dObjs.values()) { const n = Art.HW_ANIM[o.decorType]; if (n) o.tex = decorKey(o.decorType, Math.floor(time * ({ 3: 4, 4: 3 }[n] || 1.5)) % n, false, o.v || 0); }
+    // 1.6: the Bat Roost follows the sky: an empty post by day, a great bat at night that now and then stretches
+    const ripe = st && TOF.pumpkinStatus(st, Date.now()).ready;
+    for (const o of dObjs.values()) {
+      if (o.decorType === 'hwBatRoost') o.tex = decorKey('hwBatRoost', night ? (Math.floor(time * 0.6 + o.x) % 6 === 0 ? 2 : 1) : 0);
+      else if (o.decorType === 'hwPumpkinPatch') o.tex = decorKey('hwPumpkinPatch', ripe ? 1 : 0);
+    }
+    // 1.6: bats from each Bat Cave, flitting in loops round it after dark (the same idea as the gulls by day)
+    const want = night ? Math.min(9, caves.length * (TOF.DECOR.hwBatCave.bats || 3)) : 0;
+    while (bats.length < want) { const c = caves[bats.length % caves.length], i = bats.length; bats.push({ cx: c.x, cy: c.y - 30, r: 14 + (i * 7) % 16, sp: 1.1 + (i % 3) * 0.35, ph: i * 2.1, a: 0, x: c.x, y: c.y }); }
+    for (let i = bats.length - 1; i >= 0; i--) {
+      const b = bats[i];
+      if (!night || i >= want) { b.a -= dt * 1.5; if (b.a <= 0) { bats.splice(i, 1); continue; } } else b.a = Math.min(1, b.a + dt);
+      const t = time * b.sp + b.ph; b.x = b.cx + Math.sin(t) * b.r * 1.6; b.y = b.cy + Math.sin(t * 2) * b.r * 0.5 - Math.abs(Math.cos(t * 0.5)) * 10;
+    }
+  }
+  const bats = []; let caves = [];
+  function drawBats() {
+    for (const b of bats) { const t = TEX[Math.floor(time * 8 + b.ph) % 2 ? 'bat1' : 'bat0']; ctx.globalAlpha = Math.max(0, b.a); ctx.drawImage(t.canvas, Math.round(b.x - t.ax), Math.round(b.y - t.ay)); }
+    ctx.globalAlpha = 1;
   }
   let ghostT = 8;
   const ghostAlpha = gh => Math.min(1, gh.life / 1.5, (gh.max - gh.life) / 2) * 0.85;
   function drawGhosts() {
     for (const gh of ghosts) {
-      const t = TEX[Math.floor(time * 3 + gh.ph) % 2 ? 'ghost1' : 'ghost0'], bob = Math.sin(time * 2 + gh.ph) * 3;
+      const t = TEX[(gh.big ? 'bigGhost' : 'ghost') + (Math.floor(time * 3 + gh.ph) % 2 ? '1' : '0')], bob = Math.sin(time * 2 + gh.ph) * 3;
       ctx.globalAlpha = ghostAlpha(gh); ctx.drawImage(t.canvas, Math.round(gh.x - t.ax), Math.round(gh.y + bob - t.ay));
     }
     ctx.globalAlpha = 1;
@@ -6416,7 +6819,7 @@ const World = (() => {
     ctx.globalAlpha = 1;
   }
   function ghostAt(wx, wy) {
-    for (let i = ghosts.length - 1; i >= 0; i--) { const gh = ghosts[i]; if (Math.abs(wx - gh.x) < 11 && wy > gh.y - 20 && wy < gh.y + 6) return i; }
+    for (let i = ghosts.length - 1; i >= 0; i--) { const gh = ghosts[i], k = gh.big ? 1.6 : 1; if (Math.abs(wx - gh.x) < 11 * k && wy > gh.y - 20 * k && wy < gh.y + 6 * k) return i; }
     return -1;
   }
   function focusCauldron() { const c = tileCenter(CAULDRON_AT.gx, CAULDRON_AT.gy); cam.x = c.x; cam.y = c.y - 16; clampCam(); }
@@ -6584,6 +6987,7 @@ const World = (() => {
       ctx.beginPath(); ctx.ellipse(Math.round(sp.x), Math.round(sp.y), r, r * 0.4, 0, 0, Math.PI * 2); ctx.stroke();
     }
     ctx.globalAlpha = 1;
+    if (bats.length) drawBats();
     // gulls (they head inland when it's dark or wet)
     if (!(sky.dark > 0.5 || sky.weather.kind === 'rainy' || sky.weather.kind === 'snowy')) for (const g of gulls) {
       const t = TEX[Math.floor(time * 4 + g.ph) % 2 ? 'gull1' : 'gull0'];
@@ -6896,7 +7300,7 @@ const World = (() => {
     if (placing) { const t = tileAt(w.x, w.y); movePlacing(t.gx - (placing.fw >> 1), t.gy - (placing.fd >> 1)); return; }
     // a friendly ghost pops when tapped (it is gone at once, so it can only pay once)
     const gi = ghostAt(w.x, w.y);
-    if (gi >= 0) { const gh = ghosts.splice(gi, 1)[0]; poofs.push({ x: gh.x, y: gh.y - 8, t: 0 }); return onTapCb({ kind: 'ghost', ghostId: gh.id, x: gh.x, y: gh.y }); }
+    if (gi >= 0) { const gh = ghosts.splice(gi, 1)[0]; poofs.push({ x: gh.x, y: gh.y - 8, t: 0 }); if (gh.big) poofs.push({ x: gh.x, y: gh.y - 16, t: 0.2 }); return onTapCb({ kind: 'ghost', ghostId: gh.id, big: !!gh.big, x: gh.x, y: gh.y }); }
     // bubbles sit above ships; let them count as the ship
     for (const o of ships.values()) {
       const top = o.y - TEX[o.tex].top - 6;
@@ -6957,7 +7361,7 @@ const World = (() => {
     cam.x = p.x; cam.y = p.y - 20; clampCam();
   }
 
-  return { syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
+  return { syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, _bats: bats, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
     startPlacing, movePlacing, stopPlacing, _villagers: () => villagers, _roads: () => roadTiles, isWalkable: (gx, gy) => walkable(gx, gy), setLowPower: v => { lowPower = !!v; }, _debug: { setTime: t => { time = t; }, exitPath: i => exitPath(i), islet: () => tileCenter(ISLET.gx, ISLET.gy) }, get placing() { return placing; }, isoTop, _ships: ships, _objects: () => objects, _bObjs: bObjs };
 })();
 
@@ -7007,6 +7411,7 @@ const App = (() => {
     brew(tier) { return done(TOF.brew(state, tier, now()), 'brew'); },
     brewSeen(id) { const r = TOF.brewSeen(state, id); save(); return r; },
     popGhost(id) { return done(TOF.popGhost(state, id, now()), 'candy'); },
+    harvestPumpkins() { return done(TOF.harvestPumpkins(state, now()), 'harvest'); },
     ghostTrade(id) { return done(TOF.ghostTrade(state, id, now()), 'trade'); },
     sellRefined(res, qty) { return done(TOF.sellRefined(state, res, qty), 'trade'); },
     setEvent(v) { state.settings.eventOverride = v; TOF.settleGhostShip(state, now()); commit('event'); },
@@ -7457,7 +7862,7 @@ const UI = (() => {
   }
 
   // ---------- Halloween ----------
-  const RAR_ORDER = ['common', 'uncommon', 'rare', 'veryRare'];
+  const RAR_ORDER = ['common', 'uncommon', 'rare', 'veryRare', 'legendary'];
   const rarBadge = r => `<span class="rar rar-${r}">${TOF.RARITY[r]}</span>`;
   function eventDays(now) {
     const d = new Date(now), end = new Date(d.getFullYear(), TOF.HALLOWEEN.end[0] - 1, TOF.HALLOWEEN.end[1], 23, 59, 59);
@@ -7469,6 +7874,14 @@ const UI = (() => {
     let html = `<article class="card hw"><div class="hw-head">${icon('candy', 'big')}<div><span class="big-n">${candy}</span> candy<br><small>${on ? `Halloween runs October 1 to November 12.${state.settings.eventOverride === 'on' ? ' (Forced on in developer mode.)' : ` <b>${days} day${days === 1 ? '' : 's'}</b> left.`}` : 'Halloween is over for this year. Your candy and decorations keep until next October.'}</small></div></div>
       <p class="desc">${on ? 'Every trip can bring home candy, short ones too. Friendly ghosts drift through the village, day and night: tap one to pop it for a little candy.' : 'The cauldron has gone cold, and no more candy turns up until next Halloween.'}</p>
       <p class="desc perk">Candy bonus: +${Math.round(bonus * 100)}% from ${placed.length} placed decoration${placed.length === 1 ? '' : 's'} (the most is +${Math.round(TOF.HALLOWEEN.candyCap * 100)}%).</p></article>`;
+    // 1.6: what the tombstones and graveyards are doing for the ghosts
+    const gb = TOF.ghostBoost(state), finalNow = TOF.ghostFinalHour(state, now), endsAt = TOF.halloweenEndsAt(state, now);
+    if (on) html += `<article class="card" data-hw="ghosts"><h3>Ghosts</h3><p class="desc">Tombstones and graveyards draw the ghosts: each placed copy adds up, to a limit. A Big Ghost pays ${TOF.HALLOWEEN.ghostDecor.bigCandy.join('–')} candy instead of ${TOF.HALLOWEEN.ghost.candy.join('–')}, and still counts as one of the ${TOF.HALLOWEEN.ghost.maxPerHour} ghosts that pay each hour.</p>
+      <ul class="perks"><li>Ghosts appear ${pc(gb.spawn)} more often (most ${pc(TOF.HALLOWEEN.ghostDecor.spawnCap)})</li><li>${pc(gb.big)} of ghosts are Big Ghosts (most ${pc(TOF.HALLOWEEN.ghostDecor.bigCap)})</li>
+      <li>In the final hour before Halloween ends${endsAt ? ` (${new Date(endsAt - TOF.HOUR_MS).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })})` : ''}, ghost candy +${pc(gb.finalHour)} (most +${pc(TOF.HALLOWEEN.ghostDecor.finalHourCap)})${finalNow ? ' <b>: happening now!</b>' : ''}</li></ul></article>`;
+    const pk = TOF.pumpkinStatus(state, now);
+    if (pk.placed) html += `<article class="card" data-hw="pumpkins"><header class="ship-head"><img class="px b-img big" src="${Art.decorURL('hwPumpkinPatch')}" alt=""><div><h3>Pumpkin Patch</h3><p>${pk.ready ? 'Ripe! Tap the patch in the village, or pick them here.' : pk.readyAt ? `Ripe in <b>${span(pk.readyAt - now)}</b>.` : 'Just planted.'} Each harvest gives ${TOF.HALLOWEEN.pumpkin.food.join(' or ')} preserved food, once every ${TOF.HALLOWEEN.pumpkin.hours} hours however many patches you have.</p></div></header>
+      ${pk.ready ? '<button class="btn primary" data-act="pumpkins">Harvest the pumpkins</button>' : ''}</article>`;
     // a decoration tapped in the village
     const sel = ui.hwDecor && state.decor.find(d => d.id === ui.hwDecor);
     if (sel) {
@@ -7500,7 +7913,7 @@ const UI = (() => {
         return `<div class="hw-item ${owned(t) ? '' : 'missing'}"><img class="px" src="${Art.decorURL(t)}" alt=""><b>${owned(t) ? d.name : '???'}</b>${rarBadge(d.rarity)}
           <small>${owned(t) ? `${out} placed${inv ? `, ${inv} to place` : ''}` : 'Not found yet'}</small>
           ${inv ? `<button class="btn primary" data-act="dplace" data-type="${t}">Place</button>` : ''}</div>`;
-      }).join('') + `</div><p class="note">Each placed decoration adds a little candy to future trips (+${Math.round(TOF.DECOR.hwPumpkinFlag.candy * 100)}% to +${Math.round(TOF.DECOR.hwCauldron.candy * 100)}% each; every jack-o’-lantern gives +${Math.round(TOF.DECOR.hwJackClassic.candy * 100)}%). Copies stack. Tap a placed one in the village to move it or pack it away.</p>`;
+      }).join('') + `</div><p class="note">Each placed decoration adds a little candy to future trips (+${Math.round(TOF.DECOR.hwPumpkinFlag.candy * 100)}% to +${Math.round(TOF.DECOR.hwBatRoost.candy * 100)}% each; every jack-o’-lantern gives +${Math.round(TOF.DECOR.hwJackClassic.candy * 100)}%). Copies stack. Some do more: tombstones and graveyards call the ghosts, the Bat Cave lets bats out at night, the Pumpkin Patch grows preserved food. Tap a placed one in the village to move it or pack it away.</p>`;
     return html;
   }
   // Brewing: candy and prize were settled before this plays, so the animation is only for show.
@@ -7519,9 +7932,9 @@ const UI = (() => {
     const img = b.decor ? `<img class="prize" src="${Art.decorURL(b.decor)}" alt="">` : `<div class="brewbox">${Object.keys(b.items).map(k => icon(k, 'big')).join(' ')}</div>`;
     $('#modalBody').innerHTML = `<div class="reveal">${rarBadge(b.rarity)}${img}<h2>${esc(name)}</h2>
       <p class="sub">${b.decor ? `Quantity 1. ${TOF.DECOR[b.decor].effect} Place it from the Halloween panel.` : `From the ${TOF.CAULDRON.tiers[b.tier].name.toLowerCase()}.`}</p></div>`;
-    $('#modalOk').disabled = false; $('#modalOk').textContent = b.rarity === 'veryRare' ? 'Spooktacular!' : b.rarity === 'rare' ? 'Wicked!' : 'Nice!';
+    $('#modalOk').disabled = false; $('#modalOk').textContent = b.rarity === 'legendary' ? 'Legendary!' : b.rarity === 'veryRare' ? 'Spooktacular!' : b.rarity === 'rare' ? 'Wicked!' : 'Nice!';
     ui.brewToSee = b.id;
-    Sound.play(b.rarity === 'rare' || b.rarity === 'veryRare' ? 'trophy' : 'chestOpen');
+    Sound.play(b.rarity === 'rare' || b.rarity === 'veryRare' || b.rarity === 'legendary' ? 'trophy' : 'chestOpen');
   }
 
   function effectText(state, b, lvl) {
@@ -7883,6 +8296,7 @@ const UI = (() => {
       case 'brewshow': { const lb = st.halloween.lastBrew; if (lb) { closePanel(); showBrew(lb); $('#modal').hidden = false; } break; }
       case 'gocauldron': closePanel(); World.focusCauldron(); break;
       case 'goship': closePanel(); World.focusGhostShip(); break;
+      case 'pumpkins': { const r = App.harvestPumpkins(); say(r, r.ok ? `Harvested the pumpkins: +${r.food} preserved food.` : ''); if (r.ok) Sound.play('coins'); break; }
       case 'gtrade': { const r = App.ghostTrade(b.dataset.o); say(r, r.ok ? `The ghostly crew hands over ${Object.entries(r.offer.get).map(([k, v]) => `${v} ${resName(k)}`).join(', ')}.` : ''); if (r.ok) Sound.play('coins'); break; }
       case 'drepaint': { const r = App.repaintDecor(b.dataset.d); if (!r.ok) toast(r.reason, 'bad'); else Sound.play('tap'); break; }
       case 'dstow': { const r = App.stowDecor(b.dataset.d); say(r, r.ok ? `${TOF.DECOR[r.decor.type].name} packed away.` : ''); if (r.ok) ui.hwDecor = null; refreshPanel(); break; }
@@ -8023,12 +8437,22 @@ const UI = (() => {
     if (o.kind === 'ghost') {
       const r = App.popGhost(o.ghostId);
       Sound.play(r.ok && r.candy ? 'coins' : 'splash');
-      toast(r.ok ? (r.candy ? `Pop! The ghost giggles and leaves ${r.candy} candy behind.` : 'Pop! The ghost giggles. (The ghosts have given all they can this hour.)') : 'Pop!', r.ok && r.candy ? 'good' : '');
+      const who = r.big ? 'The Big Ghost' : 'The ghost', late = r.finalHour ? ' The graveyard spirits are generous in the last hour!' : '';
+      toast(r.ok ? (r.candy ? `Pop! ${who} giggles and leaves ${r.candy} candy behind.${late}` : `Pop! ${who} giggles. (The ghosts have given all they can this hour.)`) : 'Pop!', r.ok && r.candy ? 'good' : '');
       return;
     }
     if (info.cauldron) { openPanel('halloween', { focus: 'cauldron' }); return; }
     if (info.ghostShip) { openPanel('halloween', { focus: 'ship' }); return; }
-    if (info.dId) { const d = st.decor.find(x => x.id === info.dId); if (d && TOF.DECOR[d.type].hw) { openPanel('halloween', { decor: d.id, focus: 'sel' }); return; } if (d) openPanel('village', { decor: d.type, sel: d.id }); return; }
+    if (info.dId) {
+      const d = st.decor.find(x => x.id === info.dId);
+      // 1.6: a ripe Pumpkin Patch is picked with a tap; otherwise it opens like any Halloween piece
+      if (d && d.type === 'hwPumpkinPatch' && TOF.pumpkinStatus(st, Date.now()).ready) {
+        const r = App.harvestPumpkins();
+        if (r.ok) { Sound.play('coins'); toast(`Harvested the pumpkins: +${r.food} preserved food. More in ${TOF.HALLOWEEN.pumpkin.hours} hours.`, 'good'); } else toast(r.reason, 'bad');
+        return;
+      }
+      if (d && TOF.DECOR[d.type].hw) { openPanel('halloween', { decor: d.id, focus: 'sel' }); return; } if (d) openPanel('village', { decor: d.type, sel: d.id }); return;
+    }
     if (info.crop) { harvestField(); return; }
     if (info.action) openPanel(info.action);
     else if (info.future) toast(info.future);
