@@ -5722,6 +5722,168 @@ const Art = (() => {
   let _built = null;
   const _shipURL = {};
   function shipURL(cls) { if (!_shipURL[cls]) _shipURL[cls] = cropURL(buildAll()['ship_' + cls]); return _shipURL[cls]; }
+  // ======================= the Kraken (1.7 art, phase 1: master design) =======================
+  // Drawn fresh each frame from one fixed anatomy, so it can never change shape between frames.
+  // Front view, as it rises facing the town: a tall pitted dome over two columns of three slit-pupil
+  // eyes plus two smaller side eyes (eight), a centre ridge that is also the seam the head splits along
+  // to show its maw, eight thin sinuous arms ringed with yellow suckers, and wiry tendrils.
+  const KR = {
+    W: 500, H: 520, cx: 250, hy: 150,
+    skin: ['#20040c', '#460816', '#6a0e1e', '#901525', '#b41e2e', '#d23238', '#ea5848'].map(C),
+    // eye centres relative to the eye origin (34px below the head centre) and radius; 0-5 the two columns, 6-7 the side eyes
+    eyes: [[-16, 0, 8], [16, 0, 8], [-17, 23, 7.3], [17, 23, 7.3], [-16, 45, 6.4], [16, 45, 6.4], [-38, -21, 5], [38, -21, 5]],
+  };
+  // the eight arms (left side; the right side mirrors them) and the finer tendrils. ang: start heading
+  // (radians, 0 = right, +pi/2 = down), curl: steady bend per px, tip: how hard the last third rolls up.
+  const KR_ARMS = [
+    { x: -34, y: 70, ang: -2.55, len: 180, w: 10, curl: 0.004, tip: -0.34, wave: 0.016, sp: 0.8, ph: 0.0, back: true },
+    { x: -37, y: 106, ang: 3.1, len: 210, w: 11.5, curl: -0.003, tip: 0.36, wave: 0.014, sp: 0.65, ph: 1.7, back: true },
+    { x: -25, y: 142, ang: 2.35, len: 210, w: 12.5, curl: 0.003, tip: -0.36, wave: 0.014, sp: 0.75, ph: 3.1 },
+    { x: -13, y: 158, ang: 2.0, len: 185, w: 11.5, curl: 0.004, tip: -0.4, wave: 0.016, sp: 0.9, ph: 4.4 },
+  ];
+  const KR_TENDRILS = [
+    { x: -40, y: 44, ang: -2.0, len: 75, w: 3, curl: -0.02, tip: -0.5, wave: 0.035, sp: 1.6, ph: 0.5, back: true },
+    { x: -38, y: 126, ang: 2.75, len: 100, w: 3.2, curl: 0.012, tip: -0.45, wave: 0.03, sp: 1.2, ph: 5.0, back: true },
+    { x: -6, y: 164, ang: 1.75, len: 80, w: 3.2, curl: 0.012, tip: -0.5, wave: 0.032, sp: 1.5, ph: 2.2 },
+  ];
+  const krMirror = a => ({ ...a, x: -a.x, ang: Math.PI - a.ang, curl: -a.curl, tip: -a.tip, ph: a.ph + 2.3 });
+  const krAll = list => [...list, ...list.map(krMirror)];
+  function krPut(p, x, y, c) {
+    x |= 0; y |= 0; if (x < 0 || y < 0 || x >= p.w || y >= p.h) return;
+    const i = (y * p.w + x) * 4; p.d[i] = c[0]; p.d[i + 1] = c[1]; p.d[i + 2] = c[2]; p.d[i + 3] = 255;
+  }
+  // One arm: walk its spine, then lay a dark rim pass and a lit fill pass (so arms that cross stay
+  // separate), then the suckers along its inner edge.
+  function krArm(p, a, ox, oy, t, rage, skinTone) {
+    const pts = [], sk = skinTone || KR.skin;
+    let x = ox + a.x, y = oy + KR.hy + a.y, th = a.ang + 0.12 * Math.sin(t * a.sp * 0.6 + a.ph) * (1 + rage * 0.6) - (a.back ? 0 : rage * 0.12 * Math.sign(Math.cos(a.ang)));
+    for (let s = 0; s <= a.len; s += 1) {
+      const u = s / a.len, r = a.w * Math.pow(1 - u, 0.75) + 0.7;
+      const tipK = u > 0.62 ? (u - 0.62) / 0.38 : 0;
+      pts.push({ x, y, r, th });
+      th += a.curl + a.wave * (1 + rage * 0.7) * Math.sin(s * 0.045 - t * a.sp * (1 + rage * 0.8) + a.ph) + a.tip * tipK * tipK * tipK * 0.9;
+      x += Math.cos(th); y += Math.sin(th);
+    }
+    for (const q of pts) { const R = q.r + 1; for (let yy = Math.floor(q.y - R); yy <= q.y + R; yy++) for (let xx = Math.floor(q.x - R); xx <= q.x + R; xx++) { const dx = xx + 0.5 - q.x, dy = yy + 0.5 - q.y; if (dx * dx + dy * dy <= R * R) krPut(p, xx, yy, sk[0]); } }
+    for (const q of pts) {
+      for (let yy = Math.floor(q.y - q.r); yy <= q.y + q.r; yy++) for (let xx = Math.floor(q.x - q.r); xx <= q.x + q.r; xx++) {
+        const dx = xx + 0.5 - q.x, dy = yy + 0.5 - q.y; if (dx * dx + dy * dy > q.r * q.r) continue;
+        const v = (dx * -0.6 + dy * -0.8) / q.r;
+        krPut(p, xx, yy, sk[v > 0.9 ? 6 : v > 0.62 ? 5 : v > 0.15 ? 4 : v > -0.35 ? 3 : v > -0.75 ? 2 : 1]);
+      }
+    }
+    if (a.w < 5) return; // tendrils have no suckers
+    // suckers ride the inner side of the curl: the side the arm is bending toward
+    let next = 6;
+    for (let i = 1; i < pts.length - 2; i++) {
+      const q = pts[i]; if (i < next || q.r < 1.3) continue;
+      const bend = pts[Math.min(pts.length - 1, i + 6)].th - pts[Math.max(0, i - 6)].th, side = (bend || a.curl) > 0 ? 1 : -1;
+      const nx = -Math.sin(q.th) * side, ny = Math.cos(q.th) * side, rr = Math.max(0.8, q.r * 0.52);
+      const sx = q.x + nx * q.r * 0.5, sy = q.y + ny * q.r * 0.5;
+      if (rr < 1.4) krPut(p, sx, sy, C('#f2b02e'));
+      else for (let yy = Math.floor(sy - rr); yy <= sy + rr; yy++) for (let xx = Math.floor(sx - rr); xx <= sx + rr; xx++) {
+        const dx = xx + 0.5 - sx, dy = yy + 0.5 - sy, d = Math.sqrt(dx * dx + dy * dy); if (d > rr) continue;
+        krPut(p, xx, yy, C(d < rr * 0.48 ? (d < rr * 0.25 ? '#2a0e04' : '#5a2808') : (dx + dy < -rr * 0.3 ? '#ffd65c' : d > rr * 0.85 ? '#a8600e' : '#e2961c')));
+      }
+      next = i + Math.max(3, Math.round(q.r * 1.3));
+    }
+  }
+  // The head on its own layer, unsplit: dome, face, cheek bulges, pores, wrinkles, the seam, the eyes.
+  function krHead(eyesAlive, blink, glow) {
+    const p = new Pix(KR.W, KR.H), hx = KR.cx, hy = KR.hy, ey = hy + 42, sk = KR.skin, RX = 48, RY = 60, FB = hy + 168;
+    const faceW = y => { const k = (y - (hy + 24)) / (FB - hy - 24); return k < 0 ? 41 : 41 - 20 * Math.min(1, k * 1.5) - 9 * Math.max(0, k - 0.66) / 0.34; };
+    const inEye = (x, y, pad) => KR.eyes.some(([dx, dy, r]) => (x - hx - dx) ** 2 + (y - ey - dy) ** 2 <= (r + pad) ** 2);
+    const inside = (x, y) => { const dx = (x + 0.5 - hx) / RX, dy = (y - hy) / RY; if (dx * dx + dy * dy <= 1) return true; if (y >= hy + 18 && y <= FB && Math.abs(x + 0.5 - hx) <= faceW(y)) return true; return inEye(x, y, 3.4); };
+    for (let y = hy - RY - 2; y <= FB + 2; y++) for (let x = hx - 60; x <= hx + 60; x++) {
+      if (!inside(x, y)) continue;
+      const dome = y < hy + 20, nx = dome ? (x + 0.5 - hx) / RX : (x + 0.5 - hx) / Math.max(6, faceW(y)), ny = dome ? (y - hy) / RY : 0.3 + (y - hy - 16) / 200;
+      const lump = Math.sin(x * 0.14 + Math.sin(y * 0.09) * 2) * Math.sin(y * 0.12 + x * 0.04); // slow lumps in the flesh
+      let v = -(nx * 0.9 + ny * 0.6) + lump * 0.22, i = Math.round(3.0 + v * 2.6 + (hash(x, y, 12) < 0.06 ? -1 : 0));
+      const fold = (y - hy + Math.round(2.5 * Math.sin(x * 0.21 + y * 0.02))) % 11; // wavy folds across the snout
+      if (!dome && Math.abs(x + 0.5 - hx) > 4 && hash(x >> 3, (y - fold) >> 2, 13) < 0.6) { if (fold === 0) i -= 1; else if (fold === 1) i += 1; }
+      if (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1)) i = (nx < -0.2 && ny < 0) ? 5 : 1; // rim
+      if (!dome && (Math.abs(x - hx - 6) < 0.6 || Math.abs(x - hx + 5) < 0.6 || Math.abs(x - hx - 28) < 0.6 || Math.abs(x - hx + 27) < 0.6) && hash(x, y >> 2, 3) < 0.7) i -= 1; // wrinkles running down the snout
+      if (x === hx) i += 1; else if (x === hx + 1) i -= 2; // the centre ridge and its groove: the seam
+      krPut(p, x, y, sk[Math.max(0, Math.min(6, i))]);
+    }
+    // pits, thickest on the crown and thinning toward the eyes: a dark hole inside a raised rim
+    for (let gy = hy - RY + 2; gy < hy + 90; gy += 7) for (let gx = hx - RX; gx < hx + RX; gx += 7) {
+      const h = hash(gx, gy, 77), px = gx + Math.floor(h * 5), py = gy + Math.floor(hash(gx, gy, 78) * 5);
+      if (Math.abs(px - hx) < 5 || !inside(px - 4, py - 4) || !inside(px + 3, py + 3) || !inside(px + 3, py - 3) || !inside(px - 3, py + 3) || inEye(px, py, 5)) continue;
+      const crown = 1 - Math.max(0, (py - (hy - RY)) / 110); if (h > 0.2 + crown * 0.6) continue;
+      const big = h < 0.3, r = big ? 2.6 : 1.8;
+      for (let yy = Math.floor(py - r - 1); yy <= py + r + 1; yy++) for (let xx = Math.floor(px - r - 1); xx <= px + r + 1; xx++) {
+        const ddx = xx + 0.5 - px, ddy = (yy + 0.5 - py) * 1.15, d = Math.hypot(ddx, ddy), lit = ddx + ddy;
+        if (d <= r) krPut(p, xx, yy, sk[d > r - 1 && lit > 0.8 ? 2 : 0]); // the hole: its far wall catches a little light
+        else if (d <= r + 1) krPut(p, xx, yy, sk[lit < -0.8 ? 5 : lit > 0.8 ? 1 : 3]); // a raised rim, lit on the upper left
+      }
+    }
+    KR.eyes.forEach(([dx, dy, r], k) => {
+      const cx = hx + dx, cy = ey + dy, alive = eyesAlive & (1 << k);
+      for (let y = Math.floor(cy - r - 3); y <= cy + r + 3; y++) for (let x = Math.floor(cx - r - 3); x <= cx + r + 3; x++) {
+        const ddx = x + 0.5 - cx, ddy = y + 0.5 - cy, d = Math.sqrt(ddx * ddx + ddy * ddy);
+        if (d > r + 2.6) continue;
+        if (d > r + 1.5) { if (ddy < 0) krPut(p, x, y, sk[ddx < 0 ? 6 : 5]); else krPut(p, x, y, sk[2]); continue; } // fleshy lid above, fold below
+        if (d > r) { krPut(p, x, y, sk[0]); continue; } // the socket
+        if (!alive) { krPut(p, x, y, C(d < r * 0.55 ? '#0c0205' : hash(x, y, 9) < 0.4 ? '#3a0610' : '#1c0308')); continue; } // a ruined eye
+        if (blink > 0 && ddy < -r + 2 * r * blink) { krPut(p, x, y, sk[ddy < -r * 0.2 ? 4 : 3]); continue; }
+        const lit = (ddx * -0.55 + ddy * -0.75) / r;
+        let c = d > r * 0.8 ? '#a8520c' : lit > 0.4 ? '#ffe680' : lit > -0.1 ? '#f8c02e' : lit > -0.55 ? '#ec9a1a' : '#c87010';
+        if (Math.abs(ddx) <= Math.max(0.55, r * 0.15) && Math.abs(ddy) <= r * 0.8) c = '#160503'; // vertical slit
+        krPut(p, x, y, C(c));
+      }
+      if (alive && blink < 0.5) { krPut(p, cx - r * 0.45, cy - r * 0.5, C('#fff7d8')); if (r > 5) krPut(p, cx - r * 0.45 + 1, cy - r * 0.5, C('#fff0b0')); }
+      if (!alive) for (let j = 0; j < 4; j++) krPut(p, cx - 1 + (j % 2) * 2, cy + r + 1 + j, sk[j % 2 ? 1 : 0]); // it weeps dark
+    });
+    return p;
+  }
+  // Copy one half of the head into p, turned about pivot (px, py) by ang and shifted by (ox, oy). Nearest pixel, so it stays crisp.
+  function krHalf(p, src, left, px, py, ang, ox, oy) {
+    const c = Math.cos(ang), s = Math.sin(ang), hx = KR.cx;
+    for (let y = KR.hy - 80; y < KR.hy + 200; y++) for (let x = hx - 130; x < hx + 130; x++) {
+      const dx = x - px - ox, dy = y - py - oy, sx = Math.round(px + c * dx + s * dy), sy = Math.round(py - s * dx + c * dy);
+      if (left ? sx > hx : sx <= hx) continue;
+      if (sx < 0 || sy < 0 || sx >= src.w || sy >= src.h) continue;
+      const i = (sy * src.w + sx) * 4; if (!src.d[i + 3]) continue;
+      if (x < 0 || y < 0 || x >= p.w || y >= p.h) continue;
+      const j = (y * p.w + x) * 4; p.d[j] = src.d[i]; p.d[j + 1] = src.d[i + 1]; p.d[j + 2] = src.d[i + 2]; p.d[j + 3] = 255;
+    }
+  }
+  // The full creature for one moment. o.t: seconds (drives every motion), o.split: 0 closed .. 1 head fully
+  // parted, o.eyes: bitmask of eyes still alive, o.blink: 0..1, o.rage: 0..1 extra thrash, o.bob: head lift in px.
+  function krakenFrame(o = {}) {
+    const t = o.t || 0, split = Math.max(0, Math.min(1, o.split || 0)), eyes = o.eyes === undefined ? 255 : o.eyes, rage = o.rage || 0;
+    const p = new Pix(KR.W, KR.H), lift = Math.round(Math.sin(t * 1.3) * 2 - split * 5 + (o.bob || 0)), ox = KR.cx, oy = lift;
+    const arms = krAll(KR_ARMS), tends = krAll(KR_TENDRILS);
+    for (const a of tends) if (a.back) krArm(p, a, ox, oy, t, rage);
+    for (const a of arms) if (a.back) krArm(p, a, ox, oy, t, rage);
+    const head = krHead(eyes, o.blink || 0);
+    const hx = KR.cx, pivX = hx + 0.5, pivY = KR.hy - 16, ang = split * 0.36, push = split * 3;
+    if (split <= 0) krHalf(p, head, true, pivX, pivY, 0, 0, lift), krHalf(p, head, false, pivX, pivY, 0, 0, lift);
+    else {
+      // the maw: the wet dark gap between the parted halves, then the halves, then the teeth along both edges
+      const L = KR.hy + 170 - pivY, Lx = pivX - Math.sin(ang) * L - push, Rx = pivX + Math.sin(ang) * L + push, By = pivY + Math.cos(ang) * L + lift, Ty = pivY + lift;
+      p.poly([[pivX - 2, Ty - 2], [pivX + 2, Ty - 2], [Rx + 2, By], [pivX, By + 6], [Lx - 2, By]], (x, y) => {
+        const half = Math.max(1, (Rx - Lx) / 2 * (y - Ty) / (By - Ty)), k = Math.abs(x + 0.5 - pivX) / half;
+        return k < 0.25 ? '#0a0205' : k < 0.6 ? (hash(x, y, 4) < 0.1 ? '#5a1424' : '#2a0610') : k < 0.85 ? '#4e0c1a' : '#7a1a2c';
+      });
+      p.ellipse(pivX, Ty + (By - Ty) * 0.62, 3 + split * 5, 6 + split * 10, '#050102'); // the throat
+      krHalf(p, head, true, pivX, pivY, ang, -push, lift);
+      krHalf(p, head, false, pivX, pivY, -ang, push, lift);
+      // two rows of teeth on each edge, longer toward the bottom of the split
+      for (const sgn of [-1, 1]) for (const row of [0, 1]) for (let k = 0.12 + row * 0.04; k < 0.98; k += 0.075) {
+        const ex = pivX + sgn * (Math.sin(ang) * L * k + push), ey = Ty + Math.cos(ang) * L * k;
+        const len = (2.5 + 6 * k) * (row ? 0.55 : 1) * Math.min(1, split * 2), bx = ex - sgn * (row ? 2.5 : 0.5), tx = bx - sgn * len, ty = ey + len * 0.35;
+        p.poly([[bx, ey - 1.8 - k], [bx, ey + 1.8 + k], [tx, ty]], (xx, yy) => (yy < (ey + ty) / 2 - 0.5 ? '#f2ead2' : '#bfb08e'));
+      }
+      if (split > 0.15 && split < 0.85) for (const k of [0.35, 0.55, 0.78]) { const yy = Ty + (By - Ty) * k, w = (Rx - Lx) / 2 * k; p.line(pivX - w + 2, yy, pivX + w - 2, yy + 3 + 4 * Math.sin(k * 9 + t * 3), '#b8707a'); } // strings of slime
+    }
+    for (const a of arms) if (!a.back) krArm(p, a, ox, oy, t, rage);
+    for (const a of tends) if (!a.back) krArm(p, a, ox, oy, t, rage);
+    p.outline(PAL.ink);
+    return p;
+  }
+
   function buildAll() {
     if (_built) return _built;
     const T = {};
@@ -5764,7 +5926,7 @@ const Art = (() => {
   }
 
   const cauldronURL = () => _icon['cauldron-big'] || (_icon['cauldron-big'] = buildAll().cauldron1.canvas.toDataURL());
-  return { cauldronURL, hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
+  return { krakenFrame, KR, cauldronURL, hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
 })();
 
 </script>
