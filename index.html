@@ -81,6 +81,12 @@ img.px.big { height: 34px; }
 .fl-status.stack > span { display: flex; align-items: center; gap: 4px; }
 .fl-status.ready small { color: var(--ink); }
 .empty-state { text-align: center; padding: 18px 10px; color: var(--muted); }
+#cine { position: fixed; inset: 0; pointer-events: none; z-index: 40; display: none; }
+body.cinematic #cine { display: block; pointer-events: auto; }
+#cine i { position: absolute; left: 0; right: 0; height: 11vh; background: #000; animation: cineIn 1.2s ease-out both; }
+#cine i:first-child { top: 0; } #cine i:last-child { bottom: 0; }
+@keyframes cineIn { from { height: 0; } }
+body.cinematic #nav, body.cinematic #sheet, body.cinematic #toasts { visibility: hidden; }
 .rar { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 7px; border: 2px solid var(--ink); border-radius: 999px; }
 .rar-common { background: #e3ddd0; color: var(--ink); } .rar-uncommon { background: #9fdc8a; color: var(--ink); }
 .rar-rare { background: #8fc0f0; color: var(--ink); } .rar-veryRare { background: #c89af0; color: var(--ink); }
@@ -424,6 +430,7 @@ img.px.ship-img.big { height: 52px; }
     </div>
   </div>
   <div id="toasts" aria-live="polite"></div>
+  <div id="cine" aria-hidden="true"><i></i><i></i></div>
   <div id="boot">Raising the sails…</div>
 </div>
 <script data-module="core.js">
@@ -742,6 +749,64 @@ const TOF = (() => {
     { id: 'hoard', name: 'Captain’s hoard', candy: 45, get: { planks: 30, rope: 20, iron: 15 }, big: true },
     { id: 'cargo', name: 'Phantom cargo hold', candy: 40, get: { timber: 60, hemp: 40, ironOre: 40 }, big: true },
   ];
+  // ======================= 1.7: The Unseen (the kraken) =======================
+  // Each year it rises in the harbor on October 31: a countdown in the water from three days before, ten hours
+  // of slowly worsening water from 8 AM, then it breaches at 6 PM. Its eight eyes can be struck out one by one;
+  // when the last goes it dies and its body floats in the harbor until next year's countdown, lootable once.
+  // `start` (set only from developer mode) overrides the date so every stage can be tested.
+  const KRAKEN = { month: 10, day: 31, hour: 8, countdownDays: 3, riseHours: 10, painMs: 3200, deathMs: 10000,
+    loot: { coins: 2500, relics: 8, pearls: 12, salvage: 6 } };
+  const emptyKraken = () => ({ start: null, cycle: null, breachSeen: false, hits: [0, 0, 0, 0, 0, 0, 0, 0], deadAt: null, looted: false, lighthouseDown: false });
+  function krakenStart(state, now) {
+    const k = state.kraken;
+    if (k && Number.isFinite(k.start)) return k.start;
+    return new Date(new Date(now).getFullYear(), KRAKEN.month - 1, KRAKEN.day, KRAKEN.hour).getTime();
+  }
+  // Where the event stands at `now`. phase: none | countdown | rising | emerged | dead.
+  function krakenView(state, now) {
+    const k = state.kraken || emptyKraken(), S = krakenStart(state, now), H = HOUR_MS;
+    const v = { start: S, breachAt: S + KRAKEN.riseHours * H, hours: (now - S) / H, hits: k.hits.slice(), deadAt: k.deadAt, looted: k.looted, lighthouseDown: k.lighthouseDown, breachSeen: k.breachSeen };
+    v.alive = k.hits.map(h => !h); v.eyesLeft = v.alive.filter(Boolean).length;
+    const fresh = k.cycle === S || k.cycle === null;
+    if (fresh && Number.isFinite(k.deadAt)) v.phase = 'dead';
+    else if (now < S - KRAKEN.countdownDays * 24 * H) v.phase = Number.isFinite(k.deadAt) ? 'dead' : 'none'; // last year's body lingers till the next countdown
+    else if (now < S) v.phase = 'countdown';
+    else if (now < v.breachAt) v.phase = 'rising';
+    else v.phase = 'emerged';
+    v.msToStart = S - now;
+    return v;
+  }
+  // Called from settle(): opens a fresh cycle when a new countdown begins, and knocks the lighthouse down once
+  // the breach time has passed (whether or not the player was watching).
+  function settleKraken(state, now) {
+    const k = state.kraken, S = krakenStart(state, now);
+    let changed = false;
+    if (k.cycle !== S && now >= S - KRAKEN.countdownDays * 24 * HOUR_MS && now < S + KRAKEN.riseHours * HOUR_MS) {
+      const keep = k.start; Object.assign(k, emptyKraken(), { start: keep, cycle: S }); changed = true;
+    }
+    if (now >= S + KRAKEN.riseHours * HOUR_MS && k.cycle === S && !k.lighthouseDown) { k.lighthouseDown = true; changed = true; }
+    if (k.cycle === null && now >= S - KRAKEN.countdownDays * 24 * HOUR_MS) { k.cycle = S; changed = true; }
+    return changed;
+  }
+  // Strike out eye `eye` (0-7). Only while it is up, one eye at a time (each hit starts a pain spasm).
+  function strikeEye(state, eye, now) {
+    const v = krakenView(state, now), k = state.kraken;
+    if (v.phase !== 'emerged') return { ok: false, reason: 'Nothing to strike.' };
+    if (!Number.isInteger(eye) || eye < 0 || eye > 7 || k.hits[eye]) return { ok: false, reason: 'That eye is already gone.' };
+    const last = Math.max(...k.hits);
+    if (now - last < KRAKEN.painMs) return { ok: false, reason: 'It is still thrashing.' };
+    k.hits[eye] = now;
+    const left = k.hits.filter(h => !h).length;
+    if (!left) k.deadAt = now + KRAKEN.painMs; // the last spasm runs into its death throes
+    return { ok: true, eye, left, dead: !left };
+  }
+  function lootKraken(state, now) {
+    const v = krakenView(state, now), k = state.kraken;
+    if (v.phase !== 'dead' || now < k.deadAt + KRAKEN.deathMs) return { ok: false, reason: 'Nothing to salvage yet.' };
+    if (k.looted) return { ok: false, reason: 'The crews have already stripped the body.' };
+    k.looted = true; addItems(state, KRAKEN.loot);
+    return { ok: true, items: { ...KRAKEN.loot } };
+  }
   const emptyHalloween = () => ({ lastBrew: null, brewSeq: 0, popped: [], pops: [], ship: null, nextShipAt: null, pumpkinAt: null });
   const DECOR_ORDER = Object.keys(DECOR);
   const DECOR_COPIES = 12; // most copies of one repeatable decoration
@@ -844,7 +909,7 @@ const TOF = (() => {
       decor: [],
       nextDecorId: 1,
       decorInv: {},
-      halloween: emptyHalloween(),
+      halloween: emptyHalloween(), kraken: emptyKraken(),
       regions: ['home'], landmarks: [], lore: { kraken: 0 }, trophies: {}, flags: { witchFound: false }, reports: [],
     };
     // Doubled starting stock, then topped up so the Sawmill can be built straight away.
@@ -1943,7 +2008,7 @@ const TOF = (() => {
   }
 
   function settle(state, now) {
-    return { built: settleBuildings(state, now), produced: settleProduction(state, now), pumpkins: settlePumpkins(state, now) };
+    return { built: settleBuildings(state, now), produced: settleProduction(state, now), pumpkins: settlePumpkins(state, now), kraken: settleKraken(state, now) };
   }
 
   // ---------- refined goods ----------
@@ -2185,6 +2250,13 @@ const TOF = (() => {
     fitBuilding(s, 'seaWitch'); // the map's own terrain is checked again once the world is up
     s.decorInv = {};
     for (const k of HW_DECOR) { const n = clampInt(raw.decorInv && raw.decorInv[k], 0, 999); if (n) s.decorInv[k] = n; }
+    { // 1.7: the kraken's yearly record
+      const rk = raw.kraken || {}, K = s.kraken = emptyKraken();
+      K.start = Number.isFinite(rk.start) ? rk.start : null; K.cycle = Number.isFinite(rk.cycle) ? rk.cycle : null;
+      K.breachSeen = !!rk.breachSeen; K.looted = !!rk.looted; K.lighthouseDown = !!rk.lighthouseDown;
+      K.hits = Array.isArray(rk.hits) ? [0, 1, 2, 3, 4, 5, 6, 7].map(i => (Number.isFinite(rk.hits[i]) && rk.hits[i] > 0 ? rk.hits[i] : 0)) : [0, 0, 0, 0, 0, 0, 0, 0];
+      K.deadAt = Number.isFinite(rk.deadAt) && K.hits.every(Boolean) ? rk.deadAt : null;
+    }
     const rh = raw.halloween || {}, H = s.halloween;
     H.brewSeq = clampInt(rh.brewSeq, 0, 1e9);
     const lb = rh.lastBrew;
@@ -2313,7 +2385,7 @@ const TOF = (() => {
     repairCost, repair, sell, sellAll, canAfford, upgradeCost, buyUpgrade,
     migrate, sanitize, loadGame, saveGame, resetSave, mulberry32, exportSave, importSave,
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
-    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
+    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, KRAKEN, krakenView, krakenStart, settleKraken, strikeEye, lootKraken, emptyKraken, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     DECOR_COPIES, repaintDecor,
     GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
   };
@@ -3604,6 +3676,34 @@ function runTofTests(TOF) {
     ok(/Too close/.test(TOF.placeDecor(s, 'hwCoffin', 31, 31, () => null).reason), 'its far tile is taken');
     ok(TOF.placeDecor(s, 'hwCoffin', 32, 30, () => null).ok, 'next to it is fine');
   });
+  test('1.7: the kraken keeps its yearly schedule: countdown, ten hours rising, breach at 6 PM', () => {
+    const s = veteran(T0), S = new Date(2026, 9, 31, 8).getTime();
+    eq(TOF.krakenView(s, at(2026, 10, 20)).phase, 'none', 'nothing on the 20th');
+    eq(TOF.krakenView(s, S - 3 * 24 * H + 1).phase, 'countdown', 'countdown 3 days out');
+    eq(TOF.krakenView(s, S + 2 * H).phase, 'rising', 'rising at 10 AM'); eq(TOF.krakenView(s, S + 2 * H).hours, 2, 'two hours in');
+    eq(TOF.krakenView(s, S + 10 * H).phase, 'emerged', 'up at 6 PM');
+    ok(!s.kraken.lighthouseDown, 'lighthouse fine before'); TOF.settleKraken(s, S - H); TOF.settleKraken(s, S + 10 * H + 1); ok(s.kraken.lighthouseDown, 'lighthouse down after the breach, watched or not');
+  });
+  test('1.7: eight eyes, one strike each with a pause between, then death and a single loot', () => {
+    const s = veteran(T0), S = new Date(2026, 9, 31, 8).getTime(); TOF.settleKraken(s, S - H);
+    let t = S + 11 * H;
+    ok(!TOF.strikeEye(s, 0, S + 5 * H).ok, 'not before it rises');
+    ok(TOF.strikeEye(s, 0, t).ok, 'eye 0'); ok(!TOF.strikeEye(s, 0, t + 9999).ok, 'not twice'); ok(!TOF.strikeEye(s, 1, t + 100).ok, 'not mid-spasm');
+    for (let e = 1; e < 8; e++) { t += TOF.KRAKEN.painMs; const r = TOF.strikeEye(s, e, t); ok(r.ok && r.left === 7 - e, 'eye ' + e); }
+    const v = TOF.krakenView(s, t + 1); eq(v.phase, 'dead', 'dead'); eq(v.eyesLeft, 0, 'no eyes');
+    ok(!TOF.lootKraken(s, t + 1000).ok, 'still dying'); const c0 = s.resources.coins;
+    const r = TOF.lootKraken(s, t + TOF.KRAKEN.painMs + TOF.KRAKEN.deathMs + 1); ok(r.ok, 'looted'); eq(s.resources.coins, c0 + TOF.KRAKEN.loot.coins, 'paid');
+    ok(!TOF.lootKraken(s, t + 99 * H).ok, 'once only');
+    TOF.settleKraken(s, t); const st = memStorage(); TOF.saveGame(st, s, t); const back = TOF.loadGame(st, t + H).state;
+    eq(TOF.krakenView(back, t + H).phase, 'dead', 'body persists'); ok(back.kraken.looted && back.kraken.lighthouseDown, 'loot and lighthouse persist');
+    eq(TOF.krakenView(back, new Date(2027, 9, 10).getTime()).phase, 'dead', 'body stays until next year\'s countdown');
+    TOF.settleKraken(back, new Date(2027, 9, 29).getTime()); eq(TOF.krakenView(back, new Date(2027, 9, 29).getTime()).phase, 'countdown', 'a fresh cycle next year');
+  });
+  test('1.7: old saves load with a quiet kraken record', () => {
+    const v6 = JSON.parse(JSON.stringify(TOF.newGame(T0))); delete v6.kraken;
+    const st = memStorage(); st.setItem(TOF.SAVE_KEY, JSON.stringify(v6));
+    const { state } = TOF.loadGame(st, T0); eq(state.kraken.hits.join(), '0,0,0,0,0,0,0,0', 'all eyes'); ok(!state.kraken.lighthouseDown, 'lighthouse up');
+  });
   test('the ghost ship visits now and then, trades once per offer, then leaves', () => {
     const s = spooky(), now = at(2026, 10, 20);
     let r = TOF.settleGhostShip(s, now, () => 0.5);
@@ -4766,6 +4866,22 @@ const Art = (() => {
     for (let x = -13; x <= 13; x += 4) p.set(cx + x, gy - 2 + Math.sqrt(Math.max(0, 1 - (x / 14) ** 2)) * 7 - 3, '#77736c');
     // tower body: curved bands, cylinder shading, taper
     const base = gy - 8, Ht = 64, r0 = 10.5, r1 = 7.5;
+    if (o.ruin) { // 1.7: torn down by the kraken: a jagged stump, its lantern gone, rubble strewn over the rock
+      for (let y = base - 30; y <= base + 6; y++) for (let x = cx - 12; x <= cx + 12; x++) {
+        const dx = x + 0.5 - cx; if (Math.abs(dx) > r0) continue;
+        const z = base + Math.sqrt(1 - (dx / r0) ** 2) * r0 * 0.5 - (y + 0.5), zTop = 9 + 9 * hash(x >> 1, 3, 31) + 5 * Math.sin(x * 0.7);
+        if (z < 0 || z > zTop) continue;
+        const band = Math.floor(z / 9) % 2, lightK = 0.62 + 0.5 * Math.max(0, Math.cos(Math.atan2(dx / r0, Math.sqrt(Math.max(0, 1 - (dx / r0) ** 2))) + 0.6));
+        let col = band ? '#f1ebe0' : '#cc4a3f'; if (z > zTop - 2) col = '#6a665f'; // broken edge, the masonry showing
+        p.set(x, y, shade(col, Math.min(1.12, lightK) * (z > zTop - 4 ? 0.8 : 1)));
+      }
+      p.ellipse(cx, base - 12, 6, 2.5, '#2a2c30'); // the hollow inside
+      const chunks = [[-26, 6, '#cc4a3f'], [-18, 12, '#f1ebe0'], [20, 8, '#cc4a3f'], [28, 2, '#f1ebe0'], [12, 14, '#8a857c'], [-34, -2, '#cc4a3f'], [34, 12, '#3b3d40'], [-8, 16, '#f1ebe0'], [6, 18, '#cc4a3f'], [-40, 10, '#8a857c']];
+      for (const [dx, dy, c] of chunks) { p.rect(cx + dx, gy + dy - 3, 4, 3, c); p.rect(cx + dx, gy + dy - 3, 4, 1, shade(c, 1.1)); p.set(cx + dx + 3, gy + dy - 1, shade(c, 0.7)); }
+      for (const [dx, dy] of [[-14, 9], [17, 15], [3, 11]]) { p.set(cx + dx, gy + dy, '#fff6c8'); p.set(cx + dx + 1, gy + dy, '#ffe48a'); } // glass from the lantern
+      p.outline(PAL.ink);
+      return sprite(p, cx, gy + 10);
+    }
     for (let y = base - Ht - 6; y <= base + 6; y++) for (let x = cx - 12; x <= cx + 12; x++) {
       const dx = x + 0.5 - cx;
       const zApprox = base - y;
@@ -5722,167 +5838,303 @@ const Art = (() => {
   let _built = null;
   const _shipURL = {};
   function shipURL(cls) { if (!_shipURL[cls]) _shipURL[cls] = cropURL(buildAll()['ship_' + cls]); return _shipURL[cls]; }
-  // ======================= the Kraken (1.7 art, phase 1: master design) =======================
-  // Drawn fresh each frame from one fixed anatomy, so it can never change shape between frames.
-  // Front view, as it rises facing the town: a tall pitted dome over two columns of three slit-pupil
-  // eyes plus two smaller side eyes (eight), a centre ridge that is also the seam the head splits along
-  // to show its maw, eight thin sinuous arms ringed with yellow suckers, and wiry tendrils.
-  const KR = {
-    W: 500, H: 520, cx: 250, hy: 150,
-    skin: ['#20040c', '#460816', '#6a0e1e', '#901525', '#b41e2e', '#d23238', '#ea5848'].map(C),
-    // eye centres relative to the eye origin (34px below the head centre) and radius; 0-5 the two columns, 6-7 the side eyes
-    eyes: [[-16, 0, 8], [16, 0, 8], [-17, 23, 7.3], [17, 23, 7.3], [-16, 45, 6.4], [16, 45, 6.4], [-38, -21, 5], [38, -21, 5]],
-  };
-  // the eight arms (left side; the right side mirrors them) and the finer tendrils. ang: start heading
-  // (radians, 0 = right, +pi/2 = down), curl: steady bend per px, tip: how hard the last third rolls up.
-  const KR_ARMS = [
-    { x: -34, y: 70, ang: -2.55, len: 180, w: 10, curl: 0.004, tip: -0.34, wave: 0.016, sp: 0.8, ph: 0.0, back: true },
-    { x: -37, y: 106, ang: 3.1, len: 210, w: 11.5, curl: -0.003, tip: 0.36, wave: 0.014, sp: 0.65, ph: 1.7, back: true },
-    { x: -25, y: 142, ang: 2.35, len: 210, w: 12.5, curl: 0.003, tip: -0.36, wave: 0.014, sp: 0.75, ph: 3.1 },
-    { x: -13, y: 158, ang: 2.0, len: 185, w: 11.5, curl: 0.004, tip: -0.4, wave: 0.016, sp: 0.9, ph: 4.4 },
-  ];
-  const KR_TENDRILS = [
-    { x: -40, y: 44, ang: -2.0, len: 75, w: 3, curl: -0.02, tip: -0.5, wave: 0.035, sp: 1.6, ph: 0.5, back: true },
-    { x: -38, y: 126, ang: 2.75, len: 100, w: 3.2, curl: 0.012, tip: -0.45, wave: 0.03, sp: 1.2, ph: 5.0, back: true },
-    { x: -6, y: 164, ang: 1.75, len: 80, w: 3.2, curl: 0.012, tip: -0.5, wave: 0.032, sp: 1.5, ph: 2.2 },
-  ];
-  const krMirror = a => ({ ...a, x: -a.x, ang: Math.PI - a.ang, curl: -a.curl, tip: -a.tip, ph: a.ph + 2.3 });
-  const krAll = list => [...list, ...list.map(krMirror)];
-  function krPut(p, x, y, c) {
-    x |= 0; y |= 0; if (x < 0 || y < 0 || x >= p.w || y >= p.h) return;
-    const i = (y * p.w + x) * 4; p.d[i] = c[0]; p.d[i + 1] = c[1]; p.d[i + 2] = c[2]; p.d[i + 3] = 255;
-  }
-  // One arm: walk its spine, then lay a dark rim pass and a lit fill pass (so arms that cross stay
-  // separate), then the suckers along its inner edge.
-  function krArm(p, a, ox, oy, t, rage, skinTone) {
-    const pts = [], sk = skinTone || KR.skin;
-    let x = ox + a.x, y = oy + KR.hy + a.y, th = a.ang + 0.12 * Math.sin(t * a.sp * 0.6 + a.ph) * (1 + rage * 0.6) - (a.back ? 0 : rage * 0.12 * Math.sign(Math.cos(a.ang)));
-    for (let s = 0; s <= a.len; s += 1) {
-      const u = s / a.len, r = a.w * Math.pow(1 - u, 0.75) + 0.7;
-      const tipK = u > 0.62 ? (u - 0.62) / 0.38 : 0;
-      pts.push({ x, y, r, th });
-      th += a.curl + a.wave * (1 + rage * 0.7) * Math.sin(s * 0.045 - t * a.sp * (1 + rage * 0.8) + a.ph) + a.tip * tipK * tipK * tipK * 0.9;
-      x += Math.cos(th); y += Math.sin(th);
-    }
-    for (const q of pts) { const R = q.r + 1; for (let yy = Math.floor(q.y - R); yy <= q.y + R; yy++) for (let xx = Math.floor(q.x - R); xx <= q.x + R; xx++) { const dx = xx + 0.5 - q.x, dy = yy + 0.5 - q.y; if (dx * dx + dy * dy <= R * R) krPut(p, xx, yy, sk[0]); } }
-    for (const q of pts) {
-      for (let yy = Math.floor(q.y - q.r); yy <= q.y + q.r; yy++) for (let xx = Math.floor(q.x - q.r); xx <= q.x + q.r; xx++) {
-        const dx = xx + 0.5 - q.x, dy = yy + 0.5 - q.y; if (dx * dx + dy * dy > q.r * q.r) continue;
-        const v = (dx * -0.6 + dy * -0.8) / q.r;
-        krPut(p, xx, yy, sk[v > 0.9 ? 6 : v > 0.62 ? 5 : v > 0.15 ? 4 : v > -0.35 ? 3 : v > -0.75 ? 2 : 1]);
+  // ======================= 1.7: The Unseen — kraken art =======================
+  // Everything is native pixel art built once at load from fixed palettes, then animated by the World:
+  // tentacles are stamped along live 3D spines from pre-shaded discs (ink rim, sphere-lit skin, a paler
+  // sucker stripe), with tube suckers and pores; the head is a hand-built sprite with split-jaw frames;
+  // each eye is its own sprite so it can glow, blink and be destroyed on its own.
+  const KRAK = (() => {
+    const hx = h => C(h);
+    const INK = '#160810', SKIN = ['#2a0614', '#4a0916', '#6c0f1e', '#8f1626', '#ad2130', '#c6363a', '#d8604e'];
+    const PALE = ['#45091a', '#661222', '#8a1c2c', '#a83038', '#bf4a44', '#cf6a56', '#da8a70'], RIM = '#6a2248';
+    const GOLD = ['#6a3008', '#9c5a0c', '#cc8414', '#eaa820', '#fac83a', '#ffe47a'], TUBE = ['#3a1606', '#5e280a', '#82400e'], HOLE = '#1c0806';
+    const IRIS = ['#9a4a08', '#c87010', '#e8981a', '#f8bc2a', '#ffdc5a', '#fff2b0'], PUPIL = '#140404';
+    const L = [-0.55, -0.62, 0.56], ln = Math.hypot(...L); L[0] /= ln; L[1] /= ln; L[2] /= ln;
+    const bandOf = l => (l < -0.15 ? 0 : l < 0.12 ? 1 : l < 0.36 ? 2 : l < 0.58 ? 3 : l < 0.76 ? 4 : l < 0.9 ? 5 : 6);
+    const spr = (p, ax, ay) => ({ canvas: p.canvas(), w: p.w, h: p.h, ax, ay });
+    // ---------- arms: the same pixel-by-pixel method as the approved arm sprites ----------
+    // A spine is integrated in screen space; discs painted back to front record which sample owns each pixel and
+    // where across the arm it sits; that gives banded cylinder lighting, a paler sucker side, a cool rim, then
+    // creases, pores, two rows of tube suckers, and an ink outline (also where the curled tip lies over the arm).
+    // The waterline cut is baked in at the base (and at the far end for an arch).
+    const PITT = { big: ['..ddd..', '.dhhhd.', 'dhHHHhd', 'dhHHHhl', '.lhhhl.', '..lll..'], small: ['.dd.', 'dHHd', 'lhhl', '.ll.'] };
+    function armSprite(V) {
+      const st = 0.5, n = Math.floor(V.len / st), sp = [];
+      let x = 0, y = 0, th = V.head * Math.PI / 180;
+      for (let i = 0; i <= n; i++) {
+        const s = i / n, r = V.r0 * Math.pow(1 - s, V.taper ?? 0.8) + 1.4;
+        sp.push([x, y, th, r]);
+        const k = V.bend + V.sway * Math.sin(s * V.freq + V.ph) + V.curl * Math.pow(Math.max(0, (s - V.cs) / (1 - V.cs)), V.cp ?? 1.6);
+        th += k * st; x += Math.cos(th) * st; y += Math.sin(th) * st;
       }
-    }
-    if (a.w < 5) return; // tendrils have no suckers
-    // suckers ride the inner side of the curl: the side the arm is bending toward
-    let next = 6;
-    for (let i = 1; i < pts.length - 2; i++) {
-      const q = pts[i]; if (i < next || q.r < 1.3) continue;
-      const bend = pts[Math.min(pts.length - 1, i + 6)].th - pts[Math.max(0, i - 6)].th, side = (bend || a.curl) > 0 ? 1 : -1;
-      const nx = -Math.sin(q.th) * side, ny = Math.cos(q.th) * side, rr = Math.max(0.8, q.r * 0.52);
-      const sx = q.x + nx * q.r * 0.5, sy = q.y + ny * q.r * 0.5;
-      if (rr < 1.4) krPut(p, sx, sy, C('#f2b02e'));
-      else for (let yy = Math.floor(sy - rr); yy <= sy + rr; yy++) for (let xx = Math.floor(sx - rr); xx <= sx + rr; xx++) {
-        const dx = xx + 0.5 - sx, dy = yy + 0.5 - sy, d = Math.sqrt(dx * dx + dy * dy); if (d > rr) continue;
-        krPut(p, xx, yy, C(d < rr * 0.48 ? (d < rr * 0.25 ? '#2a0e04' : '#5a2808') : (dx + dy < -rr * 0.3 ? '#ffd65c' : d > rr * 0.85 ? '#a8600e' : '#e2961c')));
+      let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+      for (const [sx, sy, , r] of sp) { x0 = Math.min(x0, sx - r); y0 = Math.min(y0, sy - r); x1 = Math.max(x1, sx + r); y1 = Math.max(y1, sy + r); }
+      const pad = 8, ox = Math.floor(-x0) + pad, oy = Math.floor(-y0) + pad, W = Math.ceil(x1 - x0) + pad * 2, Hh = Math.ceil(Math.max(y1, sp[0][3] * 0.6) - y0) + pad * 2;
+      for (const q of sp) { q[0] += ox; q[1] += oy; }
+      const inner0 = V.curl > 0 ? 1 : -1, inner = V.flip ? -inner0 : inner0, wl = sp[0][1];
+      const cross = [[0, sp[0][0], sp[0][1], sp[0][3]]]; let end = n;
+      if (V.arch) for (let i = Math.floor(n / 3); i < n; i++) if (sp[i][1] >= wl) { end = i; cross.push([i, sp[i][0], wl, sp[i][3]]); break; }
+      const N = W * Hh, body = new Uint8Array(N), idx = new Int32Array(N).fill(-1), acr = new Float32Array(N);
+      for (let i = 0; i <= end; i++) {
+        const [cx, cy, t, r] = sp[i], nx = -Math.sin(t), ny = Math.cos(t);
+        for (let py = Math.max(0, Math.floor(cy - r - 1)); py < Math.min(Hh, Math.floor(cy + r + 2)); py++)
+          for (let px = Math.max(0, Math.floor(cx - r - 1)); px < Math.min(W, Math.floor(cx + r + 2)); px++) {
+            const dx = px + 0.5 - cx, dy = py + 0.5 - cy;
+            if (dx * dx + dy * dy <= r * r) { const j = py * W + px; idx[j] = i; acr[j] = (dx * nx + dy * ny) / r; body[j] = 1; }
+          }
       }
-      next = i + Math.max(3, Math.round(q.r * 1.3));
-    }
-  }
-  // The head on its own layer, unsplit: dome, face, cheek bulges, pores, wrinkles, the seam, the eyes.
-  function krHead(eyesAlive, blink, glow) {
-    const p = new Pix(KR.W, KR.H), hx = KR.cx, hy = KR.hy, ey = hy + 42, sk = KR.skin, RX = 48, RY = 60, FB = hy + 168;
-    const faceW = y => { const k = (y - (hy + 24)) / (FB - hy - 24); return k < 0 ? 41 : 41 - 20 * Math.min(1, k * 1.5) - 9 * Math.max(0, k - 0.66) / 0.34; };
-    const inEye = (x, y, pad) => KR.eyes.some(([dx, dy, r]) => (x - hx - dx) ** 2 + (y - ey - dy) ** 2 <= (r + pad) ** 2);
-    const inside = (x, y) => { const dx = (x + 0.5 - hx) / RX, dy = (y - hy) / RY; if (dx * dx + dy * dy <= 1) return true; if (y >= hy + 18 && y <= FB && Math.abs(x + 0.5 - hx) <= faceW(y)) return true; return inEye(x, y, 3.4); };
-    for (let y = hy - RY - 2; y <= FB + 2; y++) for (let x = hx - 60; x <= hx + 60; x++) {
-      if (!inside(x, y)) continue;
-      const dome = y < hy + 20, nx = dome ? (x + 0.5 - hx) / RX : (x + 0.5 - hx) / Math.max(6, faceW(y)), ny = dome ? (y - hy) / RY : 0.3 + (y - hy - 16) / 200;
-      const lump = Math.sin(x * 0.14 + Math.sin(y * 0.09) * 2) * Math.sin(y * 0.12 + x * 0.04); // slow lumps in the flesh
-      let v = -(nx * 0.9 + ny * 0.6) + lump * 0.22, i = Math.round(3.0 + v * 2.6 + (hash(x, y, 12) < 0.06 ? -1 : 0));
-      const fold = (y - hy + Math.round(2.5 * Math.sin(x * 0.21 + y * 0.02))) % 11; // wavy folds across the snout
-      if (!dome && Math.abs(x + 0.5 - hx) > 4 && hash(x >> 3, (y - fold) >> 2, 13) < 0.6) { if (fold === 0) i -= 1; else if (fold === 1) i += 1; }
-      if (!inside(x - 1, y) || !inside(x + 1, y) || !inside(x, y - 1) || !inside(x, y + 1)) i = (nx < -0.2 && ny < 0) ? 5 : 1; // rim
-      if (!dome && (Math.abs(x - hx - 6) < 0.6 || Math.abs(x - hx + 5) < 0.6 || Math.abs(x - hx - 28) < 0.6 || Math.abs(x - hx + 27) < 0.6) && hash(x, y >> 2, 3) < 0.7) i -= 1; // wrinkles running down the snout
-      if (x === hx) i += 1; else if (x === hx + 1) i -= 2; // the centre ridge and its groove: the seam
-      krPut(p, x, y, sk[Math.max(0, Math.min(6, i))]);
-    }
-    // pits, thickest on the crown and thinning toward the eyes: a dark hole inside a raised rim
-    for (let gy = hy - RY + 2; gy < hy + 90; gy += 7) for (let gx = hx - RX; gx < hx + RX; gx += 7) {
-      const h = hash(gx, gy, 77), px = gx + Math.floor(h * 5), py = gy + Math.floor(hash(gx, gy, 78) * 5);
-      if (Math.abs(px - hx) < 5 || !inside(px - 4, py - 4) || !inside(px + 3, py + 3) || !inside(px + 3, py - 3) || !inside(px - 3, py + 3) || inEye(px, py, 5)) continue;
-      const crown = 1 - Math.max(0, (py - (hy - RY)) / 110); if (h > 0.2 + crown * 0.6) continue;
-      const big = h < 0.3, r = big ? 2.6 : 1.8;
-      for (let yy = Math.floor(py - r - 1); yy <= py + r + 1; yy++) for (let xx = Math.floor(px - r - 1); xx <= px + r + 1; xx++) {
-        const ddx = xx + 0.5 - px, ddy = (yy + 0.5 - py) * 1.15, d = Math.hypot(ddx, ddy), lit = ddx + ddy;
-        if (d <= r) krPut(p, xx, yy, sk[d > r - 1 && lit > 0.8 ? 2 : 0]); // the hole: its far wall catches a little light
-        else if (d <= r + 1) krPut(p, xx, yy, sk[lit < -0.8 ? 5 : lit > 0.8 ? 1 : 3]); // a raised rim, lit on the upper left
+      for (const [ci, cx, cy, cr] of cross) { const rx = cr * 1.02, ry = cr * 0.5; for (let py = 0; py < Hh; py++) for (let px = 0; px < W; px++) { const j = py * W + px; if (!body[j] || Math.abs(idx[j] - ci) >= 2.2 * cr / st) continue; const ex = (px + 0.5 - cx) / rx; if ((Math.abs(ex) < 1 && py + 0.5 > cy + ry * Math.sqrt(Math.max(0, 1 - ex * ex))) || py + 0.5 > cy + ry) body[j] = 0; } }
+      const band = new Int8Array(N), pale = new Uint8Array(N);
+      for (let j = 0; j < N; j++) {
+        if (!body[j]) continue; const t = sp[idx[j]][2], a = Math.max(-1, Math.min(1, acr[j])), nz = Math.sqrt(Math.max(0, 1 - a * a));
+        const l = -Math.sin(t) * a * L[0] + Math.cos(t) * a * L[1] + nz * L[2]; let b = bandOf(l);
+        if (a * inner < -0.86 && l < 0.3) b = -1; band[j] = b; pale[j] = a * inner > 0.38 ? 1 : 0;
       }
-    }
-    KR.eyes.forEach(([dx, dy, r], k) => {
-      const cx = hx + dx, cy = ey + dy, alive = eyesAlive & (1 << k);
-      for (let y = Math.floor(cy - r - 3); y <= cy + r + 3; y++) for (let x = Math.floor(cx - r - 3); x <= cx + r + 3; x++) {
-        const ddx = x + 0.5 - cx, ddy = y + 0.5 - cy, d = Math.sqrt(ddx * ddx + ddy * ddy);
-        if (d > r + 2.6) continue;
-        if (d > r + 1.5) { if (ddy < 0) krPut(p, x, y, sk[ddx < 0 ? 6 : 5]); else krPut(p, x, y, sk[2]); continue; } // fleshy lid above, fold below
-        if (d > r) { krPut(p, x, y, sk[0]); continue; } // the socket
-        if (!alive) { krPut(p, x, y, C(d < r * 0.55 ? '#0c0205' : hash(x, y, 9) < 0.4 ? '#3a0610' : '#1c0308')); continue; } // a ruined eye
-        if (blink > 0 && ddy < -r + 2 * r * blink) { krPut(p, x, y, sk[ddy < -r * 0.2 ? 4 : 3]); continue; }
-        const lit = (ddx * -0.55 + ddy * -0.75) / r;
-        let c = d > r * 0.8 ? '#a8520c' : lit > 0.4 ? '#ffe680' : lit > -0.1 ? '#f8c02e' : lit > -0.55 ? '#ec9a1a' : '#c87010';
-        if (Math.abs(ddx) <= Math.max(0.55, r * 0.15) && Math.abs(ddy) <= r * 0.8) c = '#160503'; // vertical slit
-        krPut(p, x, y, C(c));
+      for (let pass = 0; pass < 2; pass++) for (let py = 1; py < Hh - 1; py++) for (let px = 1; px < W - 1; px++) {
+        const j = py * W + px; if (!body[j]) continue; const a = band[j - 1], b = band[j + 1], c = band[j - W], d = band[j + W];
+        if (a === b && b === c && c === d && a !== band[j]) band[j] = a;
       }
-      if (alive && blink < 0.5) { krPut(p, cx - r * 0.45, cy - r * 0.5, C('#fff7d8')); if (r > 5) krPut(p, cx - r * 0.45 + 1, cy - r * 0.5, C('#fff0b0')); }
-      if (!alive) for (let j = 0; j < 4; j++) krPut(p, cx - 1 + (j % 2) * 2, cy + r + 1 + j, sk[j % 2 ? 1 : 0]); // it weeps dark
-    });
-    return p;
-  }
-  // Copy one half of the head into p, turned about pivot (px, py) by ang and shifted by (ox, oy). Nearest pixel, so it stays crisp.
-  function krHalf(p, src, left, px, py, ang, ox, oy) {
-    const c = Math.cos(ang), s = Math.sin(ang), hx = KR.cx;
-    for (let y = KR.hy - 80; y < KR.hy + 200; y++) for (let x = hx - 130; x < hx + 130; x++) {
-      const dx = x - px - ox, dy = y - py - oy, sx = Math.round(px + c * dx + s * dy), sy = Math.round(py - s * dx + c * dy);
-      if (left ? sx > hx : sx <= hx) continue;
-      if (sx < 0 || sy < 0 || sx >= src.w || sy >= src.h) continue;
-      const i = (sy * src.w + sx) * 4; if (!src.d[i + 3]) continue;
-      if (x < 0 || y < 0 || x >= p.w || y >= p.h) continue;
-      const j = (y * p.w + x) * 4; p.d[j] = src.d[i]; p.d[j + 1] = src.d[i + 1]; p.d[j + 2] = src.d[i + 2]; p.d[j + 3] = 255;
-    }
-  }
-  // The full creature for one moment. o.t: seconds (drives every motion), o.split: 0 closed .. 1 head fully
-  // parted, o.eyes: bitmask of eyes still alive, o.blink: 0..1, o.rage: 0..1 extra thrash, o.bob: head lift in px.
-  function krakenFrame(o = {}) {
-    const t = o.t || 0, split = Math.max(0, Math.min(1, o.split || 0)), eyes = o.eyes === undefined ? 255 : o.eyes, rage = o.rage || 0;
-    const p = new Pix(KR.W, KR.H), lift = Math.round(Math.sin(t * 1.3) * 2 - split * 5 + (o.bob || 0)), ox = KR.cx, oy = lift;
-    const arms = krAll(KR_ARMS), tends = krAll(KR_TENDRILS);
-    for (const a of tends) if (a.back) krArm(p, a, ox, oy, t, rage);
-    for (const a of arms) if (a.back) krArm(p, a, ox, oy, t, rage);
-    const head = krHead(eyes, o.blink || 0);
-    const hx = KR.cx, pivX = hx + 0.5, pivY = KR.hy - 16, ang = split * 0.36, push = split * 3;
-    if (split <= 0) krHalf(p, head, true, pivX, pivY, 0, 0, lift), krHalf(p, head, false, pivX, pivY, 0, 0, lift);
-    else {
-      // the maw: the wet dark gap between the parted halves, then the halves, then the teeth along both edges
-      const L = KR.hy + 170 - pivY, Lx = pivX - Math.sin(ang) * L - push, Rx = pivX + Math.sin(ang) * L + push, By = pivY + Math.cos(ang) * L + lift, Ty = pivY + lift;
-      p.poly([[pivX - 2, Ty - 2], [pivX + 2, Ty - 2], [Rx + 2, By], [pivX, By + 6], [Lx - 2, By]], (x, y) => {
-        const half = Math.max(1, (Rx - Lx) / 2 * (y - Ty) / (By - Ty)), k = Math.abs(x + 0.5 - pivX) / half;
-        return k < 0.25 ? '#0a0205' : k < 0.6 ? (hash(x, y, 4) < 0.1 ? '#5a1424' : '#2a0610') : k < 0.85 ? '#4e0c1a' : '#7a1a2c';
-      });
-      p.ellipse(pivX, Ty + (By - Ty) * 0.62, 3 + split * 5, 6 + split * 10, '#050102'); // the throat
-      krHalf(p, head, true, pivX, pivY, ang, -push, lift);
-      krHalf(p, head, false, pivX, pivY, -ang, push, lift);
-      // two rows of teeth on each edge, longer toward the bottom of the split
-      for (const sgn of [-1, 1]) for (const row of [0, 1]) for (let k = 0.12 + row * 0.04; k < 0.98; k += 0.075) {
-        const ex = pivX + sgn * (Math.sin(ang) * L * k + push), ey = Ty + Math.cos(ang) * L * k;
-        const len = (2.5 + 6 * k) * (row ? 0.55 : 1) * Math.min(1, split * 2), bx = ex - sgn * (row ? 2.5 : 0.5), tx = bx - sgn * len, ty = ey + len * 0.35;
-        p.poly([[bx, ey - 1.8 - k], [bx, ey + 1.8 + k], [tx, ty]], (xx, yy) => (yy < (ey + ty) / 2 - 0.5 ? '#f2ead2' : '#bfb08e'));
+      const p = new Pix(W, Hh), put = (px, py, c) => p.set(px, py, c);
+      for (let j = 0; j < N; j++) if (body[j]) { const b = band[j]; put(j % W, (j / W) | 0, b < 0 ? RIM : (pale[j] ? PALE : SKIN)[b]); }
+      // creases across the outer side
+      for (let i = Math.floor(10 / st); i < end - Math.floor(60 / st); i += Math.floor((V.wrink || 13) / st)) {
+        const [cx, cy, t, r] = sp[i]; if (r < 5) continue; const nx = -Math.sin(t), ny = Math.cos(t), tx = Math.cos(t), ty = Math.sin(t), bow = 1.2 + r * 0.06;
+        const kEnd = -0.2 - 0.25 * hash(i, 1, V.seed), cnt = Math.floor(r * 1.2);
+        for (let q = 0; q < cnt; q++) { const k = -0.8 + (kEnd + 0.8) * q / Math.max(1, cnt - 1), a = k * inner, px = Math.floor(cx + nx * a * r + tx * bow * (1 - a * a)), py = Math.floor(cy + ny * a * r + ty * bow * (1 - a * a)); const j = py * W + px; if (px >= 0 && py >= 0 && px < W && py < Hh && body[j] && idx[j] >= i - 3 && band[j] >= 2) put(px, py, SKIN[band[j] - 1]); }
       }
-      if (split > 0.15 && split < 0.85) for (const k of [0.35, 0.55, 0.78]) { const yy = Ty + (By - Ty) * k, w = (Rx - Lx) / 2 * k; p.line(pivX - w + 2, yy, pivX + w - 2, yy + 3 + 4 * Math.sin(k * 9 + t * 3), '#b8707a'); } // strings of slime
+      // pores over the outer side, thicker toward the base
+      for (let py = 0; py < Hh; py += 7) for (let px = 0; px < W; px += 7) {
+        const jx = px + Math.floor(hash(px, py, 5) * 6), jy = py + Math.floor(hash(px, py, 6) * 6), j = jy * W + jx;
+        if (jx >= W || jy >= Hh || !body[j] || pale[j] || band[j] < 1) continue;
+        const i = idx[j], s = i / n; if (hash(px, py, V.seed) > 0.5 * (1 - s) + 0.05 || sp[i][3] < 9) continue;
+        const T = PITT[hash(px, py, 8) < 0.3 && sp[i][3] > 16 ? 'big' : 'small'], tx = jx - (T[0].length >> 1), ty = jy - (T.length >> 1);
+        T.forEach((row, rj) => [...row].forEach((ch, ri) => { const qx = tx + ri, qy = ty + rj, q = qy * W + qx; if (ch === '.' || qx < 0 || qy < 0 || qx >= W || qy >= Hh || !body[q] || pale[q] || band[q] < 0) return; const b = band[q]; put(qx, qy, ch === 'H' ? HOLE : ch === 'h' ? SKIN[0] : ch === 'd' ? SKIN[Math.max(0, b - 1)] : SKIN[Math.min(6, b + 2)]); }));
+      }
+      // suckers: a face-on row on the pale band, a profile row along the inner edge
+      const br = sp[0][3], gap = Math.floor(br / st);
+      const sucker = (cx, cy, d, t, prof, i) => {
+        const tx = Math.cos(t), ty = Math.sin(t), nx = -Math.sin(t) * inner, ny = Math.cos(t) * inner, rw = d / 2, rh = d / 2 * (prof ? 0.52 : 0.66), lift = Math.max(1, Math.round(d * 0.22)), pts = [];
+        for (let py = Math.floor(cy - d) - 2; py < cy + d + 3; py++) for (let px = Math.floor(cx - d) - 2; px < cx + d + 3; px++) {
+          if (px < 0 || py < 0 || px >= W || py >= Hh) continue; const j = py * W + px; if (body[j] && idx[j] > i + gap) continue;
+          const dx = px + 0.5 - cx, dy = py + 0.5 - cy, u = (dx * tx + dy * ty) / rw, v = (dx * nx + dy * ny) / rh;
+          const u2 = ((dx - nx * lift) * tx + (dy - ny * lift) * ty) / rw, v2 = ((dx - nx * lift) * nx + (dy - ny * lift) * ny) / rh;
+          const top = u * u + v * v <= 1, side = u2 * u2 + v2 * v2 <= 1; if (prof && v < -0.15 && !side) continue; if (!(top || side)) continue;
+          const lit = -(dx * 0.6 + dy * 0.75) / Math.max(rw, 1); let c;
+          if (top) { const q = u * u + v * v, iu = u + 0.12, iv = v + 0.18, qi = iu * iu + iv * iv;
+            if (d >= 5 && qi < 0.2) c = HOLE; else if (d >= 5 && qi < 0.42) c = lit < 0 ? TUBE[0] : TUBE[1]; else if (d >= 4 && q < 0.5) c = d >= 5 ? TUBE[2] : HOLE; else if (d < 4 && q < 0.25) c = TUBE[0];
+            else c = lit > 0.6 ? GOLD[5] : lit > 0.15 ? GOLD[4] : lit > -0.35 ? GOLD[3] : GOLD[2]; }
+          else c = lit > -0.1 ? GOLD[1] : GOLD[0];
+          pts.push([px, py, c, top]);
+        }
+        pts.sort((a, b) => a[3] - b[3]); for (const [px, py, c] of pts) { const j = py * W + px; put(px, py, c); body[j] = 1; idx[j] = Math.max(idx[j], i); }
+      };
+      let acc = 0, row = 0;
+      for (let i = gap; i < end - 4; i++) {
+        const [cx, cy, t, r] = sp[i]; acc += st;
+        if (cross.some(([ci, , , cr]) => Math.abs(i - ci) < cr * 0.9 / st)) continue;
+        if (r < 2 || acc < Math.max(2.2, r * (V.gap || 0.52))) continue; acc = 0; row ^= 1;
+        const nx = -Math.sin(t) * inner, ny = Math.cos(t) * inner, d = Math.max(2, Math.round(r * (row ? 0.84 : 0.74)));
+        if (row) sucker(cx + nx * r * 0.5, cy + ny * r * 0.5, d, t, false, i); else sucker(cx + nx * r * 0.96, cy + ny * r * 0.96, d, t, true, i);
+      }
+      // outline round the silhouette and where a far-along piece lies over a near one
+      const out = new Uint8Array(N);
+      for (let py = 0; py < Hh; py++) for (let px = 0; px < W; px++) {
+        const j = py * W + px, nb = [px > 0 ? j - 1 : -1, px < W - 1 ? j + 1 : -1, py > 0 ? j - W : -1, py < Hh - 1 ? j + W : -1];
+        if (!body[j]) { if (nb.some(q => q >= 0 && body[q])) out[j] = 1; }
+        else if (nb.some(q => q >= 0 && body[q] && idx[q] > idx[j] + 28 / st)) out[j] = 1;
+      }
+      for (let j = 0; j < N; j++) if (out[j]) put(j % W, (j / W) | 0, INK);
+      const ends = cross.map(([ci, cx, cy, cr]) => [cx, cy, cr]);
+      return { canvas: p.canvas(), w: W, h: Hh, ax: sp[0][0], ay: wl, ends, r0: V.r0 };
     }
-    for (const a of arms) if (!a.back) krArm(p, a, ox, oy, t, rage);
-    for (const a of tends) if (!a.back) krArm(p, a, ox, oy, t, rage);
-    p.outline(PAL.ink);
-    return p;
-  }
+    // --- foam collars where something breaks the surface (back half drawn first, front half last) ---
+    const foam = {};
+    function foamFor(R, f) {
+      R = Math.max(4, Math.min(64, Math.round(R / 2) * 2)); const key = R + '_' + f;
+      if (foam[key]) return foam[key];
+      const S = Math.ceil(R * 3.2) + 8, cx = S / 2, cy = Math.ceil(R * 0.9) + 4, Hh = Math.ceil(R * 1.8) + 8;
+      const back = new Pix(S, Hh), front = new Pix(S, Hh);
+      for (let y = 0; y < Hh; y++) for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - cy;
+        let e = Math.hypot(dx / (R * 1.45), dy / (R * 0.72));
+        e += 0.18 * (hash(x >> 1, y, R + f * 7) - 0.5) + 0.12 * Math.sin(Math.atan2(dy, dx) * 6 + f * 1.7 + R);
+        if (e >= 1) { if (e < 1.12 && dy > 0) front.set(x, y, '#b4e2f6', 110); continue; }
+        const ex = dx / (R * 1.02), inner = Math.abs(ex) < 1 ? R * 0.5 * Math.sqrt(1 - ex * ex) : -1;
+        const c = e < 0.78 || hash(x, y, 2 + f) < 0.4 ? '#e9f7fc' : '#bfe6f6';
+        if (inner >= 0 && dy > -inner && dy < inner - 1.5) continue; // the hole the body fills
+        if (inner >= 0 && dy >= inner - 1.5) front.set(x, y, c); // the lip lapping over the body
+        else if (dy > 0) front.set(x, y, c); else back.set(x, y, c);
+      }
+      return (foam[key] = { back: spr(back, cx, cy), front: spr(front, cx, cy) });
+    }
+    // --- ripple rings (2:1 ellipses, broken dashes), drawn with a fading alpha ---
+    const ring = {};
+    function ringFor(R) {
+      R = Math.max(6, Math.min(160, Math.round(R / 3) * 3));
+      if (ring[R]) return ring[R];
+      const p = new Pix(R * 2 + 6, R + 6), cx = R + 3, cy = R / 2 + 3;
+      for (let a = 0; a < Math.PI * 2; a += 0.6 / R) {
+        if (hash(Math.floor(a * R / 5), R, 4) < 0.3) continue;
+        const x = Math.round(cx + Math.cos(a) * R), y = Math.round(cy + Math.sin(a) * R * 0.5);
+        p.set(x, y, '#e6f8ff'); p.set(x + 1, y, '#e6f8ff');
+      }
+      return (ring[R] = spr(p, cx, cy));
+    }
+    // --- the head: a lumpy, perforated crown over a fleshy brow, eight socketed eyes, a grooved snout ---
+    const HD = { rx: 78, top: 22, wl: 252, eye: 12, W: 400, H: 272, cx: 200 };
+    const EYES = [[-0.32, 0.5, 1.0], [0.32, 0.5, 1.0], [-0.35, 0.64, 0.9], [0.35, 0.64, 0.9], [-0.37, 0.78, 0.78], [0.37, 0.78, 0.78], [-0.74, 0.42, 0.58], [0.74, 0.42, 0.58]];
+    const vnoise = (x, y, s, seed) => { const gx = Math.floor(x / s), gy = Math.floor(y / s), fx = x / s - gx, fy = y / s - gy, u = fx * fx * (3 - 2 * fx), v = fy * fy * (3 - 2 * fy);
+      const a = hash(gx, gy, seed), b = hash(gx + 1, gy, seed), c = hash(gx, gy + 1, seed), d = hash(gx + 1, gy + 1, seed); return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v; };
+    const lumpy = y => 1 + 0.03 * Math.sin(y * 0.09) + 0.018 * Math.sin(y * 0.23 + 1);
+    const halfW = y => { const u = (y - HD.top) / (HD.wl - HD.top); if (u < 0) return 0;
+      let w = u < 0.46 ? HD.rx * Math.pow(Math.max(0, 1 - ((0.46 - u) / 0.46) ** 2), 0.55) : u < 0.56 ? HD.rx * (1 - (u - 0.46) * 0.4) : HD.rx * (0.96 - 0.5 * ((u - 0.56) / 0.44) ** 0.9);
+      if (u > 0.9) w += HD.rx * 0.22 * ((u - 0.9) / 0.1) ** 2; // the base swells out where it meets the water and the arms
+      return w * lumpy(y); };
+    const eyeAt = k => { const [ox, oy, sc] = EYES[k], y = HD.top + oy * (HD.wl - HD.top); return [HD.cx + ox * halfW(y), y, HD.eye * sc]; };
+    function headBase() {
+      const { cx, wl, top } = HD, W = HD.W, Hh = HD.H, p = new Pix(W, Hh), band = new Int8Array(W * Hh).fill(-9);
+      const body = (x, y) => x >= 0 && y >= 0 && x < W && y < Hh && band[y * W + x] > -9, B = (x, y) => band[y * W + x];
+      const hgt = (x, y) => vnoise(x, y, 14, 7) * 0.75 + vnoise(x, y, 7, 8) * 0.25; // lumps in the flesh, for bump lighting
+      for (let y = top; y < wl + 2; y++) {
+        const hw = halfW(y + 0.5); if (hw <= 0) continue; const u = (y + 0.5 - top) / (wl - top);
+        for (let x = Math.floor(cx - hw); x <= cx + hw; x++) {
+          const dx = x + 0.5 - cx; if (Math.abs(dx) > hw) continue;
+          let a = Math.max(-1, Math.min(1, dx / hw)), bb = u < 0.46 ? -1 + u / 0.46 : 0.12 + (u - 0.46) * 0.4;
+          a += (hgt(x + 2, y) - hgt(x - 2, y)) * 0.7; bb += (hgt(x, y + 2) - hgt(x, y - 2)) * 0.7;
+          const nz = Math.sqrt(Math.max(0.02, 1 - Math.min(1, a * a) - bb * bb * 0.5)), nl = Math.hypot(a, bb * 0.8, nz);
+          let b = bandOf((a * L[0] + bb * 0.8 * L[1] + nz * L[2]) / nl - 0.1);
+          if (dx / hw > 0.88 && b < 3) b = -1; // cool bounce light on the far edge
+          band[y * W + x] = b;
+        }
+      }
+      for (let pass = 0; pass < 2; pass++) for (let y = 1; y < Hh - 1; y++) for (let x = 1; x < W - 1; x++) { const i = y * W + x; if (band[i] === -9) continue; const n = [band[i - 1], band[i + 1], band[i - W], band[i + W]]; if (n[0] === n[1] && n[1] === n[2] && n[2] === n[3] && n[0] !== band[i] && n[0] !== -9) band[i] = n[0]; }
+      for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) { const b = B(x, y); if (b !== -9) p.set(x, y, b < 0 ? RIM : SKIN[b]); }
+      const shadeAt = (x, y, k) => { if (!body(x, y) || B(x, y) < 0) return; p.set(x, y, SKIN[Math.max(0, Math.min(6, B(x, y) + k))]); };
+      // the brow: a heavy fold arching over the top eyes, lit above, a deep crease below
+      const browY = top + 0.4 * (wl - top);
+      for (let x = cx - HD.rx; x <= cx + HD.rx; x++) { const t = (x - cx) / HD.rx, y = Math.round(browY + 10 * t * t + 2 * Math.sin(x * 0.3)); shadeAt(x, y, -3); shadeAt(x, y + 1, -2); shadeAt(x, y - 1, 1); shadeAt(x, y - 2, 2); shadeAt(x, y - 3, 1); }
+      // grooves down the snout, each a dark cut with a lit edge beside it
+      [-0.62, -0.36, -0.12, 0.14, 0.38, 0.62].forEach((off, k) => { for (let y = Math.floor(top + (wl - top) * 0.56); y < wl; y++) { const x = Math.round(cx + off * halfW(y + 0.5) + 2 * Math.sin(y * 0.17 + k * 1.9)); if (hash(k, y >> 3, 3) < 0.15) continue; shadeAt(x, y, -2); shadeAt(x - 1, y, 1); } });
+      // the centre seam (where the head splits)
+      for (let y = top + 3; y < wl; y++) if (body(cx - 1, y) && body(cx + 1, y)) { shadeAt(cx - 1, y, 1); shadeAt(cx, y, -3); }
+      const inEye = (x, y, pad) => EYES.some((e, k) => { const [ex, ey, er] = eyeAt(k); return Math.hypot(x - ex, (y - ey) * 0.85) < er + pad; });
+      // the perforated crown: holes on a jittered honeycomb, big at the top, shrinking toward the brow
+      for (let gy = top + 4, row = 0; gy < browY + 6; gy += 9, row++) for (let gx = cx - HD.rx + (row % 2) * 5; gx < cx + HD.rx; gx += 10) {
+        const jx = gx + (hash(gx, gy, 5) - 0.5) * 6, jy = gy + (hash(gx, gy, 6) - 0.5) * 5, u = (jy - top) / (browY - top);
+        if (Math.abs(jx - cx) < 4 || hash(gx, gy, 9) < 0.3 + u * 0.25) continue;
+        const r = 4.2 - u * 2 + hash(gx, gy, 2) * 1.8; if (![[-r - 1, 0], [r + 1, 0], [0, -r - 1], [0, r + 1]].every(([dx, dy]) => body(Math.round(jx + dx), Math.round(jy + dy)))) continue;
+        for (let y = Math.floor(jy - r - 2); y <= jy + r + 2; y++) for (let x = Math.floor(jx - r - 2); x <= jx + r + 2; x++) {
+          if (!body(x, y) || B(x, y) < 0) continue; const dx = x + 0.5 - jx, dy = (y + 0.5 - jy) * 1.15, d = Math.hypot(dx, dy);
+          if (d <= r) p.set(x, y, d < r * 0.6 ? HOLE : d < r * 0.85 ? SKIN[0] : (dy < 0 ? SKIN[0] : SKIN[1]));
+          else if (d <= r + 1.3) { const lit = dy - dx * 0.3; p.set(x, y, SKIN[Math.max(0, Math.min(6, B(x, y) + (lit > 0.4 ? 2 : lit < -0.4 ? -1 : 1)))]); }
+        }
+      }
+      // smaller pores and a few extra eye nodes (dark pits with a faint gold glint) around the face
+      for (let y = Math.floor(browY + 6); y < wl - 10; y += 6) for (let x = cx - HD.rx; x < cx + HD.rx; x += 6) {
+        const jx = x + Math.floor(hash(x, y, 15) * 5), jy = y + Math.floor(hash(x, y, 16) * 5);
+        if (!body(jx, jy) || inEye(jx, jy, 5) || Math.abs(jx - cx) < 3 || hash(x, y, 17) > 0.28) continue;
+        const node = hash(x, y, 18) < 0.12 && jy < top + 0.75 * (wl - top);
+        const T = PITT[node ? 'big' : 'small'], ox = jx - (T[0].length >> 1), oy = jy - (T.length >> 1);
+        T.forEach((row, j) => [...row].forEach((ch, i) => { const px = ox + i, py = oy + j; if (ch === '.' || !body(px, py) || B(px, py) < 0) return; const b = B(px, py); p.set(px, py, ch === 'H' ? HOLE : ch === 'h' ? SKIN[0] : ch === 'd' ? SKIN[Math.max(0, b - 1)] : SKIN[Math.min(6, b + 2)]); }));
+        if (node) p.set(jx, jy, GOLD[3]);
+      }
+      // sockets: an ink ring, a heavy lit lid above, a shadowed fold below, veins
+      for (let k = 0; k < 8; k++) {
+        const [ex, ey, er] = eyeAt(k);
+        for (let y = Math.floor(ey - er - 5); y < ey + er + 6; y++) for (let x = Math.floor(ex - er - 5); x < ex + er + 6; x++) {
+          if (!body(x, y)) continue; const dx = x + 0.5 - ex, dy = (y + 0.5 - ey) * 0.85, d = Math.hypot(dx, dy);
+          if (d > er + 4) continue;
+          if (d > er + 2.6) p.set(x, y, dy < 0 ? SKIN[Math.min(6, Math.max(0, B(x, y)) + 2)] : SKIN[Math.max(0, B(x, y) - 2)]);
+          else if (d > er + 1.3) p.set(x, y, dy < 0 ? SKIN[Math.min(6, Math.max(0, B(x, y)) + 1)] : SKIN[0]);
+          else if (d > er) p.set(x, y, INK); else p.set(x, y, '#1c0408');
+        }
+        for (let j = 0; j < 4; j++) { const a = Math.PI * (0.05 + 0.3 * j) + (ex > cx ? Math.PI : 0); for (let t = 4; t < 9; t++) { const x = Math.floor(ex + Math.cos(a) * (er + t)), y = Math.floor(ey + Math.sin(a) * (er + t) + (t % 2)); if (body(x, y) && !inEye(x, y, 1)) p.set(x, y, SKIN[Math.max(0, Math.max(0, B(x, y)) - 2)]); } }
+      }
+      return p;
+    }
+    // split frames: each half turns about the hinge at the waterline, opening a toothed maw from the top down
+    const SPLIT = 12, MAXANG = 0.36;
+    function headFrames(base) {
+      const out = [], { cx, wl } = HD, px = cx, py = wl;
+      for (let f = 0; f <= SPLIT; f++) {
+        const k = f / SPLIT, ang = MAXANG * k, p = new Pix(HD.W, HD.H);
+        if (k > 0) { // the maw behind the halves: wet dark throat, ridged, with gums along the cut
+          const Lh = wl - HD.top, lx = px - Math.sin(ang) * Lh, rxx = px + Math.sin(ang) * Lh, ty = py - Math.cos(ang) * Lh;
+          p.poly([[px, py + 2], [lx, ty], [px, ty + (py - ty) * 0.12], [rxx, ty]], (x, y) => {
+            const w = Math.max(1, (rxx - lx) / 2 * (py - y) / Math.max(1, py - ty)), q = Math.abs(x + 0.5 - px) / w;
+            const dq = q + ((x + y) % 2 ? 0.04 : -0.04); // dithered steps from the black throat out to wet gums
+            if (dq < 0.28) return '#06010a'; if (dq < 0.52) return '#24040e'; if (dq < 0.74) return '#4a0b1c'; if (dq < 0.9) return '#6e1628'; return '#962a40';
+          });
+        }
+        for (const side of [-1, 1]) {
+          const th = side * ang, c = Math.cos(th), s = Math.sin(th);
+          for (let y = 0; y < HD.H; y++) for (let x = 0; x < HD.W; x++) {
+            const dx = x + 0.5 - px, dy = y + 0.5 - py, sx = Math.floor(px + c * dx + s * dy), sy = Math.floor(py - s * dx + c * dy);
+            if (sx < 0 || sy < 0 || sx >= HD.W || sy >= HD.H) continue;
+            if (side < 0 ? sx >= cx : sx < cx) continue;
+            const i = (sy * HD.W + sx) * 4; if (!base.d[i + 3]) continue;
+            const j = (y * HD.W + x) * 4; p.d[j] = base.d[i]; p.d[j + 1] = base.d[i + 1]; p.d[j + 2] = base.d[i + 2]; p.d[j + 3] = 255;
+          }
+        }
+        if (k > 0.05) for (const side of [-1, 1]) { // two rows of teeth along each cut edge, longest mid-way up
+          const th = side * ang, Lh = wl - HD.top;
+          for (let row = 0; row < 2; row++) for (let t = 0.1 + row * 0.04; t < 0.96; t += 0.07) {
+            const ex = px + Math.sin(th) * Lh * t, ey = py - Math.cos(th) * Lh * t, len = (4 + 9 * Math.sin(t * Math.PI)) * (row ? 0.6 : 1) * Math.min(1, k * 2.5);
+            const bx = ex - side * row * 3, tipx = bx - side * len, tipy = ey + len * 0.3;
+            p.poly([[bx, ey - 2.8], [bx, ey + 2.8], [tipx, tipy]], (x, y) => (y < (ey + tipy) / 2 - 0.5 ? '#f4ecd6' : '#b8a888'));
+          }
+        }
+        p.outline(INK);
+        const eyes = []; // where each eye sits in this frame
+        for (let e = 0; e < 8; e++) { const [ex, ey, er] = eyeAt(e), side = ex < cx ? -1 : 1, th = side * ang, dx = ex - px, dy = ey - py; eyes.push([px + dx * Math.cos(th) - dy * Math.sin(th), py + dx * Math.sin(th) + dy * Math.cos(th), er]); }
+        out.push({ ...spr(p, px, py), eyes });
+      }
+      return out;
+    }
+    // --- eyes: iris, slit and glint, or lids closing, or a ruined socket. States: open, slit (narrowed in
+    // pain), blink1, blink2, shut, gone ---
+    function eyeSprite(er, state) {
+      const S = Math.ceil(er * 2) + 4, c = S / 2, p = new Pix(S, S);
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - c, dy = (y + 0.5 - c) * 0.85, d = Math.hypot(dx, dy);
+        if (d > er) continue;
+        if (state === 'gone') { p.set(x, y, d < er * 0.55 ? '#0a0204' : hash(x, y, 9) < 0.4 ? '#3a0610' : '#20030a'); continue; }
+        const lid = { blink1: 0.35, blink2: 0.7, shut: 1.05 }[state] || 0;
+        if (lid && dy < -er + 2 * er * lid) { p.set(x, y, dy > -er + 2 * er * lid - 1.2 ? INK : SKIN[dy < -er * 0.3 ? 4 : 3]); continue; }
+        const slitW = state === 'slit' ? 0.07 : 0.13;
+        if (Math.abs(dx) <= Math.max(0.6, er * slitW) * Math.sqrt(Math.max(0, 1 - (dy / er) ** 2)) + 0.35 && Math.abs(dy) < er * 0.82) { p.set(x, y, PUPIL); continue; }
+        const g = Math.hypot(dx + er * 0.25, dy + er * 0.3) / er;
+        p.set(x, y, IRIS[g < 0.25 ? 5 : g < 0.5 ? 4 : g < 0.8 ? 3 : g < 1.05 ? 2 : d < er * 0.9 ? 1 : 0]);
+      }
+      if (state === 'open' || state === 'slit') { p.set(Math.floor(c - er * 0.45), Math.floor(c - er * 0.5), IRIS[5]); if (er > 4) p.set(Math.floor(c - er * 0.45) + 1, Math.floor(c - er * 0.5), '#ffffff'); }
+      return spr(p, c, c);
+    }
+    let built = null;
+    function build() {
+      if (built) return built;
+      const base = headBase(), frames = headFrames(base);
+      // the head as an under-water silhouette (for the multiply buffer) and tipped over, dead
+      const sil = new Pix(HD.W, HD.H); for (let i = 0; i < HD.W * HD.H; i++) if (base.d[i * 4 + 3]) { sil.d[i * 4] = sil.d[i * 4 + 1] = sil.d[i * 4 + 2] = 255; sil.d[i * 4 + 3] = 255; }
+      // the carcass: the head keeled over onto its side, lying along the water (rotated, then squashed to the 2:1
+      // view), darkened, its ruined sockets staring up. Anchored at its middle, which sits at the waterline.
+      const f0 = frames[0], fc = document.createElement('canvas'); fc.width = HD.W; fc.height = HD.H; const fx = fc.getContext('2d'); fx.drawImage(f0.canvas, 0, 0);
+      const ruin = eyeSprite(10, 'gone'); for (const [ex, ey, er] of f0.eyes) fx.drawImage(ruin.canvas, 0, 0, ruin.w, ruin.h, ex - er - 2, ey - er - 2, er * 2 + 4, er * 2 + 4);
+      const fd = fx.getImageData(0, 0, HD.W, HD.H).data, th = -1.32, c = Math.cos(th), sn = Math.sin(th), cxh = HD.cx, cyh = (HD.top + HD.wl) / 2;
+      const DW = 420, DH = 170, dead = new Pix(DW, DH), dcx = DW / 2, dcy = DH / 2;
+      for (let y = 0; y < DH; y++) for (let x = 0; x < DW; x++) {
+        const dx = x + 0.5 - dcx, dy = (y + 0.5 - dcy) / 0.62, sx = Math.floor(cxh + c * dx + sn * dy), sy = Math.floor(cyh - sn * dx + c * dy);
+        if (sx < 0 || sy < 0 || sx >= HD.W || sy >= HD.H) continue; const i = (sy * HD.W + sx) * 4; if (!fd[i + 3]) continue;
+        const j = (y * DW + x) * 4; dead.d[j] = fd[i] * 0.72; dead.d[j + 1] = fd[i + 1] * 0.66; dead.d[j + 2] = fd[i + 2] * 0.74; dead.d[j + 3] = 255;
+      }
+      dead.outline(INK);
+      const deadEyes = [];
+      const radii = [...new Set(EYES.map(e => +(HD.eye * e[2]).toFixed(2)))], eyes = {};
+      for (const r of radii) for (const st of ['open', 'slit', 'blink1', 'blink2', 'shut', 'gone']) eyes[r + st] = eyeSprite(r, st);
+      built = { HD, armSprite, foamFor, ringFor, frames, SPLIT, sil: spr(sil, HD.cx, HD.wl), dead: { ...spr(dead, dcx, dcy + 14), eyes: deadEyes }, eyes, eyeKey: r => +r.toFixed(2) };
+      return built;
+    }
+    return { build, INK, SKIN };
+  })();
 
   function buildAll() {
     if (_built) return _built;
@@ -5902,6 +6154,8 @@ const Art = (() => {
     T.oak = tree('oak', 1); T.tree = tree('round', 2); T.tree2 = tree('round', 5); T.pine = tree('pine', 3); T.bush = tree('bush', 3); T.bush2 = tree('bush', 4);
     T.lighthouse = lighthouseIslet(); T.lighthouseSnow = lighthouseIslet({ snow: true });
     T.lighthouseShack = lighthouseIslet({ shack: true }); T.lighthouseShackSnow = lighthouseIslet({ shack: true, snow: true });
+    T.lighthouseRuin = lighthouseIslet({ ruin: true }); T.lighthouseRuinSnow = lighthouseIslet({ ruin: true, snow: true });
+    T.lighthouseRuinShack = lighthouseIslet({ ruin: true, shack: true }); T.lighthouseRuinShackSnow = lighthouseIslet({ ruin: true, shack: true, snow: true });
     T.fenceU = fenceTex('u'); T.fenceV = fenceTex('v'); T.scarecrow = scarecrow();
     for (let f = 0; f < 4; f++) T['cauldron' + f] = bigCauldron(f);
     T.ghost0 = ghostSprite(0); T.ghost1 = ghostSprite(1); T.bigGhost0 = bigGhostSprite(0); T.bigGhost1 = bigGhostSprite(1); T.bat0 = batFly(0); T.bat1 = batFly(1);
@@ -5926,7 +6180,7 @@ const Art = (() => {
   }
 
   const cauldronURL = () => _icon['cauldron-big'] || (_icon['cauldron-big'] = buildAll().cauldron1.canvas.toDataURL());
-  return { krakenFrame, KR, cauldronURL, hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
+  return { KRAK, cauldronURL, hauntOverlay, HW_ANIM, decorTex, decorURL, Pix, PAL, C, shade, hash, buildAll, iconURL, shipURL, SHIP_ART, BUILD_ART, buildingTex, siteTex, buildingURL, chestURL, drawChart, chartPick, HW, HH };
 })();
 
 </script>
@@ -6738,7 +6992,7 @@ const World = (() => {
     for (const [id, o] of dObjs) if (!live.has(id)) { removeObj(o); dObjs.delete(id); }
     const owned = new Set((state.decor || []).map(d => d.type));
     for (const o of fieldDecor) o.hidden = !owned.has(o.decorType);
-    if (lighthouseObj) { lighthouseObj.tex = owned.has('keeperShack') ? 'lighthouseShack' : 'lighthouse'; lighthouseObj.info.future = owned.has('keeperShack') ? 'The keeper waves from the shack door. Ships give the reef a wide berth now.' : 'The old lighthouse. Its keeper has stories about what lies past the reef.'; }
+    if (lighthouseObj) { lighthouseObj.tex = owned.has('keeperShack') ? 'lighthouseShack' : 'lighthouse'; lighthouseObj.info.future = owned.has('keeperShack') ? 'The keeper waves from the shack door. Ships give the reef a wide berth now.' : 'The old lighthouse. Its keeper has stories about what lies past the reef.'; syncLighthouse(state); }
     for (const d of state.decor || []) {
       if (TOF.DECOR[d.type].fixed) continue;
       const [fw, fd] = TOF.sizeOf(d.type), p = isoTop(d.gx + fw, d.gy + fd);
@@ -6990,6 +7244,7 @@ const World = (() => {
   // ---------- update ----------
   function update(dt) {
     time += dt;
+    updateKraken(dt);
     updateSky(dt);
     // ships along paths
     for (const o of ships.values()) {
@@ -7067,6 +7322,423 @@ const World = (() => {
   }
 
   // ---------- render ----------
+  // ======================= 1.7: The Unseen — the kraken in the harbor =======================
+  // Everything here is driven by wall-clock time and saved timestamps (event start, eye hits, death), so it never
+  // depends on frame rate and picks up exactly where it should after the app sleeps. Only short-lived spray and
+  // debris are simulated per frame. World units are game pixels; a ground offset (x, y) and height z project
+  // to the screen at (x, y / 2 - z), the harbor's 2:1 view.
+  const KZ = (() => {
+    const H_ = 3600000;
+    let K = null, at = null, buf = null, bufX = 0, bufY = 0, tintSil = null;
+    let pool = null, poolT = -1, waterAlpha = null, cine = null, hooks = { start: () => {}, end: () => {} };
+    const dbg = { paused: false, pausedAt: 0, lost: 0, rig: false, skip: {} };
+    const parts = [], debris = [];
+    const now = () => (dbg.paused ? dbg.pausedAt : Date.now() - dbg.lost);
+    const ease = k => (k <= 0 ? 0 : k >= 1 ? 1 : k * k * (3 - 2 * k));
+    const over = (k, o = 1.6) => { k = Math.max(0, Math.min(1, k)); return 1 + (o + 1) * (k - 1) ** 3 + o * (k - 1) ** 2; };
+    const env = (t, a, b, c, d) => (t < a || t > d ? 0 : t < b ? ease((t - a) / (b - a)) : t <= c ? 1 : 1 - ease((t - c) / (d - c)));
+    const h01 = (a, b) => hash(a | 0, b | 0, 77);
+    // ---- the eight arms, from the approved arm designs: where each meets the water (screen px from the head's
+    // waterline), when it erupts in the breach, and its frames (idle loop, thrash loop, limp, and for the
+    // striker a rear-and-smash). Arms whose base sits behind the head (dy < 0) are drawn before it. ----
+    const SPEC = {
+      rear: { seed: 14, head: -100, len: 280, r0: 35, taper: 0.9, bend: 0, sway: -0.014, freq: 7.5, ph: 0.3, curl: 0.17, cs: 0.68, cp: 1.5 },
+      tall: { seed: 16, head: -96, len: 330, r0: 30, taper: 0.85, bend: 0, sway: 0.02, freq: 9, ph: 1, curl: 0.16, cs: 0.72, cp: 1.5 },
+      arch: { seed: 17, head: -62, len: 360, r0: 28, taper: 0.55, bend: 0.0105, sway: 0.003, freq: 5, ph: 0.5, curl: 0, cs: 0.9, cp: 1.5, arch: true, flip: true, gap: 0.6 },
+      tip: { seed: 18, head: -105, len: 120, r0: 15, taper: 0.9, bend: 0.004, sway: 0.01, freq: 6, ph: 0, curl: -0.22, cs: 0.5, cp: 1.3 },
+      striker: { seed: 20, head: -84, len: 310, r0: 31, taper: 0.85, bend: 0, sway: 0.012, freq: 7, ph: 2, curl: -0.15, cs: 0.7, cp: 1.5 },
+    };
+    const mirror = V => ({ ...V, head: -180 - V.head, sway: -V.sway, curl: -V.curl, bend: -V.bend, seed: V.seed + 50, flip: V.curl === 0 ? !V.flip : V.flip });
+    const ARMS = [
+      { V: mirror(SPEC.tall), dx: -104, dy: -10, t0: 3.6 },
+      { V: SPEC.tall, dx: 104, dy: -10, t0: 3.9 },
+      { V: { ...SPEC.rear, head: -118 }, dx: -150, dy: 34, t0: 4.3 },
+      { V: mirror({ ...SPEC.rear, head: -118 }), dx: 150, dy: 34, t0: 4.6 },
+      { V: SPEC.arch, dx: -390, dy: -18, t0: 5.0 },
+      { V: mirror(SPEC.arch), dx: 390, dy: -18, t0: 5.3 },
+      { V: SPEC.tip, dx: -96, dy: 74, t0: 5.6 },
+      { V: SPEC.striker, dx: 0, dy: -40, t0: 6.0, striker: true },
+    ];
+    const IDLE = 8, RAGE = 5, SLAM = 6, TAU = Math.PI * 2;
+    function armJobs() { // every frame to draw, in the order they're needed (idle first)
+      const jobs = [];
+      ARMS.forEach((A, i) => { A.idle = []; A.rage = []; A.slam = []; A.limp = null;
+        for (let f = 0; f < IDLE; f++) jobs.push(() => { const w = TAU * f / IDLE; A.idle[f] = K.armSprite({ ...A.V, ph: A.V.ph + w, curl: A.V.curl * (1 + 0.05 * Math.sin(w)), head: A.V.head + 2 * Math.sin(w) }); }); });
+      ARMS.forEach(A => { for (let f = 0; f < RAGE; f++) jobs.push(() => { const w = TAU * f / RAGE; A.rage[f] = K.armSprite({ ...A.V, ph: A.V.ph + w, sway: A.V.sway * 2.6, curl: A.V.curl * (1 + 0.12 * Math.sin(w)), head: A.V.head + 7 * Math.sin(w) }); });
+        jobs.push(() => { const left = A.V.head < -90; A.limp = K.armSprite({ ...A.V, arch: false, head: left ? -174 : -6, bend: left ? -0.0008 : 0.0008, sway: A.V.sway * 0.4, curl: A.V.curl * 0.35, len: A.V.len * 0.85 }); }); });
+      const S = ARMS[7];
+      for (let f = 0; f < SLAM; f++) jobs.push(() => { const k = f / (SLAM - 1); S.slam[f] = K.armSprite({ ...S.V, head: S.V.head + 64 * k, bend: 0.0075 * k, curl: S.V.curl * (1 - 0.4 * k), sway: S.V.sway * (1 - k) }); });
+      return jobs;
+    }
+    let jobs = null, built = 0;
+    function init(atTile, isletW) { at = atTile; ARMS[7].dx = isletW.x - at.x - 52; ARMS[7].dy = isletW.y - at.y + 26; }
+    // Build lazily, only once the event is near, so ordinary days pay nothing. step() spends a few ms per frame.
+    function ensure() {
+      if (K) return;
+      K = Art.KRAK.build(); jobs = armJobs(); built = 0;
+      tintSil = tintCopy(K.sil, '#4a2a3c');
+      buf = document.createElement('canvas'); buf.width = 1100; buf.height = 760; bufX = at.x - 550; bufY = at.y - 420;
+    }
+    function step(ms) { if (!jobs) return true; const t0 = performance.now(); while (built < jobs.length && performance.now() - t0 < ms) jobs[built++](); return built >= jobs.length; }
+    const ready = () => !!jobs && built >= jobs.length;
+    const tints = new WeakMap(); // under-water copies of whichever frames get used down there
+    const tinted = s => { let t = tints.get(s); if (!t) { t = tintCopy(s, '#4a2a3c'); tints.set(s, t); } return t; };
+    function tintCopy(s, col) {
+      const c = document.createElement('canvas'); c.width = s.w; c.height = s.h; const x = c.getContext('2d');
+      x.drawImage(s.canvas, 0, 0); x.globalCompositeOperation = 'source-in'; x.fillStyle = col; x.fillRect(0, 0, s.w, s.h);
+      return { canvas: c, w: s.w, h: s.h, ax: s.ax, ay: s.ay };
+    }
+    function setWaterMask(groundCanvas, ox, oy) { // where the ground image is see-through, the water shows
+      const x = groundCanvas.getContext('2d'), d = x.getImageData(0, 0, groundCanvas.width, groundCanvas.height).data;
+      waterAlpha = { w: groundCanvas.width, h: groundCanvas.height, ox, oy, a: new Uint8Array(groundCanvas.width * groundCanvas.height) };
+      for (let i = 0; i < waterAlpha.a.length; i++) waterAlpha.a[i] = d[i * 4 + 3] < 128 ? 1 : 0;
+    }
+    const isWater = (wx, wy) => { if (!waterAlpha) return true; const px = Math.floor(wx + waterAlpha.ox), py = Math.floor(wy + waterAlpha.oy); return px >= 0 && py >= 0 && px < waterAlpha.w && py < waterAlpha.h && waterAlpha.a[py * waterAlpha.w + px] === 1; };
+
+    // ---------------- the scene at time T: what every part is doing ----------------
+    // Returns a pose for the whole creature. Built fresh each frame from the event view and timestamps.
+    function pose(view, T) {
+      const P = { show: false, head: null, arms: [], eyes: [], wisps: 0, pool: 0, poolR: 0, mood: 0, swirl: 0, cine: null, under: 0, countdown: null, dead: false, corpse: false };
+      if (!view) return P;
+      const ph = view.phase, hrs = (T - view.start) / H_, te = (T - view.start) / 1000;
+      P.te = te;
+      const eyeOn = view.alive.map(a => a);
+      if (ph === 'countdown') { P.countdown = Math.max(0, view.start - T); return P; }
+      if (ph === 'none') return P;
+      P.show = true;
+      // the slow build: wisps, pool, darkness, then shapes, then eyes
+      const h = ph === 'rising' ? hrs : 10;
+      P.wisps = Math.round(h < 2 ? 6 + h * 4 : h < 4 ? 14 + (h - 2) * 7 : h < 6 ? 28 + (h - 4) * 8 : h < 8 ? 44 + (h - 6) * 8 : 60 + (h - 8) * 8);
+      P.poolR = 50 + h * 40; P.pool = Math.min(0.88, Math.max(0, h - 0.6) * 0.095); P.swirl = Math.max(0, (h - 6) / 4);
+      P.mood = h < 3 ? 0 : Math.min(0.5, (h - 3) / 7 * 0.5);
+      P.under = h < 2 ? 0 : Math.min(1, (h - 2) / 4);
+      const blink = e => { const c = Math.floor(te / 3.7 + e * 0.37), u = te / 3.7 + e * 0.37 - c; return h01(c, e) < 0.16 && u < 0.07 ? (u < 0.023 ? 'blink1' : u < 0.046 ? 'blink2' : 'blink1') : 'open'; };
+      if (ph === 'rising') {
+        // the head lurks deep, rising through the last hours; eyes open one by one from hour 8
+        P.head = { sink: Math.max(105, 230 - Math.max(0, h - 6) * 32), split: 0, dx: 0, dy: 0, under: true };
+        for (let e = 0; e < 8; e++) { const on = Math.max(0, Math.min(1, (h - 8 - [3, 0, 5, 1, 6, 2, 7, 4][e] * 0.22) / 0.3)); P.eyes.push({ state: on > 0 ? blink(e) : 'shut', glow: on * (0.6 + 0.4 * Math.sin(te * 1.3 + e)), alpha: on }); }
+        for (let i = 0; i < 8; i++) { // limbs slide unseen under the surface; late on one sometimes breaks it
+          const A = ARMS[i], slot = Math.floor(te / 34), lucky = h >= 7 && Math.floor(h01(slot, 9) * 8) === i, u = te / 34 - slot;
+          const ext = lucky ? 0.38 * env(u, 0.1, 0.3, 0.5, 0.75) : 0;
+          P.arms.push({ ext, depth: 40 + 30 * Math.sin(te * 0.05 + i) - P.under * 22, rage: 0, limp: 0, alpha: P.under });
+        }
+        return P;
+      }
+      // emerged or dead: the breach cinematic (if running) or the live creature
+      P.mood = 0.85;
+      const hits = view.hits, lastHit = Math.max(...hits);
+      const baseArm = i => ({ ext: 1, depth: 0, rage: 0, limp: 0, alpha: 1 });
+      P.head = { sink: 0, split: 0, dx: 0, dy: Math.round(Math.sin(te * 1.1) * 2), under: false };
+      for (let i = 0; i < 8; i++) P.arms.push(baseArm(i));
+      for (let e = 0; e < 8; e++) P.eyes.push({ state: view.alive[e] ? blink(e) : 'gone', glow: view.alive[e] ? 0.75 + 0.25 * Math.sin(te * 2 + e) : 0, alpha: 1 });
+      if (cine) applyCine(P, (T - cine.t0) / 1000);
+      // a hit eye: recoil, thrash, split and wail, the eye closes for good, the head shuts, the rest reopen
+      if (lastHit && T - lastHit < TOF.KRAKEN.painMs && !(view.deadAt && T >= view.deadAt)) {
+        const e = hits.indexOf(lastHit), tau = (T - lastHit) / 1000, side = e % 2 ? 1 : -1, n = hits.filter(Boolean).length, k = 0.75 + 0.1 * (e % 4) + n * 0.03;
+        const dec = Math.exp(-tau * 2.2);
+        P.head.dx += Math.round(-side * 7 * k * dec + Math.sin(tau * 38) * 2 * dec); P.head.dy += Math.round(-5 * k * dec);
+        P.head.split = Math.max(P.head.split, tau < 0.35 ? 0 : tau < 0.95 ? over((tau - 0.35) / 0.6) : tau < 2.0 ? 1 + 0.04 * Math.sin(tau * 40) : 1 - ease((tau - 2.0) / 0.6));
+        for (let i = 0; i < 8; i++) { const near = (ARMS[i].dx * side > 0 ? 1.4 : 0.7); P.arms[i].rage = Math.max(P.arms[i].rage, k * near * env(tau, 0, 0.15, 1.8, 2.8)); P.arms[i].curlIn = env(tau, 0.1, 0.4, 1.0, 1.6) * (i % 2 === e % 2 ? 1 : 0.4); }
+        P.eyes[e] = { state: tau < 1.2 ? 'slit' : tau < 1.35 ? 'blink1' : tau < 1.5 ? 'blink2' : tau < 1.65 ? 'shut' : 'gone', glow: tau < 1.2 ? 1.4 : 0, alpha: 1, flash: tau < 0.3 ? 1 - tau / 0.3 : 0 };
+        for (let o = 0; o < 8; o++) if (o !== e && view.alive[o]) P.eyes[o].state = tau < 0.4 ? 'slit' : tau < 1.9 ? 'slit' : tau < 2.05 ? 'blink2' : tau < 2.6 ? 'shut' : tau < 2.8 ? 'blink2' : tau < 3.0 ? 'blink1' : P.eyes[o].state;
+        P.wail = tau > 0.9 && tau < 2.0 ? 1 : 0;
+      }
+      if (view.deadAt && T >= view.deadAt) {
+        const tau = (T - view.deadAt) / 1000;
+        P.dead = true;
+        if (tau < 10) { // death throes: thrashing, a long last wail, a shudder, then it settles into the water
+          P.head.split = tau < 0.6 ? 0 : tau < 1.2 ? over((tau - 0.6) / 0.6) : tau < 4.8 ? 1 + 0.06 * Math.sin(tau * 45) : 1 - ease((tau - 4.8) / 0.8);
+          const conv = tau > 5.6 && tau < 7 ? Math.sin(tau * 60) * 3 : 0;
+          P.head.dx += Math.round(Math.sin(tau * 23) * 4 * env(tau, 0, 0.3, 4, 5) + conv); P.head.dy += Math.round(Math.cos(tau * 17) * 3 * env(tau, 0, 0.3, 4, 5));
+          P.head.sink = 70 * ease((tau - 7) / 3);
+          const limp = ease((tau - 6.5) / 3.5);
+          for (let i = 0; i < 8; i++) Object.assign(P.arms[i], { rage: 1.6 * env(tau, 0, 0.2, 4.5, 6.2) + (tau > 5.6 && tau < 7 ? 0.8 : 0), limp });
+          P.eyes.forEach(E => { E.state = 'gone'; E.glow = 0; });
+          P.wail = tau > 1.2 && tau < 4.8 ? 1 : 0;
+          P.mood = 0.85;
+        } else { P.corpse = true; P.head.sink = 70; P.head.dy = Math.round(Math.sin(te * 0.4) * 1.5); for (const A of P.arms) A.limp = 1; P.mood = Math.max(0, 0.85 - (tau - 10) / 3600 / 6 * 0.65); P.wisps = 18; P.pool = Math.max(0.35, 0.88 - (tau - 10) / 3600 / 6); }
+      }
+      return P;
+    }
+    // the breach, second by second (see the timeline in the comment beside each step)
+    function applyCine(P, t) {
+      P.cine = t;
+      P.mood = 0.5 + 0.35 * ease((t - 7.35) / 1.5);                                 // darkness deepens once the light goes out
+      P.head.sink = t < 2 ? 120 - t * 15 : t < 4.5 ? 90 - (t - 2) / 2.5 * 50 : t < 6.5 ? 40 * (1 - over((t - 4.5) / 2, 0.8)) : 0; // stillness, the swell, then the rise
+      P.head.under = t < 3.2;
+      P.head.split = t < 8.2 ? 0 : t < 9 ? over((t - 8.2) / 0.8) : t < 10.6 ? 1 + 0.05 * Math.sin(t * 42) : 1 - ease((t - 10.6) / 0.8); // the jaw: open, hold, close
+      P.wail = t > 8.8 && t < 10.6 ? 1 : 0;
+      for (let i = 0; i < 8; i++) {
+        const A = ARMS[i], a = P.arms[i];
+        a.ext = t < A.t0 ? 0 : over((t - A.t0) / 1.4, 1.2);                              // staggered eruptions with overshoot
+        a.rage = 0.8 * env(t, 8.2, 8.6, 10.4, 11.4) + 0.5 * env(t, A.t0, A.t0 + 0.2, A.t0 + 1.0, A.t0 + 1.8);
+        if (A.striker) a.strike = env(t, 6.9, 7.35, 7.6, 8.6);                           // rear up, then smash down on the lighthouse
+      }
+      P.eyes.forEach((E, e) => { if (E.state !== 'gone') { E.state = t > 8.2 && t < 10.8 ? 'slit' : E.state; E.glow = (t < 4 ? 0.5 + t * 0.12 : 1) * (t > 8.2 && t < 10.8 ? 1.5 : 1); } });
+    }
+
+    // ---------------- which frame each arm shows now, and how far it is pushed down under the surface ----------------
+    function armState(i, a, te) {
+      const A = ARMS[i]; if (!A.idle || !A.idle[IDLE - 1]) return null;
+      let fr, alt = null, mix = 0;
+      if (a.strike > 0.02 && A.slam.length === SLAM) fr = A.slam[Math.min(SLAM - 1, Math.round(a.strike * (SLAM - 1)))];
+      else if (a.rage > 0.4 && A.rage.length === RAGE) fr = A.rage[Math.floor(te * 11 + i * 1.7) % RAGE];
+      else fr = A.idle[(Math.floor(te * 6 + i * 2.3) % IDLE + IDLE) % IDLE];
+      if (a.limp > 0 && A.limp) { alt = A.limp; mix = a.limp; }
+      const rise = fr.ay + 12, slide = Math.max(0, (1 - Math.min(1, a.ext)) * rise + (a.depth || 0)) - Math.max(0, a.ext - 1) * 20;
+      return { fr, alt, mix, x: at.x + A.dx, y: at.y + A.dy, slide };
+    }
+    // ---------------- drawing ----------------
+    // Pass 1, on the water: the red pool, wisps, under-water silhouettes (multiplied), drowned eyes, ripples.
+    function drawUnder(ctx, P, view) {
+      if (P.countdown !== null) return drawCountdown(ctx, P.countdown);
+      if (!P.show) return;
+      const T = now();
+      if (P.pool > 0 && !dbg.skip.pool) drawPool(ctx, P, T);
+      if (P.wisps && !dbg.skip.wisps) drawWisps(ctx, P);
+      // silhouettes under the surface, into a white buffer multiplied onto the water
+      const x = buf.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.fillStyle = '#ffffff'; x.fillRect(0, 0, buf.width, buf.height);
+      let any = false;
+      if (P.head && !P.dead && (P.head.under || P.head.sink > 0)) { any = true; const s = tintSil; x.globalAlpha = Math.max(0.25, 1 - P.head.sink / 320) * (P.cine !== null || !P.head.under ? 1 : P.under * 0.8); { const y0 = Math.round(at.y + P.head.sink + P.head.dy - s.ay), skip = P.head.under ? 0 : Math.max(0, Math.round(at.y) - y0); if (skip < s.h) x.drawImage(s.canvas, 0, skip, s.w, s.h - skip, Math.round(at.x + P.head.dx - s.ax - bufX), y0 + skip - bufY, s.w, s.h - skip); } x.globalAlpha = 1; }
+      for (let i = 0; i < 8; i++) { // the part of each arm below the surface: a darker shape that fades with depth
+        const st = P._arm[i]; if (!st || st.slide <= 0) continue;
+        const fr = st.mix > 0.5 ? st.alt : st.fr, t = tinted(fr), deep = Math.min(1, st.slide / (fr.ay + 60));
+        const sunk = st.slide >= fr.ay, y0 = Math.round(st.y + st.slide * (sunk ? 0.75 : 1) - fr.ay), skip = sunk ? 0 : Math.max(0, Math.round(st.y) - y0); // only the part below the surface
+        x.globalAlpha = (1 - deep * 0.8) * (P.arms[i].alpha ?? 1) * (P.cine !== null || !P.head || !P.head.under ? 1 : 0.7);
+        if (skip < fr.h) x.drawImage(t.canvas, 0, skip, fr.w, fr.h - skip, Math.round(st.x - fr.ax - bufX), y0 + skip - bufY, fr.w, fr.h - skip); x.globalAlpha = 1; any = true;
+      }
+      if (any && !dbg.skip.under) { ctx.globalCompositeOperation = 'multiply'; ctx.drawImage(buf, bufX, bufY); ctx.globalCompositeOperation = 'source-over'; }
+      // drowned eyes glowing up through the water
+      if (P.head && P.head.under) P.eyes.forEach((E, e) => { if (!E.alpha) return; const fr = K.frames[0], [ex, ey, er] = fr.eyes[e], sx = at.x + (ex - fr.ax) + P.head.dx, sy = at.y + (ey - fr.ay) + P.head.sink + P.head.dy; const s = K.eyes[K.eyeKey(er) + E.state]; ctx.globalAlpha = 0.55 * E.alpha; ctx.drawImage(s.canvas, Math.round(sx - s.ax), Math.round(sy - s.ay)); ctx.globalAlpha = 1; glow(ctx, sx, sy, er * 3, 0.35 * E.glow, '255,200,70'); });
+      // ripples: slow wide rings round the body, faster ones where arms cut the surface
+      const te = P.te;
+      for (let k = 0; k < 4; k++) { const u = (te * (P.cine ? 0.6 : 0.18) + k / 4) % 1, R = 70 + u * 220; ringAt(ctx, at.x, at.y + 4, R, (1 - u) * 0.35 * (P.head && !P.head.under ? 1 : P.under)); }
+      for (const c of P._cross) for (let k = 0; k < 2; k++) { const u = (te * 0.9 + k / 2 + c[2] * 0.03) % 1; ringAt(ctx, c[0], c[1], c[2] * 1.6 + u * 40, (1 - u) * 0.5); }
+      if (P.cine !== null && P.cine > 2 && P.cine < 4.6) { const u = (P.cine - 2) / 2.6; for (let k = 0; k < 3; k++) ringAt(ctx, at.x, at.y + 4, 40 + u * 260 - k * 26, 0.8 * (1 - u)); } // the swell
+    }
+    function ringAt(ctx, x, y, R, a) { if (a <= 0.02 || R < 6) return; const s = K.ringFor(R); ctx.globalAlpha = Math.min(1, a); ctx.drawImage(s.canvas, Math.round(x - s.ax), Math.round(y - s.ay)); ctx.globalAlpha = 1; }
+    const glowTex = {};
+    function glow(ctx, x, y, r, a, col) {
+      if (a <= 0.01) return;
+      let g = glowTex[col];
+      if (!g) { g = glowTex[col] = document.createElement('canvas'); g.width = g.height = 64; const c = g.getContext('2d'), gr = c.createRadialGradient(32, 32, 0, 32, 32, 32); gr.addColorStop(0, `rgba(${col},1)`); gr.addColorStop(1, `rgba(${col},0)`); c.fillStyle = gr; c.fillRect(0, 0, 64, 64); }
+      ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = Math.min(1, a); ctx.drawImage(g, x - r, y - r, r * 2, r * 2); ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+    }
+    // the crimson pool: a slowly churning blob, dithered in a few steps from harbor blue to blood red, only on water
+    let poolGeo = null;
+    function drawPool(ctx, P, T) {
+      const step = 2, R = Math.round(P.poolR / 20) * 20, W = Math.ceil(R * 2.6 / step), Hh = Math.ceil(R * 1.5 / step);
+      if (!poolGeo || poolGeo.R !== R) { // per cell: polar position, the sines of 3a and 7a, and whether it's water
+        const n = W * Hh, g = { R, W, Hh, e0: new Float32Array(n), s3: new Float32Array(n), c3: new Float32Array(n), s7: new Float32Array(n), c7: new Float32Array(n), q: new Float32Array(n), ok: new Uint8Array(n) };
+        for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
+          const k = j * W + i, wx = at.x + (i + 0.5) * step - W * step / 2, wy = at.y + 10 + (j + 0.5) * step - Hh * step / 2;
+          g.ok[k] = isWater(wx, wy) ? 1 : 0; const dx = (wx - at.x) / R, dy = (wy - at.y - 10) / (R * 0.55), a = Math.atan2(dy, dx);
+          g.e0[k] = Math.hypot(dx, dy); g.s3[k] = Math.sin(a * 3); g.c3[k] = Math.cos(a * 3); g.s7[k] = Math.sin(a * 7); g.c7[k] = Math.cos(a * 7); g.q[k] = dx * 9 + dy * 7;
+        }
+        poolGeo = g; pool = null;
+      }
+      if (!pool || T - poolT > 1200 || Math.abs((pool._a || 0) - P.pool) > 0.03) {
+        poolT = T; if (!pool) { pool = document.createElement('canvas'); pool.width = W; pool.height = Hh; }
+        const g = poolGeo, x = pool.getContext('2d'), img = x.createImageData(W, Hh), d = img.data, tt = T / 1000;
+        const p1 = tt * 0.07, p2 = -tt * 0.11, sp1 = Math.sin(p1), cp1 = Math.cos(p1), sp2 = Math.sin(p2), cp2 = Math.cos(p2), sq = Math.sin(tt * 0.2), cq = Math.cos(tt * 0.2);
+        const cols = [[47, 130, 196], [70, 92, 160], [92, 48, 110], [110, 22, 60], [96, 10, 34], [64, 6, 22]];
+        const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+        for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
+          const k = j * W + i; if (!g.ok[k] || g.e0[k] > 1.4) continue;
+          const sq3 = Math.sin(g.q[k]), cq3 = Math.cos(g.q[k]); // (the only trig left, and only inside the pool)
+          const n = 0.16 * (g.s3[k] * cp1 + g.c3[k] * sp1) + 0.1 * (g.s7[k] * cp2 + g.c7[k] * sp2) + 0.08 * (sq3 * cq + cq3 * sq);
+          const e = g.e0[k] - n; if (e > 1) continue;
+          const I = P.pool * Math.min(1, (1 - e) * 1.8), lvl = Math.max(0, Math.min(5, Math.floor(I * 5.99 + (BAY[(j & 3) * 4 + (i & 3)] / 16 - 0.5) * 0.9)));
+          if (lvl === 0) continue; const c = cols[lvl], o = k * 4; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = 236;
+        }
+        x.putImageData(img, 0, 0); pool._a = P.pool;
+      }
+      ctx.drawImage(pool, Math.round(at.x - W * step / 2), Math.round(at.y + 10 - Hh * step / 2), W * step, Hh * step);
+    }
+    // wisps: thin threads of red drifting just under the surface, swirling in toward the body as the hours pass.
+    // Plotted into a small pixel buffer (one blit a frame, however many wisps there are).
+    let wispC = null, wispImg = null;
+    const WCOL = [[184, 32, 46], [138, 20, 36], [90, 10, 24]];
+    function drawWisps(ctx, P) {
+      const te = P.te, R = P.poolR * 0.9, W = Math.ceil(R * 2.4) + 40, Hh = Math.ceil(R * 1.4) + 40, ox = Math.round(at.x - W / 2), oy = Math.round(at.y + 10 - Hh / 2);
+      if (!wispC || wispC.width !== W || wispC.height !== Hh) { wispC = document.createElement('canvas'); wispC.width = W; wispC.height = Hh; wispImg = wispC.getContext('2d').createImageData(W, Hh); }
+      const d = wispImg.data; d.fill(0);
+      const plot = (x, y, w, c, a) => { x = Math.round(x) - ox; y = Math.round(y) - oy; if (y < 0 || y >= Hh) return; for (let k = 0; k < w; k++) { const xx = x + k; if (xx < 0 || xx >= W) continue; const o = (y * W + xx) * 4, A = Math.round(a * 255); if (d[o + 3] >= A) continue; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2]; d[o + 3] = A; } };
+      const base = 0.6 + 0.3 * Math.min(1, P.wisps / 60);
+      for (let j = 0; j < P.wisps; j++) {
+        const per = 12 + (j % 5) * 2.5, phase = h01(j, 1), cyc = Math.floor(te / per + phase), u = te / per + phase - cyc;
+        const a0 = h01(j, cyc) * Math.PI * 2, rr = R * (0.15 + 0.85 * Math.sqrt(h01(j + 99, cyc)));
+        const life = Math.sin(u * Math.PI); if (life < 0.05) continue;
+        const len = 10 + (j % 4) * 3 + P.swirl * 8, thick = P.wisps > 50 && j % 3 === 0 ? 2 : 1, dir = j % 2 ? 1 : -0.6, sw = 0.15 + P.swirl * 0.6;
+        let px = null, py = null;
+        for (let k = 0; k < len; k++) {
+          const tau = u * 3 - k * 0.035, ang = a0 + sw * tau * dir, rad = rr * (1 - P.swirl * 0.35 * tau);
+          const x = at.x + Math.cos(ang) * rad + 6 * Math.sin(tau * 2.3 + j), y = at.y + 10 + Math.sin(ang) * rad * 0.55 + 3 * Math.sin(tau * 1.7 + j * 2);
+          if (!isWater(x, y)) { px = null; continue; }
+          const c = WCOL[k < 3 ? 0 : k < len * 0.6 ? 1 : 2], a = Math.min(1, life * (1 - k / len) * base);
+          plot(x, y, thick + 1, c, a); if (thick > 1) plot(x, y + 1, thick, c, a * 0.8);
+          if (px !== null && Math.abs(px - x) > 1) plot((x + px) / 2, (y + py) / 2, 1, c, a);
+          px = x; py = y;
+        }
+      }
+      wispC.getContext('2d').putImageData(wispImg, 0, 0);
+      ctx.drawImage(wispC, ox, oy);
+    }
+    // the countdown: pale digits shimmering in the water, as if seen from below. 3x5 glyphs, 3 px per dot.
+    const GLY = { 0: '111101101101111', 1: '010110010010111', 2: '111001111100111', 3: '111001111001111', 4: '101101111001001', 5: '111100111001111', 6: '111100111101111', 7: '111001010010010', 8: '111101111101111', 9: '111101111001111', ':': '000010000010000' };
+    function drawCountdown(ctx, ms) {
+      const t = Math.floor(ms / 1000), d = Math.floor(t / 86400), hh = Math.floor(t / 3600) % 24, mm = Math.floor(t / 60) % 60, ss = t % 60;
+      const txt = `${d}:${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:${String(ss).padStart(2, '0')}`, te = Date.now() / 1000;
+      const cw = 12, W = txt.length * cw, x0 = at.x - W / 2, y0 = at.y - 10;
+      [...txt].forEach((ch, i) => { const g = GLY[ch]; if (!g) return; for (let k = 0; k < 15; k++) if (g[k] === '1') {
+        const gx = k % 3, gy = Math.floor(k / 3), wob = Math.round(Math.sin(te * 1.6 + i * 0.7 + gy * 0.9) * 1.4), px = x0 + i * cw + gx * 3 + wob, py = y0 + gy * 3 + Math.round(Math.sin(te * 1.1 + px * 0.05));
+        ctx.globalAlpha = 0.18; ctx.fillStyle = '#5a0a18'; ctx.fillRect(Math.round(px) + 1, Math.round(py) + 2, 3, 3);
+        ctx.globalAlpha = 0.32 + 0.12 * Math.sin(te * 2.3 + i + k); ctx.fillStyle = '#ffe8e8'; ctx.fillRect(Math.round(px), Math.round(py), 3, 3);
+      } });
+      ctx.globalAlpha = 1;
+      for (let k = 0; k < 2; k++) { const u = (te * 0.12 + k / 2) % 1; ringAt(ctx, at.x, at.y, W * 0.6 + u * 60, (1 - u) * 0.25); }
+    }
+    // Pass 2, in the depth-sorted world: one arm (or the head) above the surface, foam collar and all.
+    function drawArm(ctx, P, i) {
+      const st = P._arm[i]; if (!st) return;
+      const fr = st.fr, top = st.y + st.slide; if (st.slide >= fr.ay + 4 && !st.mix) return; // still wholly under
+      const ends = (st.mix > 0.5 ? st.alt : fr).ends, fi = Math.floor(P.te * 3 + i) % 2;
+      const vis = 1 - st.slide / fr.ay; if (vis < 0.06 && !st.mix) return;
+      const foams = ends.map(([ex, ey, er], k) => [st.x + ex - fr.ax, st.y, k === 0 ? Math.max(4, er * Math.min(1, 0.35 + vis)) : er]);
+      if (!st.mix) for (const [x, y, r] of foams) { const f = K.foamFor(r, fi).back; ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
+      const above = (f, y0, extra) => { const h = Math.min(f.h, Math.round(st.y + extra - y0)); if (h > 0) ctx.drawImage(f.canvas, 0, 0, f.w, h, Math.round(st.x - f.ax), Math.round(y0), f.w, h); };
+      if (st.mix < 1) { ctx.globalAlpha = 1 - st.mix; above(fr, top - fr.ay, 1); }
+      if (st.mix > 0) { const L_ = st.alt; ctx.globalAlpha = st.mix; above(L_, st.y - L_.ay + 3, 40); }
+      ctx.globalAlpha = 1;
+      if (!st.mix) for (const [x, y, r] of foams) { const f = K.foamFor(r, fi).front; ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
+    }
+    function headDraw(ctx, P) {
+      const Hd = P.head; if (!Hd || Hd.under || Hd.sink >= 200) return;
+      if (P.corpse || (P.dead && Hd.sink > 30)) { // lying in the water: drawn whole, settling as it keels over
+        const D = K.dead, k = P.corpse ? 1 : Math.min(1, (Hd.sink - 30) / 40), fb = K.foamFor(70, Math.floor(P.te * 1.5) % 2);
+        ctx.globalAlpha = k; ctx.drawImage(fb.back.canvas, Math.round(at.x - fb.back.ax), Math.round(at.y - fb.back.ay));
+        ctx.drawImage(D.canvas, Math.round(at.x - D.ax), Math.round(at.y - D.ay + Hd.dy)); ctx.drawImage(fb.front.canvas, Math.round(at.x - fb.front.ax), Math.round(at.y + 6 - fb.front.ay)); ctx.globalAlpha = 1;
+        P._eyeAt = []; if (k >= 1) return;
+      }
+      const f = K.frames[Math.max(0, Math.min(K.SPLIT, Math.round(Hd.split * K.SPLIT)))];
+      const x = Math.round(at.x + Hd.dx - f.ax), y = Math.round(at.y + Hd.sink + Hd.dy - f.ay);
+      const fb = K.foamFor(54, Math.floor(P.te * 3) % 2);
+      ctx.drawImage(fb.back.canvas, Math.round(at.x - fb.back.ax), Math.round(at.y - fb.back.ay));
+      if (P.dead && Hd.sink > 30) ctx.globalAlpha = 1 - Math.min(1, (Hd.sink - 30) / 40);
+      { const h = Math.min(f.h, at.y + 1 - y); if (h > 0) ctx.drawImage(f.canvas, 0, 0, f.w, h, x, y, f.w, h); }
+      const eyes = f.eyes;
+      P._eyeAt = [];
+      eyes.forEach(([ex, ey, er], e) => {
+        const E = P.eyes[e]; const sx = x + ex, sy = y + ey; P._eyeAt[e] = [sx, sy, er];
+        if (!E || sy > at.y) return;
+        const s = K.eyes[K.eyeKey(er) + (E ? E.state : 'open')]; ctx.drawImage(s.canvas, Math.round(sx - s.ax), Math.round(sy - s.ay));
+        if (E.flash) glow(ctx, sx, sy, er * 2.2, E.flash, '255,246,210');
+      });
+      ctx.drawImage(fb.front.canvas, Math.round(at.x - fb.front.ax), Math.round(at.y - fb.front.ay)); ctx.globalAlpha = 1;
+      if (P.wail) for (let k = 0; k < 3; k++) { const u = (P.te * 1.4 + k / 3) % 1; ringAt(ctx, at.x, at.y - 120, 30 + u * 160, (1 - u) * 0.5); } // the wail, as rings of shaken air
+    }
+    // Pass 3, over the dark: eyes glow and redden the water around them.
+    function drawLights(ctx, P) {
+      if (!P.show || !P.head || dbg.skip.lights) return;
+      if (P.mood > 0.4 && !P.head.under) glow(ctx, at.x, at.y + 10, 170, 0.22 * P.mood, '255,40,30');
+      if (!P._eyeAt || P.head.under) return;
+      P._eyeAt.forEach(([sx, sy, er], e) => {
+        const E = P.eyes[e]; if (!E || E.state === 'gone' || E.state === 'shut' || sy > at.y) return;
+        glow(ctx, sx, sy, er * 2.6, 0.5 * E.glow, '255,210,80');
+        const s = K.eyes[K.eyeKey(er) + E.state]; ctx.drawImage(s.canvas, Math.round(sx - s.ax), Math.round(sy - s.ay)); // the eyes keep their own light
+        glow(ctx, sx, at.y + 6 + (at.y - sy) * 0.15, er * 3, 0.18 * E.glow, '255,120,40'); // and throw it on the water below
+      });
+    }
+    function drawParticles(ctx, dt) {
+      for (let i = parts.length - 1; i >= 0; i--) { const p = parts[i]; p.t += dt; p.vz -= 260 * dt; p.x += p.vx * dt; p.y += p.vy * dt; p.z += p.vz * dt; if (p.z < 0 || p.t > p.life) { if (p.splash) ringAt(ctx, p.x, p.y, 8, 0.6); parts.splice(i, 1); continue; } ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x), Math.round(p.y - p.z), p.s, p.s); }
+    }
+    function burst(x, y, n, spd, cols, up = 1) { for (let i = 0; i < n; i++) { const a = Math.random() * Math.PI * 2, v = spd * (0.3 + Math.random() * 0.7); parts.push({ x, y, z: 2, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.5, vz: (80 + Math.random() * 160) * up, t: 0, life: 3, c: cols[i % cols.length], s: Math.random() < 0.3 ? 2 : 1, splash: true }); } }
+    function drawRig(ctx, P) {
+      if (!dbg.rig || !P.show) return;
+      ctx.lineWidth = 1; ctx.font = '8px monospace';
+      P._arm.forEach((st, i) => { if (!st) return; const fr = st.fr; ctx.strokeStyle = ctx.fillStyle = ['#ff0', '#0ff', '#f0f', '#0f0', '#f80', '#08f', '#fff', '#f00'][i]; ctx.strokeRect(Math.round(st.x - fr.ax) + 0.5, Math.round(st.y + st.slide - fr.ay) + 0.5, fr.w, fr.h); ctx.fillRect(st.x - 1, st.y - 1, 3, 3); ctx.fillText('T' + i + (st.slide > 0 ? ' -' + Math.round(st.slide) : ''), st.x + 4, st.y - 4); });
+      (P._eyeAt || []).forEach(([x, y], e) => { ctx.fillStyle = '#0ff'; ctx.fillText(String(e), x + 6, y - 6); });
+    }
+    // the frame's pose, cached so every pass draws the same moment
+    let P = null, lastStrike = 0;
+    function frame(view, dt, onStrike) {
+      const T = now(); P = pose(view, T);
+      P._arm = []; P._cross = [];
+      if (P.show && K) for (let i = 0; i < 8; i++) {
+        const a = P.arms[i] || { ext: 0, depth: 60, rage: 0, limp: 0, alpha: 0 }; P.arms[i] = a;
+        const st = armState(i, a, P.te); P._arm.push(st); if (!st) continue;
+        if (st.slide < st.fr.ay) for (const [ex, , er] of st.fr.ends) P._cross.push([st.x + ex - st.fr.ax, st.y, er]);
+        if (P.cine !== null && P.cine >= ARMS[i].t0 && P.cine - dt < ARMS[i].t0) burst(st.x, st.y, 40, 90, ['#e9f7fc', '#bfe6f6', '#ffffff']); // spray where it bursts out
+      }
+      if (P.cine !== null) {
+        if (P.cine >= 3.2 && P.cine - dt < 3.2) burst(at.x, at.y, 70, 140, ['#e9f7fc', '#bfe6f6', '#ffffff', '#c0303a']);
+        if (P.cine >= 7.35 && P.cine - dt < 7.35) onStrike(); // the striker comes down on the lighthouse
+        if (P.cine >= 13.5) { cine = null; hooks.end(); }
+      }
+      return P;
+    }
+    function breach() { cine = { t0: now() }; hooks.start(); }
+    function eyeHit(wx, wy) {
+      if (!P || !P._eyeAt || cine) return -1;
+      for (let e = 0; e < 8; e++) { const q = P._eyeAt[e]; if (q && Math.hypot(wx - q[0], (wy - q[1]) * 0.9) < q[2] + 3 && P.eyes[e] && P.eyes[e].state !== 'gone') return e; }
+      return -1;
+    }
+    function bodyHit(wx, wy) {
+      if (!P || !P.show) return false;
+      if (Math.abs(wx - at.x) < 70 && wy > at.y - 210 + (P.head ? P.head.sink : 0) && wy < at.y + 10) return true;
+      return P._arm.some(st => { if (!st) return false; const f = st.mix > 0.5 ? st.alt : st.fr, x0 = st.x - f.ax, y0 = st.y + st.slide - f.ay; return wx > x0 && wx < x0 + f.w && wy > y0 && wy < y0 + f.h; });
+    }
+    return { init, ensure, step, ready, setWaterMask, frame, drawUnder, drawArm, headDraw, drawLights, drawParticles, drawRig, burst, breach, eyeHit, bodyHit, dbg, now,
+      get P() { return P; }, get cine() { return cine; }, set hooks(h) { hooks = h; }, ARMS, get at() { return at; } };
+  })();
+
+  // the kraken's per-frame wiring: its pose, the darkness it brings, the town hiding, the lighthouse's fate
+  let krView = null, krP = null, krMood = 0, krDt = 0, krShake = 0, krObj = null, krHooks = { start: () => {}, end: () => {}, strike: () => {} }, krCam = null;
+  function updateKraken(dt) {
+    const st = getState(); krDt = dt; if (!st || !KZ.at) return;
+    krView = TOF.krakenView(st, Date.now());
+    if (krView.phase === 'none' && !KZ.cine) { krP = null; krMood = 0; syncLighthouse(st); return; }
+    KZ.ensure(); KZ.step(KZ.ready() ? 0 : krView.phase === 'emerged' || krView.phase === 'dead' ? 30 : 8); // hurry if it is already up
+    if (krView.phase === 'emerged' && !st.kraken.breachSeen && !KZ.cine && KZ.ready()) {
+      KZ.breach(); krCam = { scale: Math.max(1, Math.min(maxScale(), Math.round(canvas.width / 680))) };
+      if (typeof Sound !== 'undefined') Sound.play('kraken');
+    }
+    krP = KZ.frame(krView, dt, () => { // the striker lands: the lighthouse breaks and its light goes out
+      krStruck = true; syncLighthouse(st); krShake = 1;
+      const lh = tileCenter(ISLET.gx, ISLET.gy);
+      KZ.burst(lh.x, lh.y - 40, 60, 120, ['#cc4a3f', '#f1ebe0', '#8a857c', '#3b3d40', '#ffe48a'], 1.4);
+      KZ.burst(lh.x, lh.y + 4, 40, 150, ['#e9f7fc', '#bfe6f6', '#ffffff']);
+      krHooks.strike();
+    });
+    krMood += ((krP ? krP.mood : 0) - krMood) * Math.min(1, dt * 0.8);
+    if (KZ.cine) { const t = KZ.cine ? (KZ.now() - KZ.cine.t0) / 1000 : 0; if (t > 3.1 && t < 3.3 || [3.6, 3.9, 4.3, 4.6, 5.0, 5.3, 5.6].some(a => t > a && t < a + 0.05)) krShake = Math.max(krShake, 0.5); }
+    krShake = Math.max(0, krShake - dt * 1.4);
+    // frame the breach: the camera eases over to the creature and the lighthouse
+    if (KZ.cine && krCam) { cam.scale = krCam.scale; const tx = KZ.at.x + 40, ty = KZ.at.y - 110; cam.x += (tx - cam.x) * Math.min(1, dt * 1.5); cam.y += (ty - cam.y) * Math.min(1, dt * 1.5); clampCam(); }
+    if (!KZ.cine && krCam && st.kraken.breachSeen === false) { /* waiting for the hook */ }
+    syncLighthouse(st);
+  }
+  let krStruck = false;
+  function syncLighthouse(st) {
+    if (!lighthouseObj) return;
+    const down = st.kraken && st.kraken.lighthouseDown && (st.kraken.breachSeen || krStruck);
+    const shack = (st.decor || []).some(d => d.type === 'keeperShack');
+    lighthouseObj.tex = (down ? 'lighthouseRuin' : 'lighthouse') + (shack ? 'Shack' : '');
+    if (down) lighthouseObj.info.future = 'All that is left of the lighthouse. Something came out of the harbor and tore it down.';
+  }
+  // the dark the kraken brings: light drains from the day toward a red-black night, and the lamps come on
+  function krakenSky(sk, m) {
+    if (m < 0.01) return sk;
+    const t = sk.tint.map((c, i) => Math.round(c + ([38, 26, 44][i] - c) * m * 0.88));
+    return { ...sk, tint: t, lights: Math.max(sk.lights, Math.min(1, m * 1.15)), dark: Math.max(sk.dark, m) };
+  }
+  function drawKraken(ctx) { // the creature itself, inside the depth-sorted world
+    if (!krP || !krP.show || KZ.dbg.skip.body) return;
+    const order = [0, 1, 2, 3, 4, 5, 6, 7].sort((a, b) => KZ.ARMS[a].dy - KZ.ARMS[b].dy);
+    for (const i of order) if (KZ.ARMS[i].dy < 0) KZ.drawArm(ctx, krP, i);
+    KZ.headDraw(ctx, krP);
+    for (const i of order) if (KZ.ARMS[i].dy >= 0) KZ.drawArm(ctx, krP, i);
+  }
   function render() {
     const W = canvas.width, H = canvas.height;
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -7074,7 +7746,8 @@ const World = (() => {
     ctx.fillStyle = voidColor;
     ctx.fillRect(0, 0, W, H);
     const s = cam.scale;
-    const tx = Math.round(W / 2 - cam.x * s), ty = Math.round(H / 2 - cam.y * s);
+    const shk = krShake > 0 ? Math.round((Math.random() - 0.5) * 6 * krShake) * s : 0;
+    const tx = Math.round(W / 2 - cam.x * s) + shk, ty = Math.round(H / 2 - cam.y * s) + (krShake > 0 ? Math.round((Math.random() - 0.5) * 4 * krShake) * s : 0);
     ctx.setTransform(s, 0, 0, s, tx, ty);
     const frame = ((Math.floor(time / 0.32) % 4) + 4) % 4;
     ctx.drawImage(waterCanvases[frame], -OX, -OY);
@@ -7095,6 +7768,7 @@ const World = (() => {
       ctx.globalAlpha = 1;
     }
 
+    if (krP) KZ.drawUnder(ctx, krP, krView);
     // what part of the world is on screen, to skip off-screen scenery
     const view = { x0: cam.x - W / 2 / s - 40, x1: cam.x + W / 2 / s + 40, y0: cam.y - H / 2 / s - 10, y1: cam.y + H / 2 / s + 60 };
     const drawScenery = list => { for (const o of list) if (o.x > view.x0 && o.x < view.x1 && o.y > view.y0 && o.y < view.y1) { const t = TEX[o.tex]; ctx.drawImage(t.canvas, o.x - t.ax, o.y - t.ay); } };
@@ -7102,6 +7776,7 @@ const World = (() => {
     objects.sort((a, b) => a.depth - b.depth);
     for (const o of objects) {
       if (o.hidden) continue;
+      if (o.draw) { o.draw(ctx); continue; }
       if (o.x < view.x0 - 80 || o.x > view.x1 + 80 || o.y < view.y0 - 20 || o.y > view.y1 + 80) continue;
       let t;
       if (o.kind === 'villager') {
@@ -7135,6 +7810,7 @@ const World = (() => {
       ctx.globalAlpha = 1;
     }
     drawScenery(outerFront);
+    if (krP) { KZ.drawParticles(ctx, krDt); KZ.drawRig(ctx, krP); }
     if (ghosts.length || poofs.length) drawGhosts();
     // smoke
     for (const p of smoke) {
@@ -7218,7 +7894,7 @@ const World = (() => {
   for (let i = 0; i < 7; i++) fogBlobs.push({ x: Math.random(), y: Math.random(), r: 0.35 + Math.random() * 0.3, v: 0.004 + Math.random() * 0.006 });
 
   function updateSky(dt) {
-    sky = Sky.current(Date.now());
+    sky = krakenSky(Sky.current(Date.now()), krMood);
     const w = sky.weather;
     snowCover += ((w.kind === 'snowy' ? 1 : 0) - snowCover) * Math.min(1, dt * 0.6);
     for (const c of clouds) { c.x += c.v * dt; if (c.x > N * HW + 120) c.x = -N * HW - 120; }
@@ -7248,7 +7924,13 @@ const World = (() => {
     if (w.storm) { nextFlash -= dt; if (nextFlash <= 0) { flash = 1; nextFlash = 5 + Math.random() * 9; if (typeof Sound !== 'undefined') Sound.thunder(true); } }
     if (typeof Sound !== 'undefined') Sound.update(sky, time);
     // fewer villagers out after dark or in heavy weather
-    villagers.forEach((v, i) => { v.hidden = v.look !== 'witch' && i >= 3 && (sky.dark > 0.6 || (w.kind !== 'sunny' && w.intensity > 0.6)); });
+    // (1.7) as the kraken draws near the town goes indoors, a few at a time, fading out at their doors; the witch stays
+    const kh = krView ? (krView.phase === 'rising' ? krView.hours : krView.phase === 'emerged' ? 10 : krView.phase === 'dead' ? (Date.now() - krView.deadAt > 3600000 ? -1 : 10) : -1) : -1;
+    const keep = kh < 2 ? 99 : kh >= 6 ? 0 : Math.round(villagers.length * (1 - (kh - 2) / 4));
+    villagers.forEach((v, i) => {
+      const off = v.look !== 'witch' && ((i >= 3 && (sky.dark > 0.6 || (w.kind !== 'sunny' && w.intensity > 0.6))) || i >= keep);
+      v.alpha = Math.max(0, Math.min(1, (v.alpha ?? 1) + (off ? -dt : dt) * 0.8)); v.hidden = v.alpha <= 0.01;
+    });
     // crops follow the field's real growth timer
     cropT -= dt;
     if (cropT <= 0 && getState()) {
@@ -7300,7 +7982,7 @@ const World = (() => {
         else if (eventOn && o.kind === 'building' && o.haunt === 2) halo(o.x - (o.fw - o.fd) * 4, o.y - 18, 34, 0.25 * sky.lights, ['255,140,60', '200,120,255', '150,255,110'][(Math.floor(time / 2 + Math.abs(o.x)) % 3 + 3) % 3]);
         else if (o.kind === 'ship' && o.alpha > 0.5) halo(o.x - 6, o.y - 8, 12, 0.3 * sky.lights, '255,190,110');
         else if (o.kind === 'building' && o.tex && o.tex.startsWith('bld_')) halo(o.x - (o.fw - o.fd) * 4, o.y - 10, 30, 0.12 * sky.lights, '255,190,120');
-        else if (o.lighthouse) {
+        else if (o.lighthouse && TEX[o.tex].lamp) {
           const t = TEX[o.tex], lx = o.x + t.lamp[0], ly = o.y + t.lamp[1];
           halo(lx, ly, 46, 0.55 * sky.lights, '255,236,170');
           // sweeping beam
@@ -7314,6 +7996,7 @@ const World = (() => {
           }
         }
       }
+      if (krP) { ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = 1; KZ.drawLights(ctx, krP); ctx.globalCompositeOperation = 'lighter'; }
       // something watches from the dark water once the legend has grown
       const lore = (getState() && getState().lore && getState().lore.kraken) || 0;
       if (lore >= 3 && sky.dark > 0.6) {
@@ -7459,6 +8142,9 @@ const World = (() => {
   }
   function tapAt(sx, sy) {
     const w = toWorld(sx, sy);
+    if (KZ.cine) return; // nothing interrupts the breach
+    if (krP && krView && krView.phase === 'emerged') { const e = KZ.eyeHit(w.x, w.y); if (e >= 0) return onTapCb({ kind: 'krakenEye', eye: e }); }
+    if (krP && krView && krView.phase === 'dead' && !placing && KZ.bodyHit(w.x, w.y)) return onTapCb({ kind: 'krakenBody' });
     if (placing) { const t = tileAt(w.x, w.y); movePlacing(t.gx - (placing.fw >> 1), t.gy - (placing.fd >> 1)); return; }
     // a friendly ghost pops when tapped (it is gone at once, so it can only pay once)
     const gi = ghostAt(w.x, w.y);
@@ -7491,6 +8177,8 @@ const World = (() => {
     buildMap(); buildExt(); buildTerrain();
     TEX = Art.buildAll();
     populate();
+    { const a = tileCenter(36, 28), isl = tileCenter(ISLET.gx, ISLET.gy); KZ.init({ x: a.x, y: a.y }, isl); KZ.setWaterMask(groundCanvas, OX, OY);
+      krObj = addObj({ kind: 'kraken', x: a.x, y: a.y, depth: a.y, draw: drawKraken }); }
     staticEmitters = emitters.slice();
     resize();
     // Frame the harbor: roughly 300 world px across, snapped to whole device pixels.
@@ -7523,7 +8211,7 @@ const World = (() => {
     cam.x = p.x; cam.y = p.y - 20; clampCam();
   }
 
-  return { syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, _bats: bats, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
+  return { kraken: { dbg: KZ.dbg, setHooks: h => { krHooks = { ...krHooks, ...h }; KZ.hooks = { start: () => krHooks.start(), end: () => krHooks.end() }; }, get pose() { return krP; }, get cine() { return KZ.cine; }, ready: () => KZ.ready(), at: () => KZ.at, ARMS: KZ.ARMS, forceBuild: () => { KZ.ensure(); KZ.step(1e9); }, focus: () => { const a = KZ.at; cam.x = a.x + 40; cam.y = a.y - 110; clampCam(); }, struck: v => { krStruck = v; } }, syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, _bats: bats, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
     startPlacing, movePlacing, stopPlacing, _villagers: () => villagers, _roads: () => roadTiles, isWalkable: (gx, gy) => walkable(gx, gy), setLowPower: v => { lowPower = !!v; }, _debug: { setTime: t => { time = t; }, exitPath: i => exitPath(i), islet: () => tileCenter(ISLET.gx, ISLET.gy) }, get placing() { return placing; }, isoTop, _ships: ships, _objects: () => objects, _bObjs: bObjs };
 })();
 
@@ -7574,6 +8262,22 @@ const App = (() => {
     brewSeen(id) { const r = TOF.brewSeen(state, id); save(); return r; },
     popGhost(id) { return done(TOF.popGhost(state, id, now()), 'candy'); },
     harvestPumpkins() { return done(TOF.harvestPumpkins(state, now()), 'harvest'); },
+    strikeEye(e) { return done(TOF.strikeEye(state, e, now()), 'kraken'); },
+    lootKraken() { return done(TOF.lootKraken(state, now()), 'kraken'); },
+    krakenSeen() { state.kraken.breachSeen = true; TOF.settleKraken(state, now()); commit('kraken'); },
+    // developer mode: jump the kraken to any point of its story
+    krakenDebug(cmd) {
+      const k = state.kraken, t = now(), H = TOF.HOUR_MS, fresh = start => { Object.assign(k, TOF.emptyKraken(), { start, cycle: start }); };
+      if (cmd === 'reset') Object.assign(k, TOF.emptyKraken());
+      else if (cmd === 'countdown') fresh(t + 2.5 * 24 * H);
+      else if (cmd.startsWith('h')) fresh(t - parseFloat(cmd.slice(1)) * H);
+      else if (cmd === 'breach') fresh(t - 10 * H - 500);
+      else if (cmd === 'emerged') { fresh(t - 10.5 * H); k.breachSeen = true; }
+      else if (cmd === 'strike') { if (TOF.krakenView(state, t).phase !== 'emerged') { fresh(t - 10.5 * H); k.breachSeen = true; } const e = k.hits.findIndex(h => !h); if (e >= 0) { k.hits[e] = t; if (k.hits.every(Boolean)) k.deadAt = t + TOF.KRAKEN.painMs; } }
+      else if (cmd === 'kill') { if (TOF.krakenView(state, t).phase !== 'emerged') { fresh(t - 10.5 * H); k.breachSeen = true; } k.hits = k.hits.map(h => h || t - 5000); k.deadAt = t; }
+      else if (cmd === 'corpse') { fresh(t - 12 * H); k.breachSeen = true; k.hits = k.hits.map(() => t - 60000); k.deadAt = t - 20000; }
+      TOF.settleKraken(state, t); commit('kraken');
+    },
     ghostTrade(id) { return done(TOF.ghostTrade(state, id, now()), 'trade'); },
     sellRefined(res, qty) { return done(TOF.sellRefined(state, res, qty), 'trade'); },
     setEvent(v) { state.settings.eventOverride = v; TOF.settleGhostShip(state, now()); commit('event'); },
@@ -8398,7 +9102,14 @@ const UI = (() => {
             <button class="btn dev" data-act="grant" data-grant="candy">Add 100 candy</button>
           </div>
           <p class="label">Halloween event (normally October 1 to November 12)</p>
-          <div class="chips">${['auto', 'on', 'off'].map(v => `<button class="chip" role="radio" aria-checked="${s.eventOverride === v}" data-act="evt" data-v="${v}">${v === 'auto' ? 'By date' : v === 'on' ? 'Force on' : 'Force off'}</button>`).join('')}</div>${tests}` : ''}
+          <div class="chips">${['auto', 'on', 'off'].map(v => `<button class="chip" role="radio" aria-checked="${s.eventOverride === v}" data-act="evt" data-v="${v}">${v === 'auto' ? 'By date' : v === 'on' ? 'Force on' : 'Force off'}</button>`).join('')}</div>
+          <p class="label">The Unseen (normally October 31: countdown from the 28th, rises 8 AM, breaches 6 PM)</p>
+          <p class="note">${(() => { const v = TOF.krakenView(state, Date.now()); return `Now: <b>${v.phase}</b>${v.phase === 'rising' ? `, hour ${v.hours.toFixed(1)} of 10` : ''}${v.phase === 'emerged' ? `, ${v.eyesLeft} eyes left` : ''}${state.kraken.start ? ' (developer time)' : ''}.`; })()}</p>
+          <div class="btn-grid">
+            ${[['countdown', 'Countdown'], ['h0', 'Hour 0: wisps'], ['h2', 'Hour 2'], ['h4', 'Hour 4'], ['h6', 'Hour 6: empty town'], ['h8.2', 'Hour 8: eyes'], ['h9.6', 'Hour 9.6'], ['breach', 'Play the breach'], ['emerged', 'Risen (skip breach)'], ['strike', 'Strike next eye'], ['kill', 'Kill it'], ['corpse', 'Floating corpse'], ['reset', 'Back to Oct 31']].map(([c, l]) => `<button class="btn dev" data-act="kdbg" data-c="${c}">${l}</button>`).join('')}
+            <button class="btn dev" data-act="kpause">${World.kraken.dbg.paused ? 'Resume kraken animation' : 'Pause kraken animation'}</button>
+            <button class="btn dev" data-act="krig">${World.kraken.dbg.rig ? 'Hide' : 'Show'} arm and eye labels</button>
+          </div>${tests}` : ''}
       </section>
       <section class="card">
         <h3>Harbor records</h3>
@@ -8458,6 +9169,9 @@ const UI = (() => {
       case 'brewshow': { const lb = st.halloween.lastBrew; if (lb) { closePanel(); showBrew(lb); $('#modal').hidden = false; } break; }
       case 'gocauldron': closePanel(); World.focusCauldron(); break;
       case 'goship': closePanel(); World.focusGhostShip(); break;
+      case 'kdbg': closePanel(); App.krakenDebug(b.dataset.c); World.kraken.struck(false); World.kraken.forceBuild(); World.kraken.focus(); break;
+      case 'kpause': { const d = World.kraken.dbg; if (d.paused) { d.lost += Date.now() - d.pausedAt; d.paused = false; } else { d.pausedAt = Date.now() - d.lost; d.paused = true; } refreshPanel(); break; }
+      case 'krig': World.kraken.dbg.rig = !World.kraken.dbg.rig; refreshPanel(); break;
       case 'pumpkins': { const r = App.harvestPumpkins(); say(r, r.ok ? `Harvested the pumpkins: +${r.food} preserved food.` : ''); if (r.ok) Sound.play('coins'); break; }
       case 'gtrade': { const r = App.ghostTrade(b.dataset.o); say(r, r.ok ? `The ghostly crew hands over ${Object.entries(r.offer.get).map(([k, v]) => `${v} ${resName(k)}`).join(', ')}.` : ''); if (r.ok) Sound.play('coins'); break; }
       case 'drepaint': { const r = App.repaintDecor(b.dataset.d); if (!r.ok) toast(r.reason, 'bad'); else Sound.play('tap'); break; }
@@ -8596,6 +9310,16 @@ const UI = (() => {
     }
     const info = o.info || {};
     if (info.bId) { openPanel('village', { building: info.bId }); return; }
+    if (o.kind === 'krakenEye') {
+      const r = App.strikeEye(o.eye);
+      if (r.ok) { Sound.play('kraken'); toast(r.dead ? 'The last eye bursts. The Unseen convulses…' : `A harpoon finds its eye! ${r.left} left.`, 'good'); } else toast(r.reason);
+      return;
+    }
+    if (o.kind === 'krakenBody') {
+      const r = App.lootKraken();
+      if (r.ok) { Sound.play('coins'); toast(`Crews strip the carcass: ${Object.entries(r.items).map(([k, v]) => `${v} ${resName(k)}`).join(', ')}.`, 'good'); } else toast(r.reason);
+      return;
+    }
     if (o.kind === 'ghost') {
       const r = App.popGhost(o.ghostId);
       Sound.play(r.ok && r.candy ? 'coins' : 'splash');
@@ -8622,6 +9346,12 @@ const UI = (() => {
   }
 
   function init() {
+    // the breach takes the screen: menus close, letterbox bars slide in, nothing can be tapped until it ends
+    World.kraken.setHooks({
+      start: () => { closePanel(); $('#modal').hidden = true; document.body.classList.add('cinematic'); },
+      end: () => { document.body.classList.remove('cinematic'); App.krakenSeen(); toast('The Unseen has risen. Strike its eyes!', 'bad'); },
+      strike: () => {},
+    });
     for (const n of ['coin', 'fish', 'shellfish', 'rareFish', 'pearls', 'relics', 'charts', 'boat', 'hammer', 'gear', 'market', 'chest', 'cannon', 'compass', 'wrench', 'timber', 'planks', 'hemp', 'rope', 'ironOre', 'iron', 'food', 'house', 'crate', 'sun', 'moon', 'rain', 'snow', 'fog', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', 'charm', 'map', 'candy', ...Object.keys(TOF.TROPHIES)]) ICON[n] = Art.iconURL(n);
     for (const [k, c] of Object.entries(TOF.CHESTS)) ICON[k] = Art.chestURL(c.family, c.size, false);
     $('#modalBody').addEventListener('click', e => {
