@@ -7506,19 +7506,33 @@ const World = (() => {
       for (let k = 0; k < 2; k++) { const u = (te * 0.12 + k / 2) % 1; ringAt(ctx, at.x, at.y, W * 0.6 + u * 60, (1 - u) * 0.25); }
     }
     // Pass 2, in the depth-sorted world: one arm (or the head) above the surface, foam collar and all.
+    // the leftmost and rightmost solid pixel of a frame's row (or the nearest solid row above it), measured once per frame
+    const spans = new WeakMap();
+    function spanAt(fr, row) {
+      let S = spans.get(fr);
+      if (!S) {
+        const d = fr.canvas.getContext('2d').getImageData(0, 0, fr.w, fr.h).data; S = new Int16Array(fr.h * 2).fill(-1);
+        for (let y = 0; y < fr.h; y++) for (let x = 0; x < fr.w; x++) if (d[(y * fr.w + x) * 4 + 3] > 128) { if (S[y * 2] < 0) S[y * 2] = x; S[y * 2 + 1] = x; }
+        spans.set(fr, S);
+      }
+      for (let y = Math.min(fr.h - 1, row); y >= Math.max(0, row - 8); y--) if (S[y * 2] >= 0) return [S[y * 2], S[y * 2 + 1]];
+      return null;
+    }
     function drawArm(ctx, P, i) {
       const st = P._arm && P._arm[i]; if (!st || !K) return;
       const fr = st.fr, top = st.y + st.slide; if (st.slide >= fr.ay + 4 && !st.mix) return; // still wholly under
       const ends = (st.mix > 0.5 ? st.alt : fr).ends, fi = Math.floor(P.te * 3 + i) % 2;
       const vis = 1 - st.slide / fr.ay; if (vis < 0.06 && !st.mix) return;
-      const foams = ends.map(([ex, ey, er], k) => [st.x + ex - fr.ax, st.y - 5, k === 0 ? Math.max(4, er * Math.min(1, 0.35 + vis)) : er]);
+      const cut = st.mix ? null : spanAt(fr, Math.round(fr.ay - st.slide) - 1); // the arm's actual width where it meets the water
+      const cx0 = cut ? st.x - fr.ax + (cut[0] + cut[1] + 1) / 2 : st.x;
+      const foams = ends.map(([ex, ey, er], k) => k === 0 && cut ? [cx0, st.y - 5, Math.max(4, (cut[1] - cut[0] + 2) * 0.62)] : [st.x + ex - fr.ax, st.y - 5, k === 0 ? Math.max(4, er * Math.min(1, 0.35 + vis)) : er]);
       const foamOf = r => K.foamFor(r, fi, Math.round(r * 0.6), true); // white water filling the ring, curling up round the arm's sides
       if (!st.mix) for (const [x, y, r] of foams) { const f = foamOf(r).back; ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
       const above = (f, y0, extra) => { const h = Math.min(f.h, Math.round(st.y + extra - y0)); if (h > 0) ctx.drawImage(f.canvas, 0, 0, f.w, h, Math.round(st.x - f.ax), Math.round(y0), f.w, h); };
       if (st.mix < 1) { ctx.globalAlpha = 1 - st.mix; above(fr, top - fr.ay, 1); }
       if (st.mix > 0) { const L_ = st.alt; ctx.globalAlpha = st.mix; above(L_, st.y - L_.ay + 3, 40); }
       ctx.globalAlpha = 1;
-      const B = ARMS[i].base; if (B && st.mix < 1) { ctx.globalAlpha = 1 - st.mix; ctx.drawImage(B.canvas, Math.round(st.x - B.ax), Math.round(st.y + 1)); ctx.globalAlpha = 1; } // the stump, always under the surface
+      const B = ARMS[i].base; if (B && st.mix < 1) { ctx.globalAlpha = 1 - st.mix; ctx.drawImage(B.canvas, Math.round(cx0 - B.ax), Math.round(st.y + 1)); ctx.globalAlpha = 1; } // the stump, always under the surface
       if (!st.mix) for (const [x, y, r] of foams) { const F = foamOf(r); for (const f of [F.sunk, F.front]) ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
     }
     function headDraw(ctx, P) {
