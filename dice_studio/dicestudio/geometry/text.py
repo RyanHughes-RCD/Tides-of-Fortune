@@ -381,6 +381,9 @@ def text_shape(font, text, height_mm, embolden_mm=0.0, tracking=0.06, segments=8
         else:
             mark = shapely.Point(0, y - th / 2).buffer(th * 0.75, quad_segs=6)
         geom = geom.union(mark)
+        # centre the numeral and its mark together, so the pair fits narrow faces
+        b = geom.bounds
+        geom = affinity.translate(geom, 0, -(b[1] + b[3]) / 2.0)
     geom = as_multipolygon(shapely.make_valid(geom))
     return TextShape(geom, w, height_mm, warnings)
 

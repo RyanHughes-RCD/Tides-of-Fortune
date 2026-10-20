@@ -25,7 +25,7 @@ from .assets import AssetError, AssetStore, default_workspace
 from .engine import Engine, ExportError
 from .geometry import design as deco
 from .geometry import logo as logomod
-from .geometry.polyhedra import DEFAULT_SIZES_MM, DIE_TYPES, SIZE_MEANING
+from .geometry.polyhedra import DIE_TYPES, FAMILIES, default_size_mm, size_meaning
 from .geometry.text import (BuiltinFont, DIGITS, FontError, check_font_digits, geometry_to_svg_path, load_font,
                             text_shape)
 
@@ -53,8 +53,10 @@ class App:
     def api_config(self, body):
         return {
             "dice": DIE_TYPES,
-            "default_sizes": DEFAULT_SIZES_MM,
-            "size_meaning": SIZE_MEANING,
+            "default_sizes": {d: {f: default_size_mm(d, f) for f in FAMILIES[d]} for d in DIE_TYPES},
+            "size_meaning": {d: {f: size_meaning(d, f) for f in FAMILIES[d]} for d in DIE_TYPES},
+            "families": {d: {f: {"kind": v["kind"], "label": v["label"]} for f, v in FAMILIES[d].items()}
+                         for d in DIE_TYPES},
             "styles": deco.STYLES,
             "design_schema": deco.DESIGN_SCHEMA,
             "die_keys": deco.DIE_KEYS,

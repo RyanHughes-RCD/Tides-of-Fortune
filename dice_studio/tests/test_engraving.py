@@ -78,7 +78,7 @@ def test_safe_region_keeps_minimum_wall(built_set):
     from dicestudio.geometry.numbering import build_frames
     from dicestudio.geometry.polyhedra import ShapeParams, die_polyhedron
 
-    poly, base, _ = die_polyhedron("d4", ShapeParams(20.0, "disphenoid", 1.3))
+    poly, base, _ = die_polyhedron("d4", ShapeParams(20.0, "disphenoid", {"stretch": 1.3}))
     frames = build_frames("d4", poly, base)
     fr = frames[0]
     sr = safe_region(fr, poly, 0.75, 0.45, 0.6)
@@ -103,7 +103,8 @@ def test_meshes_are_watertight_and_valid(built_set):
 def test_numeral_layout_fits_and_is_readable(built_set):
     _, results = built_set
     for die, r in results.items():
-        assert r.info["numeral_height_mm"] >= 2.5, die
+        # numerals are at least 2.5 mm tall, or the user is warned (e.g. 20 narrow roller sides)
+        assert r.info["numeral_height_mm"] >= 2.5 or any("hard to read" in w for w in r.warnings), die
         for tag, lay in r.layout.items():
             parts = polygons_of(lay["numerals"])
             assert parts
@@ -113,4 +114,9 @@ def test_numeral_layout_fits_and_is_readable(built_set):
             from shapely.ops import polylabel
             c = lay["numerals"].envelope.centroid
             pl = polylabel(lay["polygon"], tolerance=0.01)
-            assert abs(c.x - pl.x) < 0.8 and abs(c.y - pl.y) < 1.5, (die, tag)
+            if r.info["shape_kind"] == "roller":
+                # along the axis the position is searched for the largest fit; across
+                # the side the numeral is centred
+                assert abs(c.y - pl.y) < 0.5, (die, tag)
+            else:
+                assert abs(c.x - pl.x) < 0.8 and abs(c.y - pl.y) < 1.5, (die, tag)

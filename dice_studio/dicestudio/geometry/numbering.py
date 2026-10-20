@@ -26,10 +26,10 @@ import numpy as np
 import shapely
 from shapely.geometry import Polygon
 
-from .polyhedra import ConvexPolyhedron, GeometryError, opposite_face_map, unit
+from .polyhedra import ConvexPolyhedron, GeometryError, opposite_face_map, reading_map, unit
 
 DEFAULT_D10_TOP = [1, 7, 3, 9, 5]
-D4_STYLES = ("apex", "base")
+D4_STYLES = ("auto", "apex", "base")  # auto: apex on tetrahedra, base on the wedge
 D10_STYLES = ("0-9", "1-10")
 D100_STYLES = ("00-90", "10-100")
 MARKER_STYLES = ("underline", "dot", "none")
@@ -73,7 +73,7 @@ class NumeralPlacement:
     center: tuple  # in frame coordinates (mm)
     rotation: float  # radians, counter-clockwise from the frame's +v
     marker: bool = False
-    role: str = "primary"  # 'primary' or 'corner' (D4)
+    role: str = "primary"  # 'primary', or on the D4 'corner' (read at the top) / 'edge' (read at the bottom)
 
 
 def _frame_basis(n, up_dir):
@@ -113,6 +113,7 @@ def build_frames(die, poly: ConvexPolyhedron, base: ConvexPolyhedron, align=None
     align = align or DEFAULT_ALIGN.get(die, "vertex")
     if align not in ALIGN_MODES:
         raise GeometryError(f"alignment must be one of {ALIGN_MODES}")
+    roller = getattr(poly, "kind", "isohedral") == "roller"
     frames = {}
     for f in poly.die_faces():
         bf = base.face_by_tag(f.tag)
@@ -120,7 +121,11 @@ def build_frames(die, poly: ConvexPolyhedron, base: ConvexPolyhedron, align=None
         fpts = poly.vertices[f.vertex_ids]
         origin = _poly_centroid3d(fpts)
         bc = _poly_centroid3d(bpts)
-        if pole:
+        if roller:
+            # rollers lie along their axis (z): numerals run along the side, upright
+            # when the die lies horizontally
+            up = np.cross(f.normal, np.array([0.0, 0.0, 1.0]))
+        elif pole:
             apex = bpts[np.argmax(np.abs(bpts[:, 2]))]
             up = apex - bc
         elif die == "d4":
@@ -223,6 +228,8 @@ def _balanced_assignment(base, n):
 
 def assign_values(die, base, opts):
     """Return {face tag: value}.  D4 'apex' returns vertex values separately."""
+    if getattr(base, "kind", "isohedral") == "roller":
+        return _roller_assignment(die, base, opts)
     if die == "d6":
         return _d6_assignment(base)
     if die in ("d8", "d12", "d20"):
@@ -240,6 +247,31 @@ def assign_values(die, base, opts):
     if die == "d4":
         return {f.tag: f.tag + 1 for f in base.die_faces()}
     raise GeometryError(die)
+
+
+def _roller_assignment(die, base, opts):
+    """Rollers: numbers run around the ring; resting side + side read on top sum to N+1.
+
+    Number faces are tagged 0..N-1 in counter-clockwise ring order, and the
+    side read on top while resting on side k is side k + N/2.
+    """
+    rm = reading_map(base)
+    n = len(rm)
+    half = n // 2
+    if any(rm[k] != (k + half) % n for k in range(n)):
+        raise GeometryError("roller sides are not paired with the side read on top")
+    vals = {}
+    if die in ("d10", "d100"):
+        top = list(opts.get("d10_top_order") or DEFAULT_D10_TOP)
+        validate_d10_top(top)
+        for k in range(half):
+            vals[k] = top[k]
+            vals[k + half] = 9 - top[k]
+        return vals
+    for k in range(half):
+        vals[k] = k + 1
+        vals[k + half] = n - k
+    return vals
 
 
 def _d6_assignment(base):
@@ -285,10 +317,12 @@ def numeral_placements(die, frames, base, opts):
     vals = assign_values(die, base, opts)
     marker_style = opts.get("six_nine_marker", "underline")
     out = []
-    if die == "d4":
-        style = opts.get("d4_style", "apex")
+    if die == "d4" and getattr(base, "kind", "isohedral") != "roller":
+        style = opts.get("d4_style", "auto")
         if style not in D4_STYLES:
             raise GeometryError(f"D4 style must be one of {D4_STYLES}")
+        if style == "auto":
+            style = "base" if getattr(base, "family", "") == "wedge" else "apex"
         # vertex values: base vertex id -> 1..4 (vertex opposite face t gets t+1)
         bverts = base.vertices
         vval = {}
@@ -310,7 +344,7 @@ def numeral_placements(die, frames, base, opts):
                     g = next(t for t in range(4) if t != tag and {a, b} <= set(base.face_by_tag(t).vertex_ids))
                     mid = fr.to2d((bverts[a] + bverts[b]) / 2)[0]
                     ang = math.atan2(mid[0], -mid[1])  # numeral's "down" points at the edge
-                    out.append(NumeralPlacement(tag, str(vals[g]), vals[g], (0.0, 0.0), ang, False, "corner"))
+                    out.append(NumeralPlacement(tag, str(vals[g]), vals[g], (0.0, 0.0), ang, False, "edge"))
         return out
     labels = {t: label_for(die, vals[t], opts) for t in frames}
     label_set = set(labels.values())

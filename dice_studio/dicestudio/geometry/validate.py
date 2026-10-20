@@ -117,7 +117,79 @@ def _seg_tri_hits(P0, P1, A, B, C, eps=1e-9, tol=SI_TOL_MM):
     return ok & through & (u > eps) & (v > eps) & (u + v < 1 - eps) & (t > eps) & (t < 1 - eps)
 
 
-def count_self_intersections(V, T, max_pairs=20_000_000):
+def _cell_entries(lo, hi, ids, cs, origin):
+    """(tri id, cell key) for every cell (at size cs) touched by each box (boxes <= 1 cell wide)."""
+    cl = np.floor((lo - origin) / cs).astype(np.int64)
+    ch = np.floor((hi - origin) / cs).astype(np.int64)
+    out_ids, out_keys = [], []
+    for dx in (0, 1):
+        for dy in (0, 1):
+            for dz in (0, 1):
+                d = np.array([dx, dy, dz])
+                m = np.all(cl + d <= ch, axis=1)
+                c = cl[m] + d
+                out_ids.append(ids[m])
+                out_keys.append((c[:, 0] * 73856093) ^ (c[:, 1] * 19349663) ^ (c[:, 2] * 83492791))
+    return np.concatenate(out_ids), np.concatenate(out_keys)
+
+
+def _candidate_pairs(lo, hi, origin, max_pairs):
+    """Broad phase: pairs of triangles whose cells overlap, via a hierarchical grid.
+
+    Each triangle is registered at the level whose cell size is at least its
+    bounding-box size (so it touches at most 8 cells there); every triangle is
+    then looked up in its own and all coarser levels.  This stays fast when long
+    thin triangles (e.g. cone fans) coexist with tiny ones (glyph outlines).
+    """
+    nt = len(lo)
+    ext = np.maximum((hi - lo).max(axis=1), 1e-9)
+    base = max(float(np.median(ext)), 1e-6)
+    level = np.maximum(0, np.ceil(np.log2(ext / base))).astype(np.int64)
+    ids_all = np.arange(nt)
+    pa, pb = [], []
+    total = 0
+    for j in np.unique(level):
+        cs = base * (2.0 ** j) * 1.0001
+        reg = level == j
+        r_ids, r_keys = _cell_entries(lo[reg], hi[reg], ids_all[reg], cs, origin)
+        order = np.argsort(r_keys, kind="stable")
+        r_ids, r_keys = r_ids[order], r_keys[order]
+        q = level <= j
+        q_ids, q_keys = _cell_entries(lo[q], hi[q], ids_all[q], cs, origin)
+        start = np.searchsorted(r_keys, q_keys, "left")
+        end = np.searchsorted(r_keys, q_keys, "right")
+        cnt = end - start
+        tot = int(cnt.sum())
+        total += tot
+        if total > max_pairs:
+            return None
+        if tot == 0:
+            continue
+        # expand in chunks and keep only pairs whose boxes really overlap
+        csum = np.cumsum(cnt)
+        chunk = 4_000_000
+        i0 = 0
+        while i0 < len(cnt):
+            i1 = int(np.searchsorted(csum, (csum[i0 - 1] if i0 else 0) + chunk, "right"))
+            i1 = max(i1, i0 + 1)
+            c = cnt[i0:i1]
+            m = int(c.sum())
+            if m:
+                rep_q = np.repeat(q_ids[i0:i1], c)
+                offs = np.arange(m) - np.repeat(np.cumsum(c) - c, c)
+                rep_r = r_ids[np.repeat(start[i0:i1], c) + offs]
+                keep = (rep_q < rep_r) | ((rep_q > rep_r) & (level[rep_q] != level[rep_r]))
+                rep_q, rep_r = rep_q[keep], rep_r[keep]
+                ov = np.all((lo[rep_q] <= hi[rep_r]) & (lo[rep_r] <= hi[rep_q]), axis=1)
+                pa.append(rep_q[ov])
+                pb.append(rep_r[ov])
+            i0 = i1
+    if not pa:
+        return np.zeros(0, np.int64), np.zeros(0, np.int64)
+    return np.concatenate(pa), np.concatenate(pb)
+
+
+def count_self_intersections(V, T, max_pairs=200_000_000):
     """Count intersecting pairs of triangles that do not share an edge."""
     nt = len(T)
     if nt == 0:
@@ -125,46 +197,12 @@ def count_self_intersections(V, T, max_pairs=20_000_000):
     P = V[T]  # (n,3,3)
     lo = P.min(axis=1)
     hi = P.max(axis=1)
-    ext = (hi - lo).max(axis=1)
-    span = V.max(axis=0) - V.min(axis=0)
-    cell = max(float(np.median(ext)) * 2.0, float(span.max()) / 96.0, 1e-6)
-    origin = V.min(axis=0)
-    cl = np.floor((lo - origin) / cell).astype(np.int64)
-    ch = np.floor((hi - origin) / cell).astype(np.int64)
-    counts = np.prod(ch - cl + 1, axis=1)
-    # enumerate (cell, tri) memberships
-    tri_ids = np.repeat(np.arange(nt), counts)
-    offs = np.arange(counts.sum()) - np.repeat(np.cumsum(counts) - counts, counts)
-    dims = (ch - cl + 1)[tri_ids]
-    ix = offs % dims[:, 0]
-    iy = (offs // dims[:, 0]) % dims[:, 1]
-    iz = offs // (dims[:, 0] * dims[:, 1])
-    cx = cl[tri_ids, 0] + ix
-    cy = cl[tri_ids, 1] + iy
-    cz = cl[tri_ids, 2] + iz
-    key = (cx * 73856093) ^ (cy * 19349663) ^ (cz * 83492791)
-    order = np.lexsort((tri_ids, key))
-    key, tri_ids = key[order], tri_ids[order]
-    bounds = np.flatnonzero(np.diff(key)) + 1
-    starts = np.concatenate([[0], bounds])
-    ends = np.concatenate([bounds, [len(key)]])
-    pa, pb = [], []
-    total = 0
-    for s, e in zip(starts, ends):
-        k = e - s
-        if k < 2:
-            continue
-        ids = tri_ids[s:e]
-        i, j = np.triu_indices(k, 1)
-        pa.append(ids[i])
-        pb.append(ids[j])
-        total += len(i)
-        if total > max_pairs:
-            return -1, total
-    if not pa:
+    pairs = _candidate_pairs(lo, hi, V.min(axis=0), max_pairs)
+    if pairs is None:
+        return -1, max_pairs
+    a, b = pairs
+    if len(a) == 0:
         return 0, 0
-    a = np.concatenate(pa)
-    b = np.concatenate(pb)
     k = np.unique(np.minimum(a, b).astype(np.int64) * nt + np.maximum(a, b))  # 1-D keys sort fast
     a, b = k // nt, k % nt
     # AABB overlap
@@ -176,6 +214,19 @@ def count_self_intersections(V, T, max_pairs=20_000_000):
     keep = shared < 2  # sharing an edge -> adjacent, skip
     a, b = a[keep], b[keep]
     tested = len(a)
+    # separating-plane rejection: if one triangle lies entirely on one side of the
+    # other's plane (beyond the tolerance), they cannot cross
+    e1 = P[:, 1] - P[:, 0]
+    e2 = P[:, 2] - P[:, 0]
+    Nn = np.cross(e1, e2)
+    ln = np.linalg.norm(Nn, axis=1)
+    Nn = np.divide(Nn, ln[:, None], out=np.zeros_like(Nn), where=ln[:, None] > 0)
+    dd = np.einsum("ij,ij->i", Nn, P[:, 0])
+    sep = np.zeros(len(a), bool)
+    for x, y in ((a, b), (b, a)):
+        dist = np.einsum("ij,ikj->ik", Nn[x], P[y]) - dd[x][:, None]
+        sep |= np.all(dist > SI_TOL_MM, axis=1) | np.all(dist < -SI_TOL_MM, axis=1)
+    a, b = a[~sep], b[~sep]
     hit = np.zeros(len(a), bool)
     for x, y in ((a, b), (b, a)):
         A, B, C = V[T[y, 0]], V[T[y, 1]], V[T[y, 2]]

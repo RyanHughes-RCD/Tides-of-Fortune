@@ -23,8 +23,8 @@ from . import design as dsg
 from . import logo as logomod
 from .mesh3d import BooleanError, apply_features, manifold_arrays, polyhedron_to_manifold, prism
 from .numbering import NumeralPlacement, build_frames, numeral_placements
-from .polyhedra import (FACE_COUNTS, POLE_FAMILIES, REGULAR_FAMILIES, GeometryError, ShapeParams, die_polyhedron,
-                        offset_polyhedron)
+from .polyhedra import (CURVED_FAMILIES, FACE_COUNTS, POLE_FAMILIES, REGULAR_FAMILIES, GeometryError, ShapeParams,
+                        check_landing, die_polyhedron, offset_polyhedron, rest_analysis, size_meaning)
 from .text import BuiltinFont, FontError, as_multipolygon, load_font, polygons_of, robust_op, text_shape
 from .validate import validate_mesh
 
@@ -71,36 +71,87 @@ def _halfplane(a, b, c):
     return Polygon(pts)
 
 
-def section_polygon(frame, poly, depth, wall=0.0):
-    """Cross-section of the convex body on the plane ``depth`` mm below the face (frame coords).
+def _shared_edge(poly, tag_a, face_b):
+    fa = poly.face_by_tag(tag_a)
+    common = set(fa.vertex_ids) & set(face_b.vertex_ids)
+    if len(common) != 2:
+        return None
+    i, j = sorted(common)
+    return poly.vertices[i], poly.vertices[j]
 
-    With ``wall`` > 0 every *other* plane is first moved inward by ``wall`` mm
-    along its own normal, so each point of the result is at least ``wall`` mm
-    (true 3D distance) away from every other face of the die.
+
+def section_polygon(frame, poly, depth, wall=0.0, neighbour_depth=None, edge_margin=0.0, plane_wall=None):
+    """Region of the plane ``depth`` mm below the face where a cut may be (frame coords).
+
+    Every point of the result is inside the die and at least ``wall`` mm (true 3D
+    distance) from every other face.  If ``neighbour_depth`` is given, it also keeps
+    ``wall`` mm of material to the engravings of neighbouring numbered faces: a point
+    is accepted if it lies at least ``wall`` below that face's engraving slab, or
+    (for a face sharing an edge) laterally outside its engravable area, which starts
+    ``edge_margin`` in from the shared edge.
     """
+    if plane_wall is None:
+        plane_wall = wall
     region = shapely.box(-_BIG, -_BIG, _BIG, _BIG)
     o = frame.origin - depth * frame.n
-    for pl in poly.planes:
+    face_of_plane = {f.plane_index: f for f in poly.faces}
+    for pi, pl in enumerate(poly.planes):
         own = float(pl.normal @ frame.n) > 1 - 1e-9 and abs(pl.offset - frame.offset) < 1e-9
+        if own:
+            continue  # the face's own plane bounds the depth, not the outline
         a = float(pl.normal @ frame.u)
         b = float(pl.normal @ frame.v)
-        c = float(pl.offset - (0.0 if own else wall) - pl.normal @ o)
-        hp = _halfplane(a, b, c)
-        if hp is None:
+        allowed = _halfplane(a, b, float(pl.offset - plane_wall - pl.normal @ o))
+        if neighbour_depth is not None and pl.kind == "face":
+            slab = _halfplane(a, b, float(pl.offset - neighbour_depth - wall - pl.normal @ o))
+            fb = face_of_plane.get(pi)
+            edge = _shared_edge(poly, frame.tag, fb) if fb is not None else None
+            if edge is not None:
+                e0, e1 = edge
+                m = np.cross(pl.normal, e1 - e0)
+                m /= np.linalg.norm(m)
+                if m @ (poly.vertices[fb.vertex_ids].mean(axis=0) - e0) < 0:
+                    m = -m  # in-plane direction pointing into the neighbour face
+                lateral = _halfplane(float(m @ frame.u), float(m @ frame.v),
+                                     float(m @ e0 + edge_margin - wall - m @ o))
+                pieces = [g for g in (slab, lateral) if g is not None]
+                neighbour_ok = shapely.union_all(pieces) if pieces else None
+            else:
+                neighbour_ok = slab
+            if neighbour_ok is not None:
+                allowed = neighbour_ok if allowed is None else robust_op("intersection", allowed, neighbour_ok)
+        if allowed is None:
             continue
-        region = robust_op("intersection", region, hp)
+        region = robust_op("intersection", region, allowed)
         if region.is_empty:
             break
     return region
 
 
-def safe_region(frame, poly, depth, edge_margin, min_wall):
-    """Area of the face where a cut ``depth`` deep keeps ``min_wall`` mm of material to every other face."""
+def safe_region(frame, poly, depth, edge_margin, min_wall, neighbour_depth=None):
+    """Area of the face where a cut ``depth`` deep is safe to make.
+
+    Every point of the cut keeps at least ``min_wall`` mm of material to every
+    other face and to the engravings of neighbouring numbered faces (which reach
+    ``neighbour_depth`` below their surface).  Five depth slices are checked
+    (the per-neighbour condition is a union of two half-spaces, so the surface
+    and floor alone would not be enough); the final mesh is also checked for
+    tunnels (genus) and validated.
+    """
     top = frame.polygon.buffer(-edge_margin, join_style="mitre", mitre_limit=5.0)
     if depth <= 0:
         return top
-    bottom = section_polygon(frame, poly, depth, wall=min_wall)
-    return robust_op("intersection", top, bottom)
+    nd = depth if neighbour_depth is None else neighbour_depth
+    region = top
+    for t in np.linspace(0.0, depth, 5):
+        # the plain wall to other faces matters at the floor (the cut's rim at the surface is
+        # a solid corner, not a wall); clearance to neighbouring engravings at every depth
+        pw = min_wall if t == depth else 0.0
+        region = robust_op("intersection", region,
+                           section_polygon(frame, poly, float(t), min_wall, nd, edge_margin, plane_wall=pw))
+        if region.is_empty:
+            break
+    return region
 
 
 # ---------------------------------------------------------------------------
@@ -166,27 +217,45 @@ def _place(geom, center, rotation):
     return affinity.translate(g, center[0], center[1])
 
 
-def _numeral_centers(die, frames, placements, opts):
-    """Decide where each numeral sits on its face (frame coordinates)."""
+def _boundary_distance(poly, direction):
+    """Distance from the frame origin to the polygon outline along ``direction``."""
+    from shapely.geometry import LineString
+
+    hit = LineString([(0, 0), tuple(np.asarray(direction) * 1e3)]).intersection(poly.exterior)
+    pts = [g for g in getattr(hit, "geoms", [hit]) if hasattr(g, "x")]
+    return min(math.hypot(q.x, q.y) for q in pts) if pts else 0.0
+
+
+def _numeral_centers(die, frames, placements, opts, regions=None):
+    """Decide where each numeral sits on its face (frame coordinates).
+
+    D4 corner/edge numerals are placed relative to the face's *safe* region (where
+    cuts may go), so on sharp-edged shapes they move inwards automatically.
+    """
     off = opts.get("offset_mm") or [0.0, 0.0]
     for p in placements:
         fr = frames[p.face_tag]
+        area = regions.get(p.face_tag) if regions else None
+        if area is None or area.is_empty or not area.contains(shapely.Point(0, 0)):
+            area = fr.polygon
+        area = max(polygons_of(area), key=lambda g: g.area) if area.geom_type != "Polygon" else area
+        dirn = np.array([-math.sin(p.rotation), math.cos(p.rotation)])
         if p.role == "corner":
-            # D4: numerals between the centre and their corner / edge
-            dirn = np.array([-math.sin(p.rotation), math.cos(p.rotation)])
-            if opts.get("d4_style", "apex") == "apex":
-                reach = max(np.linalg.norm(v) for v in fr.base_vertices2d)
-                c = dirn * reach * float(opts.get("d4_radius", 0.42))
-            else:
-                reach = min(np.linalg.norm((fr.base_vertices2d[k] + fr.base_vertices2d[(k + 1) % 3]) / 2) for k in range(3))
-                c = -dirn * reach * float(opts.get("d4_radius", 0.42)) * 1.25
+            # D4 read at the top: numeral between the centre and its corner
+            c = dirn * _boundary_distance(area, dirn) * float(opts.get("d4_radius", 0.55))
+            p.center = (float(c[0]), float(c[1]))
+        elif p.role == "edge":
+            # D4 read at the bottom: numeral between the centre and its edge
+            c = -dirn * _boundary_distance(area, -dirn) * float(opts.get("d4_edge_radius", 0.55))
             p.center = (float(c[0]), float(c[1]))
         else:
-            if opts.get("_regular", False):
-                c = (0.0, 0.0)  # regular polygon: centroid == incentre
+            if opts.get("_regular", False) or opts.get("_roller", False):
+                # regular polygon: centroid == incentre.  Roller sides: start at the centroid;
+                # the best position along the axis is searched afterwards.
+                c = (0.0, 0.0)
             else:
-                # irregular congruent faces (kites, isosceles triangles, rhombi, pyritohedral
-                # pentagons): centre the numeral on the largest inscribed circle
+                # irregular faces (kites, isosceles triangles, rhombi, pyritohedral pentagons,
+                # long roller sides): centre on the largest inscribed circle
                 pl = polylabel(fr.polygon, tolerance=0.01)
                 c = (pl.x, pl.y)
             p.center = (c[0] + float(off[0]), c[1] + float(off[1]))
@@ -222,11 +291,13 @@ def _layout_ok(placements_by_face, regions, height, font, fallback, opts, cache,
     return True
 
 
-def fit_numerals(die, frames, placements, regions, font, fallback, opts, cache):
+def fit_numerals(die, frames, placements, regions, font, fallback, opts, cache, probe_only=None):
     """Largest numeral height that fits every face's safe region (binary search)."""
     by_face = {}
     for p in placements:
         by_face.setdefault(p.face_tag, []).append(p)
+    if probe_only is not None:
+        by_face = {t: by_face[t] for t in probe_only}
     # Test only the faces carrying the widest labels while searching (faces are congruent),
     # then verify every face at the final size.
     widths = {}
@@ -295,13 +366,21 @@ def _build(spec, res, asset_loader):
     nopts["curve_segments"] = 5 if safe_mode else int(quality.get("curve_segments", 8))
 
     family, param = dsg.shape_of(design, die)
-    shape = ShapeParams(size_mm=float(spec["size_mm"]) * float(design["size_scale"]), family=family, param=param)
+    size = float(spec["size_mm"]) * float(design["size_scale"])
+    if family in CURVED_FAMILIES:
+        from .curved import build_curved
+        return build_curved(spec, res, asset_loader, family, param, size, nopts, safe_mode)
+    shape = ShapeParams(size_mm=size, family=family, params=param)
     poly, base, w = die_polyhedron(die, shape)
     res.warnings += w
+    landing = check_landing(poly)
+    if landing:
+        raise BuildError(f"{family.replace('_', ' ')}: " + "; ".join(landing), "shape")
+    roller = poly.kind == "roller"
     nopts["_regular"] = family in REGULAR_FAMILIES
+    nopts["_roller"] = roller
     frames = build_frames(die, poly, base, num.get("align"), pole=family in POLE_FAMILIES)
     placements = numeral_placements(die, frames, base, nopts)
-    placements = _numeral_centers(die, frames, placements, nopts)
 
     depth = float(num.get("depth_mm", 0.75))
     engrave = bool(num.get("engrave", True))
@@ -333,8 +412,28 @@ def _build(spec, res, asset_loader):
             placements = [p for p in placements if p.face_tag != logo_tag]
 
     # numeral regions & size
-    regions = {tag: safe_region(fr, poly, depth, edge_margin, min_wall) for tag, fr in frames.items()}
+    # neighbouring faces may carry numerals (or, on the D20, a possibly deeper logo)
+    neighbour_depth = max(depth, float(logo_spec.get("depth_mm", 0.75)) if logo_on else 0.0)
+    regions = {tag: safe_region(fr, poly, depth, edge_margin, min_wall, neighbour_depth)
+               for tag, fr in frames.items()}
+    placements = _numeral_centers(die, frames, placements, nopts, regions)
     cache = {}
+    if roller and placements:
+        # long sides: slide the numerals along the die's axis to where they can be largest
+        # (the sides are congruent, so one side is searched and all are verified below)
+        t0 = placements[0].face_tag
+        fr0 = frames[t0]
+        b = fr0.polygon.bounds
+        span = b[2] - b[0]
+        best = (-1.0, 0.0)
+        for f in np.linspace(-0.35, 0.35, 9):
+            shifted = [NumeralPlacement(p.face_tag, p.text, p.value, (p.center[0] + f * span, p.center[1]),
+                                        p.rotation, p.marker, p.role) for p in placements if p.face_tag == t0]
+            h = fit_numerals(die, frames, shifted, regions, font, fallback, nopts, {}, probe_only=[t0])
+            if h > best[0] + 1e-6:
+                best = (h, f * span)
+        for p in placements:
+            p.center = (p.center[0] + best[1], p.center[1])
     h_fit = fit_numerals(die, frames, placements, regions, font, fallback, nopts, cache) if placements else 99
     if placements and h_fit <= 0:
         raise BuildError("numerals do not fit on the faces at any size; reduce weight, depth or wall settings",
@@ -408,8 +507,8 @@ def _build(spec, res, asset_loader):
     for tag, fr in sorted(frames.items()):
         labels = [p.text for p in placements if p.face_tag == tag]
         val = next((p.value for p in placements if p.face_tag == tag and p.role == "primary"), None)
-        if die == "d4":
-            val = tag + 1
+        if die == "d4" and not roller:
+            val = tag + 1  # tetrahedral D4: the face's own value (it is read at a corner/edge)
         if tag == logo_tag and logo_on and not labels:
             labels = ["(logo)"]
             val = 20
@@ -430,7 +529,24 @@ def _build(spec, res, asset_loader):
         "design": design,
         "shape": family,
         "shape_param": param,
+        "shape_kind": poly.kind,
+        "size_meaning": size_meaning(die, family),
+        "length_mm": round(float(np.ptp(poly.vertices[:, 2]) if roller else np.ptp(poly.vertices, axis=0).max()), 2),
+        "rest": _rest_summary(poly),
     })
+
+
+def _rest_summary(poly):
+    com, rows = rest_analysis(poly)
+    faces = [r for r in rows if r["kind"] == "face"]
+    caps = [r for r in rows if r["kind"] == "cap"]
+    return {
+        "numbered_faces_stable": all(r["stable"] for r in faces),
+        "min_face_margin_mm": round(min(r["margin_mm"] for r in faces), 3),
+        "end_facets": len(caps),
+        "end_facets_unstable": all(not r["stable"] for r in caps),
+        "max_end_margin_mm": round(max((r["margin_mm"] for r in caps), default=0.0), 3),
+    }
 
 
 def _build_logo(ls, frame, poly, edge_margin, min_wall, res, asset_loader, numeral_geom, safe_mode):
@@ -442,7 +558,8 @@ def _build_logo(ls, frame, poly, edge_margin, min_wall, res, asset_loader, numer
     depth = float(ls.get("depth_mm", 0.75))
     if not (0.1 <= depth <= 3.0):
         raise BuildError("logo depth must be between 0.1 and 3.0 mm", "logo")
-    region = safe_region(frame, poly, depth, edge_margin + 0.1, min_wall)
+    region = safe_region(frame, poly, depth, edge_margin + 0.1, min_wall,
+                         max(depth, float(ls.get("neighbour_depth", 0.75))))
     if numeral_geom is not None:
         region = robust_op("difference", region, numeral_geom.buffer(KEEPOUT_GAP_MM))
     width = float(ls.get("width_mm", 6.0))

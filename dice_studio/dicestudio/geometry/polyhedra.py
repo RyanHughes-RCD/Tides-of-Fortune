@@ -181,40 +181,128 @@ def halfspace_intersection(planes, tol=None):
 
 
 # ---------------------------------------------------------------------------
-# Congruent-face shape families
+# Shape families
 # ---------------------------------------------------------------------------
-# Every family is *isohedral* (face-transitive): all faces of a die are congruent
-# and equidistant from the centre, so the dice stay fair whatever the random
-# proportions.  Families are restricted to ones where every face has a parallel
-# opposite face (except the D4, which is read at a vertex), so the die rests flat
-# with a number face pointing straight up.
+# Three kinds of family:
 #
-#   die   family          parameter (meaning, range)
-#   D4    tetrahedron     -
-#         disphenoid      stretch: z/x ratio of the bounding box (0.8-1.3; 1 = regular)
-#   D6    cube            -
-#         rhombohedron    face-normal elevation in degrees (26-46; 35.26 = cube)
-#   D8    octahedron      -
-#         bipyramid       apex height / ring radius (0.75-1.4; 1 = octahedron)
-#   D10   trapezohedron   apex height / ring radius (0.8-1.35)
-#   D12   dodecahedron    -
-#         pyritohedron    normal tilt t in (0,1,t) (1.15-2.3; 1.618 = regular)
-#         rhombic         - (rhombic dodecahedron)
-#         bipyramid       apex height / ring radius (0.9-1.4), hexagonal
-#   D20   icosahedron     -
-#         bipyramid       apex height / ring radius (1.2-1.6), decagonal
+# * "isohedral": face-transitive solids.  Every face is congruent and lands; every
+#   face (except on the D4) has a parallel opposite face that is read on top.
+# * "roller": long crystals, shards and gems with pointed ends.  The die rolls
+#   like a pencil and comes to rest on one of its N congruent long sides; the
+#   cap facets at the ends are deliberately unstable, so it cannot land on them
+#   (verified by rest_analysis).  The side facing up is read.
+# * "curved": the infinity D4 (a sphericon) - see geometry/curved.py.
+#
+# Roller geometry is defined in units where the flat-to-flat width of the
+# widest cross-section is 2; family parameters are lengths in multiples of that
+# width (the guide's "resting" size).  size_mm is that width for rollers.
+
+ROLLER_SIDES = {"d4": 4, "d6": 6, "d8": 8, "d10": 10, "d12": 12, "d20": 20, "d100": 10}
+
+
+def _p(lo, hi, default, label):
+    return {"min": lo, "max": hi, "default": default, "label": label}
+
+
+# Parameter ranges are the regions where rest_analysis confirms the die rolls onto a
+# numbered side and cannot rest on an end facet (combinations near the edges of a
+# range can still fail; those are rejected with an explanation).
+_CRYSTAL = {"kind": "roller", "label": "Crystal (prism with pointed ends)",
+            "params": {"body": _p(0.9, 2.4, 1.3, "Body length (x width)"),
+                       "cap": _p(0.55, 1.1, 0.7, "End point length (x width)")}}
+_SHARD = {"kind": "roller", "label": "Shard (long point + short point)",
+          "params": {"long": _p(2.1, 3.2, 2.5, "Long point length (x width)"),
+                     "short": _p(0.6, 1.0, 0.75, "Short point length (x width)")}}
+_SHORT_SHARD = {"kind": "roller", "label": "Short shard (body with a long and a short point)",
+                "params": {"body": _p(0.9, 1.8, 1.1, "Body length (x width)"),
+                           "long": _p(0.8, 1.8, 1.2, "Long point length (x width)"),
+                           "short": _p(0.45, 0.9, 0.6, "Short point length (x width)")}}
+_ROLLERS = {"crystal": _CRYSTAL, "shard": _SHARD, "short_shard": _SHORT_SHARD}
 
 FAMILIES = {
-    "d4": {"tetrahedron": None, "disphenoid": (0.8, 1.3, 1.0)},
-    "d6": {"cube": None, "rhombohedron": (26.0, 46.0, 35.26)},
-    "d8": {"octahedron": None, "bipyramid": (0.75, 1.4, 1.0)},
-    "d10": {"trapezohedron": (0.8, 1.35, 1.05)},
-    "d12": {"dodecahedron": None, "pyritohedron": (1.15, 2.3, PHI), "rhombic": None, "bipyramid": (0.9, 1.4, 1.15)},
-    "d20": {"icosahedron": None, "bipyramid": (1.2, 1.6, 1.4)},
+    "d4": {
+        "tetrahedron": {"kind": "isohedral", "label": "Tetrahedron (regular)", "params": {}},
+        "disphenoid": {"kind": "isohedral", "label": "Disphenoid (stretched tetrahedron)",
+                       "params": {"stretch": _p(0.75, 1.6, 1.0, "Stretch (1 = regular)")}},
+        "wedge": {"kind": "isohedral", "label": "Wedge (long, read along the edges)",
+                  "params": {"stretch": _p(1.6, 2.4, 1.9, "Length stretch")}},
+        **_ROLLERS,
+        "infinity": {"kind": "curved", "label": "Infinity (curved rolling sphericon)",
+                     "params": {"roundness": _p(0.8, 1.25, 1.0, "Roundness (1 = classic sphericon)")}},
+    },
+    "d6": {
+        "cube": {"kind": "isohedral", "label": "Cube", "params": {}},
+        "rhombohedron": {"kind": "isohedral", "label": "Rhombohedron (6 rhombi)",
+                         "params": {"angle": _p(18.0, 52.0, 35.26, "Face tilt (35.26 = cube; low = tall)")}},
+        **_ROLLERS,
+        "gemstone": {"kind": "roller", "label": "Gemstone (faceted crown + pavilion)",
+                     "params": {"body": _p(1.0, 2.0, 1.3, "Girdle length (x width)"),
+                                "crown": _p(0.7, 1.0, 0.8, "Crown height (x width)"),
+                                "pavilion": _p(0.9, 1.5, 1.1, "Pavilion length (x width)")}},
+    },
+    "d8": {
+        "octahedron": {"kind": "isohedral", "label": "Octahedron (regular)", "params": {}},
+        "bipyramid": {"kind": "isohedral", "label": "Square bipyramid",
+                      "params": {"height": _p(0.75, 2.2, 1.0, "Height (1 = octahedron)")}},
+        **_ROLLERS,
+    },
+    "d10": {
+        "trapezohedron": {"kind": "isohedral", "label": "Pentagonal trapezohedron (kites)",
+                          "params": {"elongation": _p(0.8, 2.0, 1.05, "Elongation")}},
+        **_ROLLERS,
+    },
+    "d12": {
+        "dodecahedron": {"kind": "isohedral", "label": "Dodecahedron (regular)", "params": {}},
+        "pyritohedron": {"kind": "isohedral", "label": "Pyritohedron (irregular pentagons)",
+                         "params": {"pentagon": _p(1.15, 2.3, PHI, "Pentagon shape (1.618 = regular)")}},
+        "rhombic": {"kind": "isohedral", "label": "Rhombic dodecahedron", "params": {}},
+        "bipyramid": {"kind": "isohedral", "label": "Hexagonal bipyramid",
+                      "params": {"height": _p(0.9, 2.2, 1.15, "Height")}},
+        **_ROLLERS,
+    },
+    "d20": {
+        "icosahedron": {"kind": "isohedral", "label": "Icosahedron (regular)", "params": {}},
+        "bipyramid": {"kind": "isohedral", "label": "Decagonal bipyramid",
+                      "params": {"height": _p(1.2, 2.4, 1.4, "Height")}},
+        **_ROLLERS,
+    },
 }
 FAMILIES["d100"] = FAMILIES["d10"]
 POLE_FAMILIES = {"bipyramid", "trapezohedron"}  # numerals point to the pole on these
 REGULAR_FAMILIES = {"tetrahedron", "cube", "octahedron", "dodecahedron", "icosahedron"}
+ROLLER_FAMILIES = {"crystal", "shard", "short_shard", "gemstone"}
+CURVED_FAMILIES = {"infinity"}
+
+
+# default size per kind (rollers: resting width across the sides; infinity: tip to tip)
+ROLLER_DEFAULT_WIDTH_MM = {"d4": 12.0, "d6": 13.0, "d8": 14.0, "d10": 16.5, "d12": 18.0, "d20": 22.0, "d100": 16.5}
+INFINITY_DEFAULT_MM = 21.0
+
+
+def default_size_mm(die, family=None):
+    family = family or DEFAULT_FAMILY[die]
+    kind = FAMILIES[die][family]["kind"]
+    if kind == "roller":
+        return ROLLER_DEFAULT_WIDTH_MM[die]
+    if kind == "curved":
+        return INFINITY_DEFAULT_MM
+    if family == "wedge":
+        return 29.0  # longest edge, like a typical 29 mm wedge D4
+    return DEFAULT_SIZES_MM[die]
+
+
+def size_meaning(die, family=None):
+    family = family or DEFAULT_FAMILY[die]
+    kind = FAMILIES[die][family]["kind"]
+    if kind == "roller":
+        return "resting width across the sides"
+    if kind == "curved":
+        return "tip-to-tip length"
+    return SIZE_MEANING[die]
+
+
+def family_kind(die, family):
+    return FAMILIES[die][family]["kind"]
 
 
 def _normal_through(a, b, c):
@@ -263,60 +351,123 @@ def _pyrito_normals(t):
     return unit(np.array(n, float))
 
 
-def family_normals(die, family, param=None):
-    fams = FAMILIES.get(die)
-    if fams is None:
-        raise GeometryError(f"unknown die type {die!r}")
-    if family not in fams:
-        raise GeometryError(f"{die.upper()} shape must be one of {list(fams)}")
-    rng = fams[family]
-    if rng is not None:
-        param = rng[2] if param is None else float(param)
-        if not (rng[0] - 1e-9 <= param <= rng[1] + 1e-9):
-            raise GeometryError(f"{die.upper()} {family} parameter must be between {rng[0]} and {rng[1]}")
+def _cone_planes(n_sides, z_base, length, sign, azimuth0=0.0, radius=1.0):
+    """Planes of an n-sided pyramid cap.
+
+    Each plane passes through the line where the side at ``radius`` meets
+    z = ``z_base`` and through the apex on the axis at z_base + sign*length.
+    Returns [(normal, offset)].
+    """
+    out = []
+    for k in range(n_sides):
+        a = azimuth0 + 2 * math.pi * k / n_sides
+        # in the (radial, z) plane the normal is (length, sign*radius)
+        nr, nz = length, sign * radius
+        ln = math.hypot(nr, nz)
+        n = np.array([math.cos(a) * nr / ln, math.sin(a) * nr / ln, nz / ln])
+        d = (nr * radius + nz * z_base) / ln
+        out.append((n, d))
+    return out
+
+
+def roller_planes(die, family, prm):
+    """[(normal, offset, kind)] for crystal / shard / gemstone, width 2 across the sides."""
+    N = ROLLER_SIDES[die]
+    sides = [(np.array([math.cos(2 * math.pi * k / N), math.sin(2 * math.pi * k / N), 0.0]), 1.0)
+             for k in range(N)]
+    if family == "crystal":
+        L = prm["body"]  # half body length in width/2 units == body * width / 2
+        C = 2 * prm["cap"]
+        caps = _cone_planes(N, L, C, +1) + _cone_planes(N, -L, C, -1)
+        return [(n, d, "face") for n, d in sides] + [(n, d, "cap") for n, d in caps]
+    if family == "shard":
+        # pure two-point shape: the long point's facets are the numbered sides
+        longs = _cone_planes(N, 0.0, 2 * prm["long"], -1)
+        shorts = _cone_planes(N, 0.0, 2 * prm["short"], +1)
+        return [(n, d, "face") for n, d in longs] + [(n, d, "cap") for n, d in shorts]
+    if family == "short_shard":
+        L = prm["body"]
+        caps = _cone_planes(N, L, 2 * prm["short"], +1) + _cone_planes(N, -L, 2 * prm["long"], -1)
+        return [(n, d, "face") for n, d in sides] + [(n, d, "cap") for n, d in caps]
+    if family == "gemstone":
+        L = prm["body"]
+        C1 = 2 * prm["crown"]
+        crown1 = _cone_planes(N, L, C1, +1)
+        # second crown tier: rotated half a step, flatter, meeting on the axis lower than tier 1
+        crown2 = _cone_planes(N, L, 0.62 * C1, +1, azimuth0=math.pi / N, radius=1.25)
+        pav = _cone_planes(N, -L, 2 * prm["pavilion"], -1)
+        return ([(n, d, "face") for n, d in sides] +
+                [(n, d, "cap") for n, d in crown1 + crown2 + pav])
+    raise GeometryError(family)
+
+
+def family_planes(die, family, prm):
+    """[(normal, offset, kind)] in unit coordinates (see module notes)."""
     if family == "tetrahedron":
-        family, param = "disphenoid", 1.0
-    if family == "disphenoid":
-        k = param
+        family, prm = "disphenoid", {"stretch": 1.0}
+    if family in ("disphenoid", "wedge"):
+        k = prm["stretch"]
         verts = np.array([(1, 1, k), (1, -1, -k), (-1, 1, -k), (-1, -1, k)], float)
-        return np.array([_normal_through(*[verts[j] for j in range(4) if j != i]) for i in range(4)])
-    if family == "cube":
-        return np.array([(0, 0, 1), (0, 0, -1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)], float)
-    if family == "rhombohedron":
-        e = math.radians(param)
+        ns = [_normal_through(*[verts[j] for j in range(4) if j != i]) for i in range(4)]
+    elif family == "cube":
+        ns = np.array([(0, 0, 1), (0, 0, -1), (1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0)], float)
+    elif family == "rhombohedron":
+        e = math.radians(prm["angle"])
         up = [(math.cos(e) * math.cos(a), math.cos(e) * math.sin(a), math.sin(e))
               for a in (math.radians(x) for x in (90, 210, 330))]
-        return np.array(up + [tuple(-np.array(u)) for u in up], float)
-    if family == "octahedron":
-        return _bipyramid_normals(4, 1.0)
-    if family == "bipyramid":
-        return _bipyramid_normals({"d8": 4, "d12": 6, "d20": 10}[die], param)
-    if family == "trapezohedron":
-        return _trapezohedron_normals(param)
-    if family == "dodecahedron":
-        return _pyrito_normals(PHI)
-    if family == "pyritohedron":
-        return _pyrito_normals(param)
-    if family == "rhombic":
-        return _pyrito_normals(1.0)
-    if family == "icosahedron":
+        ns = np.array(up + [tuple(-np.array(u)) for u in up], float)
+    elif family == "octahedron":
+        ns = _bipyramid_normals(4, 1.0)
+    elif family == "bipyramid":
+        ns = _bipyramid_normals({"d8": 4, "d12": 6, "d20": 10}[die], prm["height"])
+    elif family == "trapezohedron":
+        ns = _trapezohedron_normals(prm["elongation"])
+    elif family == "dodecahedron":
+        ns = _pyrito_normals(PHI)
+    elif family == "pyritohedron":
+        ns = _pyrito_normals(prm["pentagon"])
+    elif family == "rhombic":
+        ns = _pyrito_normals(1.0)
+    elif family == "icosahedron":
         n = [(sx, sy, sz) for sx in (1, -1) for sy in (1, -1) for sz in (1, -1)]
         ip = 1.0 / PHI
         for a, b in itertools.product((1, -1), repeat=2):
             n += [(0, a * ip, b * PHI), (a * ip, b * PHI, 0), (b * PHI, 0, a * ip)]
-        return unit(np.array(n, float))
-    raise GeometryError(family)
+        ns = unit(np.array(n, float))
+    elif family in ROLLER_FAMILIES:
+        return roller_planes(die, family, prm)
+    else:
+        raise GeometryError(family)
+    return [(np.asarray(n, float), 1.0, "face") for n in ns]
 
 
 DEFAULT_FAMILY = {"d4": "tetrahedron", "d6": "cube", "d8": "octahedron", "d10": "trapezohedron",
                   "d12": "dodecahedron", "d20": "icosahedron", "d100": "trapezohedron"}
 
 
+def resolve_params(die, family, params=None):
+    """Fill defaults and range-check a family's parameters."""
+    if die not in FAMILIES:
+        raise GeometryError(f"unknown die type {die!r}")
+    fams = FAMILIES[die]
+    if family not in fams:
+        raise GeometryError(f"{die.upper()} shape must be one of {list(fams)}")
+    out = {}
+    for name, spec in fams[family]["params"].items():
+        v = (params or {}).get(name)
+        v = spec["default"] if v is None else float(v)
+        if not (spec["min"] - 1e-9 <= v <= spec["max"] + 1e-9):
+            raise GeometryError(f"{die.upper()} {family} {spec['label'].lower()} must be between "
+                                f"{spec['min']} and {spec['max']}")
+        out[name] = v
+    return out
+
+
 @dataclass
 class ShapeParams:
     size_mm: float
     family: str = None
-    param: float = None
+    params: dict = None
 
     def validate(self, die):
         lo, hi = SIZE_LIMITS_MM
@@ -327,32 +478,50 @@ class ShapeParams:
 def die_polyhedron(die, params: ShapeParams):
     """Return (polyhedron, base polyhedron, warnings).
 
-    All faces lie at the same distance from the centre (inradius 1 before
-    scaling); the solid is then scaled so that the D4's longest edge, or every
-    other die's face-to-face distance, equals ``size_mm``.
+    Isohedral dice are scaled so that the D4's longest edge, or every other die's
+    face-to-face distance, equals ``size_mm``.  Rollers are scaled so their
+    width across the long sides equals ``size_mm``.
     """
     if die not in FAMILIES:
         raise GeometryError(f"unknown die type {die!r}")
     params.validate(die)
     family = params.family or DEFAULT_FAMILY[die]
-    normals = family_normals(die, family, params.param)
-    unit_poly = halfspace_intersection([Plane(n, 1.0, "face", i) for i, n in enumerate(normals)])
-    if die == "d4":
+    prm = resolve_params(die, family, params.params)
+    if family in CURVED_FAMILIES:
+        raise GeometryError("curved dice are built by geometry.curved")
+    raw = family_planes(die, family, prm)
+    nface = sum(1 for _, _, k in raw if k == "face")
+
+    def planes_at(scale):
+        out, fi, ci = [], 0, 0
+        for n, d, k in raw:
+            if k == "face":
+                out.append(Plane(n, d * scale, "face", fi))
+                fi += 1
+            else:
+                out.append(Plane(n, d * scale, "cap", 1000 + ci))
+                ci += 1
+        return out
+
+    if die == "d4" and family not in ROLLER_FAMILIES:
+        unit_poly = halfspace_intersection(planes_at(1.0))
         longest = max(np.linalg.norm(unit_poly.vertices[a] - unit_poly.vertices[b]) for a, b in unit_poly.edges())
         r = params.size_mm / longest
     else:
         r = params.size_mm / 2.0
-    poly = halfspace_intersection([Plane(n, r, "face", i) for i, n in enumerate(normals)])
-    if len(poly.die_faces()) != FACE_COUNTS[die]:
-        raise GeometryError(f"{die.upper()} {family} has {len(poly.die_faces())} faces instead of {FACE_COUNTS[die]}")
+    poly = halfspace_intersection(planes_at(r))
+    if len(poly.die_faces()) != FACE_COUNTS[die] or nface != FACE_COUNTS[die]:
+        raise GeometryError(f"{die.upper()} {family} has {len(poly.die_faces())} number faces instead of "
+                            f"{FACE_COUNTS[die]}; adjust its proportions")
     poly.family = family
+    poly.kind = family_kind(die, family)
     return poly, poly, []
 
 
-def face_congruence_error(poly):
+def face_congruence_error(poly, faces=None):
     """Max difference (mm / rad) between the sorted edge lengths and angles of any two faces."""
     sigs = []
-    for f in poly.die_faces():
+    for f in (faces if faces is not None else poly.die_faces()):
         pts = poly.vertices[f.vertex_ids]
         k = len(pts)
         e = sorted(np.linalg.norm(pts[i] - pts[(i + 1) % k]) for i in range(k))
@@ -362,6 +531,81 @@ def face_congruence_error(poly):
     if len({len(s) for s in sigs}) != 1:
         return float("inf")
     return float(max(np.abs(s - sigs[0]).max() for s in sigs))
+
+
+# ---------------------------------------------------------------------------
+# Rest analysis
+# ---------------------------------------------------------------------------
+
+def centroid(poly):
+    """Centre of mass of the (uniform density) solid."""
+    v = poly.vertices
+    t = poly.triangles()
+    a, b, c = v[t[:, 0]], v[t[:, 1]], v[t[:, 2]]
+    vol = np.einsum("ij,ij->i", a, np.cross(b, c)) / 6.0
+    return (vol[:, None] * (a + b + c) / 4.0).sum(axis=0) / vol.sum()
+
+
+def rest_analysis(poly):
+    """For every face: can the die stay at rest on it?
+
+    A convex body resting on a face is stable iff its centre of mass projects
+    (straight down, along the face normal) to a point inside that face.  The
+    margin is the signed distance of that point from the face outline (positive
+    inside), also given relative to the face's inscribed radius.
+    """
+    from shapely.geometry import Point, Polygon
+
+    com = centroid(poly)
+    rows = []
+    for f in poly.faces:
+        pts = poly.vertices[f.vertex_ids]
+        foot = com - f.normal * (f.normal @ com - f.offset)
+        c = pts.mean(axis=0)
+        u = unit(pts[0] - c)
+        w = np.cross(f.normal, u)
+        pg = Polygon(np.stack([(pts - c) @ u, (pts - c) @ w], axis=1))
+        q = Point((foot - c) @ u, (foot - c) @ w)
+        d = pg.exterior.distance(q)
+        margin = d if pg.contains(q) else -d
+        inr = pg.exterior.distance(pg.representative_point()) if pg.area > 0 else 1.0
+        from shapely.ops import polylabel
+        inr = pg.exterior.distance(polylabel(pg, tolerance=1e-3 * math.sqrt(pg.area)))
+        rows.append({"tag": f.tag, "kind": f.kind, "stable": margin > 0, "margin_mm": float(margin),
+                     "margin_rel": float(margin / inr) if inr > 0 else 0.0})
+    return com, rows
+
+
+STABLE_MARGIN_REL = 0.12  # numbered faces must hold the die with at least this margin
+
+
+def reading_map(poly):
+    """Map each number face R to the number face read on top while resting on R."""
+    fs = poly.die_faces()
+    out = {}
+    for f in fs:
+        out[f.tag] = max((g for g in fs if g.tag != f.tag), key=lambda g: -(f.normal @ g.normal)).tag
+    return out
+
+
+def check_landing(poly):
+    """Issues preventing the die from behaving as intended (empty list = fine)."""
+    issues = []
+    _, rows = rest_analysis(poly)
+    weak = [r for r in rows if r["kind"] == "face" and r["margin_rel"] < STABLE_MARGIN_REL]
+    if weak:
+        issues.append(f"{len(weak)} number face(s) cannot hold the die at rest (it would roll off them); "
+                      "make the shape less extreme")
+    caps = [r for r in rows if r["kind"] == "cap" and r["margin_mm"] > -1e-6]
+    if caps:
+        issues.append(f"the die could come to rest on {len(caps)} end facet(s); make the ends longer/pointier")
+    kind = getattr(poly, "kind", "isohedral")
+    if kind == "roller":
+        rm = reading_map(poly)
+        if sorted(rm.values()) != sorted(rm):
+            issues.append("the face read on top is ambiguous for some resting positions")
+    return issues
+
 
 
 def offset_polyhedron(poly: ConvexPolyhedron, offsets):

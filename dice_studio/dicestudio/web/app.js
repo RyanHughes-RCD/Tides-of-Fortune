@@ -100,26 +100,34 @@ function scheduleGenerate(delay = 300) {
   genTimer = setTimeout(generate, delay);
 }
 async function generate() {
+  // one request per die, in parallel: a slow die (e.g. the curved infinity D4)
+  // never holds up the others, and each die appears as soon as it is ready
   const id = ++S.reqId;
+  const proj = S.project;
   $('#busy').classList.remove('hidden');
-  for (const d of S.config.dice) setDot(d, 'busy');
-  try {
-    const out = await api('generate', { project: S.project });
-    if (id !== S.reqId) return; // a newer request superseded this one
-    S.results = out.dice;
-    for (const d of S.config.dice) {
+  const errors = new Set();
+  await Promise.all(S.config.dice.map(async (d) => {
+    setDot(d, 'busy');
+    try {
+      const out = await api('generate', { project: proj, dice: [d] });
+      if (id !== S.reqId) return; // a newer edit superseded this request
       const r = out.dice[d];
+      S.results[d] = r;
       if (!S.baseline[d] && r.ok) S.baseline[d] = r.hash;
       await loadDie(d, r);
+      if (id !== S.reqId) return;
+      reportBuild([d]);
+      refreshScene();
+      if (d === S.selected) renderPanels(true);
+    } catch (e) {
+      if (id !== S.reqId) return;
+      if (!errors.has(e.message)) { errors.add(e.message); msg(e.message, 'err'); }
+      setDot(d, S.results[d] ? dotKind(S.results[d]) : 'err');
     }
-    reportBuild();
-    refreshScene();
+  }));
+  if (id === S.reqId) {
+    $('#busy').classList.add('hidden');
     renderPanels(true);
-  } catch (e) {
-    if (id === S.reqId) msg(e.message, 'err');
-    for (const d of S.config.dice) setDot(d, S.results[d] ? dotKind(S.results[d]) : 'err');
-  } finally {
-    if (id === S.reqId) $('#busy').classList.add('hidden');
   }
 }
 function dotKind(r) {
@@ -128,8 +136,8 @@ function dotKind(r) {
   return 'ok';
 }
 let lastReported = {};
-function reportBuild() {
-  for (const d of S.config.dice) {
+function reportBuild(dice = S.config.dice) {
+  for (const d of dice) {
     const r = S.results[d];
     const key = r.hash;
     setDot(d, dotKind(r));
@@ -168,7 +176,30 @@ scene.add(camera);
 const grid = new THREE.GridHelper(400, 40, 0x2c3140, 0x232733);
 grid.rotation.x = Math.PI / 2; grid.position.z = -14; scene.add(grid);
 
-const LAYOUT = { d4: [-66, 18], d6: [-22, 18], d8: [22, 18], d10: [66, 18], d12: [-44, -22], d20: [0, -22], d100: [44, -22] };
+// set layout: two rows; spacing follows each die's real size (rollers can be long)
+const ROWS = [['d4', 'd6', 'd8', 'd10'], ['d12', 'd20', 'd100']];
+function isRoller(d) { return S.results[d]?.ok && S.results[d].info.shape_kind === 'roller'; }
+function dieExtent(d) {
+  const o = dieObjs[d];
+  if (!o || !o.outerGeo) return [20, 20];
+  o.outerGeo.computeBoundingBox();
+  const s = o.outerGeo.boundingBox.getSize(new THREE.Vector3());
+  return isRoller(d) ? [s.z, s.y] : [Math.max(s.x, s.y), Math.max(s.x, s.y)];  // rollers lie along x
+}
+function layoutPositions() {
+  const pos = {};
+  const rowH = ROWS.map((row) => Math.max(...row.map((d) => dieExtent(d)[1])));
+  const rowY = [rowH[0] / 2 + 5, -(rowH[1] / 2 + 5)];
+  ROWS.forEach((row, ri) => {
+    const widths = row.map((d) => dieExtent(d)[0]);
+    const total = widths.reduce((a, b) => a + b, 0) + 10 * (row.length - 1);
+    let x = -total / 2;
+    row.forEach((d, i) => { pos[d] = [x + widths[i] / 2, rowY[ri]]; x += widths[i] + 10; });
+  });
+  return pos;
+}
+// rollers are shown lying on a side, as they come to rest (side 0 down, the side read on top up)
+const ROLLER_POSE = new THREE.Euler(0, Math.PI / 2, 0);
 const geoCache = new Map();
 const dieObjs = {}; // d -> {group, outer, blank, baseline, hash}
 
@@ -229,14 +260,16 @@ function resinMaterial(extra = {}) {
 }
 
 async function refreshScene() {
+  const layout = layoutPositions();
   for (const d of S.config.dice) {
     const o = dieObjs[d];
     if (!o) continue;
     o.group.clear();
     const visible = S.focus === 'set' || d === S.selected;
     o.group.visible = visible && !!o.hash;
-    const pos = S.focus === 'set' ? LAYOUT[d] : [0, 0];
+    const pos = S.focus === 'set' ? (layout[d] || [0, 0]) : [0, 0];
     o.group.position.set(pos[0], pos[1], 0);
+    o.group.rotation.copy(isRoller(d) ? ROLLER_POSE : new THREE.Euler());
     if (!o.hash || !visible) continue;
     const selected = d === S.selected && S.focus === 'set';
     const emissive = selected ? 0x2a1f00 : 0x000000;
@@ -301,11 +334,12 @@ function frameView() {
 
 function lookAtFace(face) {
   const o = dieObjs[S.selected];
-  const p = o.group.position;
-  const c = new THREE.Vector3(...face.center).add(p);
-  const n = new THREE.Vector3(...face.normal);
+  o.group.updateMatrixWorld(true);
+  const q = o.group.getWorldQuaternion(new THREE.Quaternion());
+  const c = o.group.localToWorld(new THREE.Vector3(...face.center));
+  const n = new THREE.Vector3(...face.normal).applyQuaternion(q);
   controls.target.copy(c);
-  camera.up.set(...face.up); // numerals appear upright while inspecting
+  camera.up.copy(new THREE.Vector3(...face.up).applyQuaternion(q)); // numerals appear upright while inspecting
   camera.position.copy(c).add(n.multiplyScalar(45));
   camera.lookAt(c);
   controls.update();
@@ -350,6 +384,7 @@ function updateThumb(d) {
   const o = dieObjs[d];
   if (!o || !o.outerGeo) return;
   const m = new THREE.Mesh(o.outerGeo, resinMaterial());
+  if (isRoller(d)) m.rotation.copy(ROLLER_POSE);
   thumbScene.add(m);
   const r = o.outerGeo.boundingSphere.radius;
   thumbCam.position.set(r * 1.6, -r * 2.6, r * 2.1);
@@ -391,6 +426,7 @@ function updateInfo() {
   if (r.ok) {
     const o = r.outer_report, b = r.blank_report, bc = r.blank_check;
     lines.push(`numerals ${r.info.numeral_height_mm} mm tall (max ${r.info.numeral_max_height_mm}) · engraving ${r.info.engrave_depth_mm} mm`);
+    lines.push(esc(shapeLabel(d, r.info.shape)) + ' — ' + esc(restText(d)));
     if (S.view === 'validation' || S.view === 'wireframe') {
       lines.push(`mesh: ${o.triangles} triangles · ${o.watertight ? 'watertight' : 'OPEN'} · winding ${o.winding_consistent ? 'consistent' : 'BAD'} · ${o.components} piece · self-intersections ${o.self_intersections} · degenerate ${o.degenerate_triangles}`);
       lines.push(`volume ${o.volume_mm3.toFixed(1)} mm³ · ${o.ok ? '<span class="ok-text">valid</span>' : '<span class="err-text">' + esc(o.issues.join('; ')) + '</span>'}`);
@@ -484,35 +520,42 @@ function renderPanels(onlyStatus = false) {
 }
 
 // ---- design tab
-const SHAPE_LABEL = {
-  tetrahedron: 'Tetrahedron (regular)', disphenoid: 'Disphenoid (stretched tetrahedron)',
-  cube: 'Cube', rhombohedron: 'Rhombohedron (6 rhombi)', octahedron: 'Octahedron (regular)',
-  bipyramid: 'Bipyramid', trapezohedron: 'Pentagonal trapezohedron (kites)', dodecahedron: 'Dodecahedron (regular)',
-  pyritohedron: 'Pyritohedron (irregular pentagons)', rhombic: 'Rhombic dodecahedron', icosahedron: 'Icosahedron (regular)',
-};
+function shapeLabel(d, fam) { return S.config.families[d][fam]?.label || fam; }
+function restText(d) {
+  const r = S.results[d];
+  if (!r || !r.ok) return '';
+  const i = r.info, rest = i.rest || {};
+  if (i.shape_kind === 'roller') {
+    return `Rolls like a pencil and lands only on its ${i.faces} numbered sides (all ${rest.end_facets} end facets tip over); read the side facing up · ${i.length_mm} mm tip to tip`;
+  }
+  if (i.shape_kind === 'curved') return `Curved roller: rests on one of its 4 curved faces; ${rest.reading} · ${i.length_mm} mm tip to tip`;
+  return `Lands on any face (all faces congruent) · ${i.length_mm} mm longest dimension`;
+}
 function renderDesign() {
   const p = S.project, d = S.selected, el = $('#tab-design');
   el.innerHTML = '';
   const cfg = S.config;
   el.append(group('Set',
     selectRow('Style preset', p.style, Object.entries(cfg.styles), (v) => edit('style', (q) => { q.style = v; regenDesignInto(q); })),
-    sliderRow('Shape variation', p.density, 0, 1, 0.05, (v, live) => { if (!live) edit('density', (q) => { q.density = v; regenDesignInto(q); }); }, { title: 'how far proportions may move away from the regular solids' }),
+    sliderRow('Shape variation', p.density, 0, 1, 0.05, (v, live) => { if (!live) edit('density', (q) => { q.density = v; regenDesignInto(q); }); }, { title: 'how far proportions may move away from each shape\'s natural proportions' }),
     numRow('Random seed', p.seed, 1, 999999999, 1, (v) => v && edit('seed', (q) => { q.seed = Math.round(v); regenDesignInto(q); }), { title: 'the same seed, style and variation always reproduce the same set' }),
     designControl(cfg.design_schema.find((s) => s.key === 'size_scale')),
     h('div', { class: 'btns' },
       btn('🎲 Randomize set', randomizeSet, { title: 'new seed; locked shapes/proportions are kept' }),
       btn('↺ Reset set', () => op('reset_set'), { class: 'danger', title: 'discard all per-die changes' })),
-    h('div', { class: 'hint' }, 'Every shape is face-transitive: all faces of a die are congruent, so the dice stay fair. The only cuts are the engraved numbers. 🔒 keeps a value when randomizing.'),
+    h('div', { class: 'hint' }, 'Shapes are either fair face-landing solids (all faces congruent) or rollers (crystals, shards, gems, the infinity D4) that can only come to rest on their numbered sides; the rest analysis checks this physically. The only cuts are the engraved numbers. 🔒 keeps a value when randomizing.'),
   ));
   const dd = p.dice[d];
   const eff = effectiveDesign(d);
-  const keys = cfg.die_keys[d];
+  const fam = eff[`${d}_shape`];
   const shapeSchema = cfg.design_schema.find((s) => s.key === `${d}_shape`);
-  const paramSchema = cfg.design_schema.find((s) => keys.includes(s.key) && s.family === eff[`${d}_shape`]);
+  const params = cfg.design_schema.filter((s) => s.die === d && s.family === fam);
+  const meaning = cfg.size_meaning[d][fam];
   el.append(group(`Selected die: ${DIE_LABEL(d)}`,
-    designControl(shapeSchema, eff[shapeSchema.key]),
-    paramSchema ? designControl(paramSchema, eff[paramSchema.key]) : h('div', { class: 'hint' }, 'regular solid: no proportion parameter'),
-    numRow(`Size (${cfg.size_meaning[d]}, mm)`, dd.size_mm ?? cfg.default_sizes[d], 8, 40, 0.5, (v) => edit('size', (q) => { q.dice[d].size_mm = v; })),
+    designControl(shapeSchema, fam),
+    ...(params.length ? params.map((s) => designControl(s, eff[s.key])) : [h('div', { class: 'hint' }, 'regular solid: no proportion parameters')]),
+    numRow(`Size (${meaning}, mm)`, dd.size_mm ?? cfg.default_sizes[d][fam], 8, 40, 0.5, (v) => edit('size', (q) => { q.dice[d].size_mm = v; })),
+    h('div', { class: 'hint' }, restText(d)),
     h('div', { class: 'btns' },
       btn('🎲 Regenerate this die', () => op('die'), { title: 'new random shape for this die only' }),
       btn('↺ Reset die', () => op('reset_die'), { class: 'danger' })),
@@ -521,11 +564,12 @@ function renderDesign() {
   ));
   const rows = cfg.dice.map((x) => {
     const e = effectiveDesign(x);
-    const fam = e[`${x}_shape`];
-    const ps = cfg.design_schema.find((s) => cfg.die_keys[x].includes(s.key) && s.family === fam);
-    return `<tr${x === d ? ' style="color:var(--accent)"' : ''}><td>${DIE_LABEL(x)}</td><td>${esc(SHAPE_LABEL[fam] || fam)}</td><td>${ps ? Number(e[ps.key]).toFixed(2) : '—'}</td></tr>`;
+    const f = e[`${x}_shape`];
+    const ps = cfg.design_schema.filter((s) => s.die === x && s.family === f);
+    const len = S.results[x]?.ok ? `${S.results[x].info.length_mm} mm` : '';
+    return `<tr${x === d ? ' style="color:var(--accent)"' : ''}><td>${DIE_LABEL(x)}</td><td>${esc(shapeLabel(x, f))}</td><td>${ps.map((s) => Number(e[s.key]).toFixed(2)).join(' / ') || '—'}</td><td>${len}</td></tr>`;
   }).join('');
-  el.append(group('All shapes in this set', h('div', { html: `<table class="rep"><tr><th>die</th><th>shape</th><th>proportion</th></tr>${rows}</table>` })));
+  el.append(group('All shapes in this set', h('div', { html: `<table class="rep"><tr><th>die</th><th>shape</th><th>proportions</th><th>length</th></tr>${rows}</table>` })));
 }
 function effectiveDesign(d) {
   const p = S.project;
@@ -541,7 +585,7 @@ function designControl(s, value) {
       else q.design[s.key] = v;
     }, { coalesce: true });
   };
-  if (s.type === 'choice') return selectRow(s.label, value, s.choices.map((c) => [c, SHAPE_LABEL[c] || c]), set, { lockKey: s.key });
+  if (s.type === 'choice') return selectRow(s.label, value, s.choices.map((c) => [c, (s.labels && s.labels[c]) || c]), set, { lockKey: s.key });
   return sliderRow(s.label, value, s.min, s.max, s.step, (v, live) => { if (!live) set(v); }, { lockKey: s.key });
 }
 function regenDesignInto(q) { q._regen = true; }
@@ -599,7 +643,7 @@ function renderNumbers() {
   ));
   el.append(group('Numbering conventions',
     selectRow('6 / 9 marker', n.six_nine_marker, [['underline', 'underline'], ['dot', 'dot'], ['none', 'none']], (v) => edit('marker', (q) => { q.numbers.six_nine_marker = v; })),
-    selectRow('D4 style', n.d4_style, [['apex', 'numbers at corners (read top)'], ['base', 'numbers at edges (read bottom)']], (v) => edit('d4', (q) => { q.numbers.d4_style = v; })),
+    selectRow('D4 style', n.d4_style, [['auto', 'automatic (corners; edges on the wedge)'], ['apex', 'numbers at corners (read top)'], ['base', 'numbers at edges (read bottom)']], (v) => edit('d4', (q) => { q.numbers.d4_style = v; })),
     selectRow('D10 labels', n.d10_style, [['0-9', '0–9'], ['1-10', '1–10 (10 instead of 0)']], (v) => edit('d10', (q) => { q.numbers.d10_style = v; })),
     selectRow('D100 labels', n.d100_style, [['00-90', '00–90'], ['10-100', '10–100']], (v) => edit('d100', (q) => { q.numbers.d100_style = v; })),
     h('div', { class: 'row' }, h('label', { title: 'digits on the five upper kites, counter-clockwise; opposite faces get 9 minus the digit' }, 'D10 upper faces'),

@@ -27,14 +27,14 @@ def test_seed_reproducibility(engine):
 
 def test_randomize_respects_locks():
     p = proj.default_project(seed=1, style="geometric")
-    p["locks"] = ["d20_shape", "d8_height"]
+    p["locks"] = ["d20_shape", "d8_bipyramid_height"]
     p["design"]["d20_shape"] = "bipyramid"
-    p["design"]["d8_height"] = 1.33
+    p["design"]["d8_bipyramid_height"] = 1.33
     changed = False
     for s in range(2, 12):
         q = proj.randomize_set(p, seed=s)
         assert q["design"]["d20_shape"] == "bipyramid"
-        assert q["design"]["d8_height"] == 1.33
+        assert q["design"]["d8_bipyramid_height"] == 1.33
         changed |= q["design"] != p["design"]
     assert changed
 

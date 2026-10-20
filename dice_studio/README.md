@@ -3,8 +3,16 @@
 A local desktop application for procedurally generating, customising, previewing,
 validating and exporting original **7-piece polyhedral dice sets** (D4, D6, D8, D10,
 D12, D20, D100) for resin 3D printing. The randomisation varies the **shape of each
-die**, always among solids whose faces are all congruent (so every die stays fair), and
-the only cuts in a die are its **engraved numbers** (plus an optional D20 logo). There
+die**, choosing from two kinds of fair shape:
+
+* **face-landing solids**, where all faces are congruent (tetrahedron, cube, bipyramids,
+  pyritohedra, elongated kites, the D4 wedge, …);
+* **rollers**, long shapes with pointed ends that roll like a pencil and can only come
+  to rest on one of their numbered sides: crystals, shards, short shards, the **D6
+  gemstone**, and the curved **infinity D4**. A physical *rest analysis* proves the
+  numbered sides hold the die and that every end facet tips over.
+
+The only cuts in a die are its **engraved numbers** (plus an optional D20 logo). There
 are no decorative etchings. Each die is exported with a matching
 **internal blank**, so a full set is 14 STL files.
 
@@ -80,12 +88,16 @@ View modes:
 | Compare with baseline | the baseline version (grey, left) next to the current one. *📌 Set baseline* stores the current state as the reference. |
 
 **Design tab.**
-* Style preset: *Classic* (mostly regular solids, subtle proportions), *Crystal* (tall,
-  elongated shapes), *Geometric* (wide, flattened shapes) or *Mixed* (any family).
-* Shape variation (regular → varied) and random seed. The same seed, style and variation
-  always reproduce the same set.
-* The selected die's shape family and its proportion slider, plus a table of every die's
-  shape in the set.
+* Style preset: *Classic* (mostly regular solids, subtle proportions), *Elongated*
+  (stretched, skewed faces), *Geometric* (wide, flattened), *Crystal rollers* (pointed
+  prisms; the D6 is often a gemstone), *Shard rollers* (long and short points; the D4 may
+  be a wedge or an infinity) or *Mixed* (any shape).
+* Shape variation and random seed. The same seed, style and variation always reproduce
+  the same set.
+* The selected die's shape, all of that shape's proportion sliders, its size (whose
+  meaning follows the shape: resting width for rollers, tip-to-tip for the infinity), and
+  a one-line summary of how it lands and how it's read. A table lists every die's shape,
+  proportions and length.
 * Every shape value has a 🔒 lock. *Randomize* (toolbar or tab) draws a new seed and
   re-rolls only the unlocked values.
 * *Regenerate this die* rolls a new random shape for the selected die only.
@@ -103,9 +115,9 @@ View modes:
   edge margin.
 * Numeral size, either as a % of the largest size that fits, or an exact height per die.
   You can also set offset, rotation, and vertex/edge alignment.
-* Conventions: 6/9 underline or dot; D4 numbers at corners (read at the top) or at
-  edges (read at the bottom); D10 0–9 or 1–10; D100 00–90 or 10–100; the D10 upper-face
-  digit order.
+* Conventions: 6/9 underline or dot; D4 numbers at corners (read at the top), at edges
+  (read at the bottom), or *automatic* (corners, but edges on the wedge); D10 0–9 or
+  1–10; D100 00–90 or 10–100; the D10 upper-face digit order.
 
 **D20 Logo tab.**
 * Import a PNG. The preview shows the image over a checkerboard and the resulting cut mask.
@@ -142,30 +154,63 @@ File names: `MySet_D20.stl`, `MySet_D20_Blank.stl`, `MySet_D12.stl`, `MySet_D12_
 
 ## 3. How the geometry works
 
-### Dice bodies and random shapes (`geometry/polyhedra.py`, `geometry/design.py`)
-Each die is the intersection of half-spaces `n·x ≤ d` (exact plane equations), giving
-an exact, convex, watertight solid with the correct number of faces.
+### Dice bodies and random shapes (`geometry/polyhedra.py`, `geometry/design.py`, `geometry/curved.py`)
+Each die (except the curved infinity D4) is the intersection of half-spaces `n·x ≤ d`
+(exact plane equations), giving an exact, convex, watertight solid.
 
-Random shapes come only from **face-transitive (isohedral) families**. Every face of
-such a solid is congruent and equidistant from the centre, so the die stays fair at any
-proportion. Except for the D4 (read at a vertex), every family also has a parallel
-opposite face for each face, so the die rests flat with a number pointing straight up.
+**Face-landing shapes** are face-transitive: every face is congruent and equidistant from
+the centre, so the die is fair at any proportion, and (except on the D4) every face has a
+parallel opposite face that is read on top.
 
-| die | shape families | random proportion (range) |
+| die | face-landing shapes | random proportion (range) |
 |---|---|---|
-| D4 | tetrahedron, disphenoid (4 congruent isosceles triangles) | stretch 0.8–1.3 (1 = regular) |
-| D6 | cube, rhombohedron (6 congruent rhombi) | face tilt 26–46° (35.26° = cube) |
-| D8 | octahedron, square bipyramid | height 0.75–1.4 (1 = octahedron) |
-| D10 / D100 | pentagonal trapezohedron (10 congruent kites, planar by construction: `z₀ = h(1−cos36°)/(1+cos36°)`) | elongation 0.8–1.35 |
-| D12 | dodecahedron, pyritohedron (12 congruent irregular pentagons), rhombic dodecahedron, hexagonal bipyramid | pentagon shape 1.15–2.3 (1.618 = regular); bipyramid height 0.9–1.4 |
-| D20 | icosahedron, decagonal bipyramid | height 1.2–1.6 |
+| D4 | tetrahedron, disphenoid, **wedge** (long disphenoid, read along the edges) | stretch 0.75–1.6; wedge 1.6–2.4 |
+| D6 | cube, rhombohedron (6 congruent rhombi) | face tilt 18–52° (35.26° = cube) |
+| D8 | octahedron, square bipyramid | height 0.75–2.2 (1 = octahedron) |
+| D10 / D100 | pentagonal trapezohedron (10 kites, planar by construction: `z₀ = h(1−cos36°)/(1+cos36°)`) | elongation 0.8–2.0 |
+| D12 | dodecahedron, pyritohedron, rhombic dodecahedron, hexagonal bipyramid | pentagon 1.15–2.3; height 0.9–2.2 |
+| D20 | icosahedron, decagonal bipyramid | height 1.2–2.4 |
 
-Height ranges are capped so no die gets impractically long. Odd-sided bipyramids and
-even-sided trapezohedra are deliberately excluded: they have no face opposite each
-face, so they'd come to rest with an edge on top. The tests check every family at the
-ends and middle of its range for face count, congruence (to 1e-9), equal face distance
-and opposite faces. Size means the longest edge for the D4 and the face-to-face distance
-for every other die.
+**Rollers** are long, with N congruent numbered sides around an axis and pointed ends.
+They roll like a pencil, come to rest on a side, and the side facing up is read (resting
+on side k, side k + N/2 is on top, and the pair always sums to N+1, or to 9 on the D10).
+Their size is the resting width across the sides; proportions are in multiples of it.
+
+| shape | dice | proportions | ends |
+|---|---|---|---|
+| crystal | all | body 0.9–2.4, point 0.55–1.1 | equal pointed caps |
+| shard | all | long point 2.1–3.2, short point 0.6–1.0 | no body; the long point's facets are the numbered sides |
+| short shard | all | body 0.9–1.8, long point 0.8–1.8, short point 0.45–0.9 | body with one long and one short point |
+| gemstone | D6 | girdle 1.0–2.0, crown 0.7–1.0, pavilion 0.9–1.5 | two-tier faceted crown, pointed pavilion |
+| infinity | D4 | roundness 0.8–1.25 | curved sphericon (see below) |
+
+**Rest analysis.** A convex die resting on a face is stable exactly when its centre of
+mass, projected straight down, lands inside that face. The engine computes this for every
+face of every shape. Numbered faces must hold the die with a margin of at least 12% of
+the face's inscribed radius, and every end facet of a roller must tip over. Shapes that
+fail are rejected with an explanation ("the die could come to rest on 12 end facets;
+make the ends longer/pointier"), and the randomiser re-rolls them.
+
+This analysis is why the ranges look as they do. A pure shard's mass sits near its wide
+ring, so it can balance on its short facets unless its long point is at least ~2× its
+width. With a body section, a very long gentle point becomes a resting surface itself.
+And stubby crystals or gems can stand on their crown. The UI shows the result for the
+selected die ("lands only on its 6 numbered sides; all 18 end facets tip over").
+
+**Infinity D4** (`geometry/curved.py`). This is a sphericon: the convex hull of two
+perpendicular half-arcs, with four curved cone faces. Like a tetrahedron, each face
+touches the other three. It rolls and comes to rest on one face, and it's read like a
+base-style D4: along each edge of a face is the number of the face across that edge, so
+the number along the bottom edges of the visible faces is the result. Because cones are
+developable, each face is unrolled exactly into a flat fan. The numerals are laid out and
+size-fitted there, then the cut prisms are refined and wrapped back onto the surface, so
+every point of the engraving sits 0.75 mm below the *curved* surface along its local
+normal (measured 0.750–0.751 mm in the tests).
+
+**Clipped** (corner-truncated) and chamfered regular shapes are deliberately not
+included. Size means the longest edge for the D4 tetrahedron/disphenoid/wedge, the
+face-to-face distance for other face-landing dice, the resting width for rollers, and the
+tip-to-tip length for the infinity.
 
 ### Numbering and orientation (`geometry/numbering.py`)
 Every numbered face gets a right-handed frame (u, v, n) with **u × v = n**. Seen from
@@ -177,6 +222,7 @@ for every face.
 | D6 | opposite faces sum to 7; 1-2-3 counter-clockwise around a corner; numerals point to an edge |
 | D8 / D12 / D20 | opposite faces sum to N+1; a deterministic optimiser balances the vertex sums; numerals point to a vertex (edge optional), or to the die's pole on bipyramids |
 | D10 / D100 | odd digits on the upper kites (default order 1,7,3,9,5), opposite faces sum to 9; numerals point to the die's pole; D100 shows 00–90 |
+| rollers | values run around the ring, resting side + top side = N+1 (9 on the D10); numerals run along the die's axis, upright when the die lies down, slid along the side to where they can be largest |
 | D4 | *apex* style: each corner has a number, each face shows its three corner numbers each pointing at its corner, and the three faces around a corner show the same number (read at the top). *Base* style: each edge shows the value of the face across it (read at the bottom). |
 
 6 and 9 get an underline or dot on dice that carry both. On regular faces numerals are
@@ -194,7 +240,12 @@ Before cutting, each outline must fit inside a *safe region*: the face inset by 
 margin, intersected with the die's cross-section at the cut depth with every other face
 plane moved inward by the minimum wall (a true 3D distance). This guarantees no
 breakthrough and keeps at least `min_wall` of material to neighbouring faces. If the
-requested numeral size doesn't fit, it's reduced with a warning.
+requested numeral size doesn't fit, it's reduced with a warning. Cuts also keep at
+least `min_wall` of material to the **engravings of neighbouring faces**. A point is
+accepted if it lies below the neighbour's engraving slab, or (across a shared edge)
+laterally outside the neighbour's engravable area. Without this, two numerals on
+either side of a sharp edge can meet underneath it and leave a tunnel; the topology
+check caught exactly that on long wedges during development.
 
 ### Logo (`geometry/logo.py`)
 The PNG is converted to a binary mask with your threshold (from alpha for transparent
@@ -309,10 +360,12 @@ write_stl("D20.stl", r.outer_vertices, r.outer_tris)
 
 `run_tests_windows.bat`, or `python -m pytest -v tests`. The suite covers:
 
-* **Shapes and face counts**: every shape family of every die at the ends and middle of
-  its parameter range: correct face count, no extra facets, all faces congruent and
-  equidistant, opposite faces, closed solid (Euler characteristic 2), planar convex
-  faces, correct sizes, true face offset.
+* **Shapes and face counts**: every face-landing family at the ends and middle of each
+  range (congruent, equidistant faces, opposite faces, all faces stable). Every roller
+  family: congruent numbered sides, centre of mass on the axis, every numbered side
+  stable, every end facet tips over, rest/top pairing. Also: closed solids (Euler
+  characteristic 2), planar convex faces, sizes, true face offsets, and a blunt crystal
+  being rejected.
 * **Numbering**:
   * opposite sums (7, 9, 13, 21, 9); every value appears exactly once;
   * D10/D100 labels; 6/9 markers;
@@ -348,6 +401,15 @@ write_stl("D20.stl", r.outer_vertices, r.outer_tris)
   * save and reopen into a *fresh* asset store with font and logo restored and identical
     spec hashes; duplicate;
   * HTTP API end to end.
+* **Rollers and curved shapes**:
+  * every roller on every die builds a valid mesh, with each numeral measured 0.75 mm
+    deep along its side's normal;
+  * blanks fit; resting side + top side pairs; numerals run along the axis;
+  * the wedge uses edge numbering;
+  * the infinity D4 has a valid mesh and blank, consistent base-style labels, and its
+    curved engraving measured along the true surface normal;
+  * the randomiser never produces a shape that can land on an end (four styles × 12 seeds);
+  * regenerating a die changes only that die; old project keys migrate.
 * **UI smoke test** (`test_ui_smoke.py`, runs when Playwright and Chromium are installed):
   loads the editor, regenerates a die, undoes, cycles every view mode, and validates.
 
@@ -369,3 +431,15 @@ write_stl("D20.stl", r.outer_vertices, r.outer_tris)
   into the field instead.
 * The blank is a convex, unengraved solid. Whether it works mechanically as an insert
   (for example, how to embed it during printing or casting) is up to your process.
+* The rest analysis is *static*: it proves where the die can and can't come to rest, not
+  how often a real throw ends on each side (bounce dynamics, surface, edge rounding from
+  printing). Every numbered side of a roller is congruent, so by symmetry each is equally
+  likely.
+* Rollers with many sides (D12 and especially D20 crystals and shards) have narrow sides,
+  so their numerals come out small (about 1.1–2.5 mm). The app warns when numerals are
+  under 2.5 mm; make the die wider, or use the two-row elongated bipyramid for the D20,
+  which the crystal and shard styles prefer.
+* The infinity D4's curved faces are a fine faceted hull (160 segments per arc, chord
+  error < 1 µm). Its engraving floor follows the curve to within 5 µm, so its blank keeps
+  an extra 10 µm allowance. It builds in about 5 s; the other dice take well under 1 s,
+  and every die is built and shown independently.

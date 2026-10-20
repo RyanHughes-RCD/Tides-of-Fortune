@@ -22,7 +22,7 @@ from .geometry import design as deco
 from .geometry.builder import spec_hash
 from .geometry.numbering import (ALIGN_MODES, D4_STYLES, D10_STYLES, D100_STYLES, DEFAULT_D10_TOP,
                                  MARKER_STYLES, validate_d10_top)
-from .geometry.polyhedra import DEFAULT_SIZES_MM, DIE_TYPES, SIZE_LIMITS_MM, GeometryError
+from .geometry.polyhedra import DIE_TYPES, SIZE_LIMITS_MM, GeometryError, default_size_mm
 
 FORMAT = "tides-dice-studio-project"
 VERSION = 1
@@ -68,7 +68,7 @@ def default_project(seed=None, style="classic", density=0.5, name="MySet"):
             "depth_mm": 0.75,
             "size_fill": 0.88,
             "six_nine_marker": "underline",
-            "d4_style": "apex",
+            "d4_style": "auto",
             "d10_style": "0-9",
             "d100_style": "00-90",
             "d10_top_order": list(DEFAULT_D10_TOP),
@@ -129,7 +129,7 @@ def validate_project(p):
     out["seed"] = int(p.get("seed", 1))
     out["density"] = _num(p.get("density", 0.5), 0, 1, "Detail density")
     try:
-        out["design"] = deco.validate_design({**base["design"], **(p.get("design") or {})})
+        out["design"] = deco.validate_design({**base["design"], **deco.migrate_design(p.get("design"))})
     except ValueError as exc:
         raise ProjectError(str(exc))
     locks = p.get("locks") or []
@@ -194,7 +194,7 @@ def validate_project(p):
         dd["variant"] = int(dd["variant"])
         if dd["size_mm"] is not None:
             dd["size_mm"] = _num(dd["size_mm"], *SIZE_LIMITS_MM, f"{d.upper()} size")
-        ov = dd.get("design_overrides") or {}
+        ov = deco.migrate_design(dd.get("design_overrides"))
         try:
             deco.validate_design({**out["design"], **ov})
         except ValueError as exc:
@@ -304,7 +304,7 @@ def resolve_die_spec(p, die):
     nums["embolden_mm"] = font["embolden_mm"]
     spec = {
         "die": die,
-        "size_mm": d["size_mm"] or DEFAULT_SIZES_MM[die],
+        "size_mm": d["size_mm"] or default_size_mm(die, die_design(p, die)[f"{die}_shape"]),
         "design": die_design(p, die),
         "numbers": nums,
         "font": {"asset_id": font["asset"]["id"] if font["asset"] else None,
