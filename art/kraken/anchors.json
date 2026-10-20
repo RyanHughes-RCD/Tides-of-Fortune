@@ -1,0 +1,38 @@
+{
+ "head": {
+  "anchor": [
+   75,
+   213
+  ]
+ },
+ "arm_rear": {
+  "anchor": [
+   147,
+   183
+  ]
+ },
+ "arm_rear_b": {
+  "anchor": [
+   132,
+   183
+  ]
+ },
+ "arm_tall": {
+  "anchor": [
+   118,
+   239
+  ]
+ },
+ "arm_arch": {
+  "anchor": [
+   62,
+   70
+  ]
+ },
+ "arm_tip": {
+  "anchor": [
+   61,
+   97
+  ]
+ }
+}
