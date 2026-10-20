@@ -8100,7 +8100,7 @@ const World = (() => {
     buildMap(); buildExt(); buildTerrain();
     TEX = Art.buildAll();
     populate();
-    { const a = tileCenter(36, 28), isl = tileCenter(ISLET.gx, ISLET.gy); KZ.init({ x: a.x, y: a.y }, isl); KZ.setWaterMask(groundCanvas, OX, OY);
+    { const t = tileCenter(36, 28), a = { x: t.x - 70, y: t.y }, isl = tileCenter(ISLET.gx, ISLET.gy); KZ.init(a, isl); // nudged left of the tile, clear of the lighthouse islet KZ.setWaterMask(groundCanvas, OX, OY);
       krObj = addObj({ kind: 'kraken', x: a.x, y: a.y, depth: a.y, draw: drawKraken }); }
     staticEmitters = emitters.slice();
     resize();
