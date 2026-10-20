@@ -1,4 +1,14 @@
-# Kraken pieces (work in progress, not used by the game yet)
+# Kraken art
+
+**In the game:** `user/` holds the hand-drawn sprites the event uses: `head.png` (six eyes) and the
+tentacles `a1.png` to `a4.png` (A3 grabs and breaks the lighthouse). They are embedded in `index.html`
+(search for `const SRC =` in the kraken art section), so to change one, replace the PNG there with the new
+file's base64 data URI. The game shows them at 2x, crisp, and derives everything else from their pixels:
+the sway frames, the A3 grab, the split jaw, the eye overlays and the carcass. If you redraw the head,
+the six eye positions are listed in `EYE6` beside it.
+
+**Archive:** the other files here are earlier pieces drawn in code; the game no longer uses them.
+
 
 Native-resolution pixel art, transparent backgrounds. Each piece carries its own foam, ripples and
 under-water shadow, so it can be placed straight on the harbor water.
