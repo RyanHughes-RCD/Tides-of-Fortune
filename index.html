@@ -7506,7 +7506,7 @@ const World = (() => {
       for (let k = 0; k < 2; k++) { const u = (te * 0.12 + k / 2) % 1; ringAt(ctx, at.x, at.y, W * 0.6 + u * 60, (1 - u) * 0.25); }
     }
     // Pass 2, in the depth-sorted world: one arm (or the head) above the surface, foam collar and all.
-    // the leftmost and rightmost solid pixel of a frame's row (or the nearest solid row above it), measured once per frame
+    // where a frame's arm sits across a given row: its left and right edges, measured once per frame
     const spans = new WeakMap();
     function spanAt(fr, row) {
       let S = spans.get(fr);
@@ -7515,8 +7515,11 @@ const World = (() => {
         for (let y = 0; y < fr.h; y++) for (let x = 0; x < fr.w; x++) if (d[(y * fr.w + x) * 4 + 3] > 128) { if (S[y * 2] < 0) S[y * 2] = x; S[y * 2 + 1] = x; }
         spans.set(fr, S);
       }
-      for (let y = Math.min(fr.h - 1, row); y >= Math.max(0, row - 8); y--) if (S[y * 2] >= 0) return [S[y * 2], S[y * 2 + 1]];
-      return null;
+      const L = [], R = []; // the median edges over a band of rows above the water, so a spike or flap on one row doesn't pull it sideways
+      for (let y = Math.min(fr.h - 1, row); y >= Math.max(0, row - 24) && L.length < 12; y--) if (S[y * 2] >= 0) { L.push(S[y * 2]); R.push(S[y * 2 + 1]); }
+      if (!L.length) return null;
+      const med = a => a.sort((p, q) => p - q)[a.length >> 1];
+      return [med(L), med(R)];
     }
     function drawArm(ctx, P, i) {
       const st = P._arm && P._arm[i]; if (!st || !K) return;
