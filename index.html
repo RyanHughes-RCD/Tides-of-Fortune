@@ -5899,7 +5899,16 @@ const Art = (() => {
       for (let f = 0; f < 10; f++) T.idle.push(mk(2.4, Math.PI * 2 * f / 10, 0));
       for (let f = 0; f < 6; f++) T.rage.push(mk(6.5, Math.PI * 2 * f / 6, 3 * Math.sin(Math.PI * 2 * f / 6)));
       { const { p, R } = rotate(src, (mirror ? 1 : -1) * 1.45, bx, src.h - 2, mirror, 0.6), s = sprUp(p, R, R); s.ends = [[s.ax, s.ay, (b1 - b0 + 2) * KS * 0.7]]; T.limp = s; } // lying on the water
+      T.base = baseFor(b0, b1);
       return { T, bx, src };
+    }
+    // The stump below the waterline, never above it: the arm's own red carried on down, checkered away to nothing with depth.
+    function baseFor(b0, b1) {
+      const col = '#820215'; // the arms' main red (the commonest colour in all four sprites)
+      const half = (b1 - b0 + 1) / 2, H = 30, W = Math.ceil(half * 2.4) + 2, p = new Pix(W, H), cx = W / 2;
+      for (let y = 0; y < H; y++) { const hw = half * (1 + 0.15 * y / H), k = 1 - (y + 0.5) / H;
+        for (let x = 0; x < W; x++) if (Math.abs(x + 0.5 - cx) <= hw && [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5][(y & 3) * 4 + (x & 3)] / 16 < k) p.set(x, y, col); }
+      return sprUp(p, cx, 0);
     }
     // A3 reaching over the lighthouse: leaning in, the hook coming down over the tower, a squeeze, the smash
     function grabFrames(name) {
@@ -7260,7 +7269,7 @@ const World = (() => {
     const IDLE = 10, RAGE = 6, SLAM = 7;
     function armJobs() {
       const jobs = [], cache = {};
-      ARMS.forEach(A => jobs.push(() => { const key = A.s + (A.m ? 'm' : ''); const T = cache[key] || (cache[key] = K.tentacle(A.s, A.m).T); A.idle = T.idle; A.rage = T.rage; A.limp = T.limp; A.slam = []; }));
+      ARMS.forEach(A => jobs.push(() => { const key = A.s + (A.m ? 'm' : ''); const T = cache[key] || (cache[key] = K.tentacle(A.s, A.m).T); A.idle = T.idle; A.rage = T.rage; A.limp = T.limp; A.base = T.base; A.slam = []; }));
       jobs.push(() => { ARMS[7].slam = K.grabFrames('a3'); });
       return jobs;
     }
@@ -7505,7 +7514,9 @@ const World = (() => {
       if (st.mix < 1) { ctx.globalAlpha = 1 - st.mix; above(fr, top - fr.ay, 1); }
       if (st.mix > 0) { const L_ = st.alt; ctx.globalAlpha = st.mix; above(L_, st.y - L_.ay + 3, 40); }
       ctx.globalAlpha = 1;
-      if (!st.mix) for (const [x, y, r] of foams) { const F = K.foamFor(r, fi); for (const f of [F.sunk, F.front]) ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
+      if (!st.mix) for (const [x, y, r] of foams) { const F = K.foamFor(r, fi); ctx.drawImage(F.sunk.canvas, Math.round(x - F.sunk.ax), Math.round(y - F.sunk.ay)); }
+      const B = ARMS[i].base; if (B && st.mix < 1) { ctx.globalAlpha = 1 - st.mix; ctx.drawImage(B.canvas, Math.round(st.x - B.ax), Math.round(st.y + 1)); ctx.globalAlpha = 1; } // the stump, always under the surface
+      if (!st.mix) for (const [x, y, r] of foams) { const F = K.foamFor(r, fi); ctx.drawImage(F.front.canvas, Math.round(x - F.front.ax), Math.round(y - F.front.ay)); }
     }
     function headDraw(ctx, P) {
       const Hd = P.head; if (!K || !Hd || Hd.under || Hd.sink >= 200) return;
