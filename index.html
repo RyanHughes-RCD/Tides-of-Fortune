@@ -7395,10 +7395,7 @@ const World = (() => {
       const x = buf.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.fillStyle = '#ffffff'; x.fillRect(0, 0, buf.width, buf.height);
       let any = false;
       // the one great body under it all: a dark mass beneath the head, reaching out to every arm's base
-      if (!dbg.skip.body && !dbg.skip.blob) {
-        const B = bodyBlob(), a = P.head && !P.head.under ? (P.corpse ? 0.55 : 1) : P.under * 0.75;
-        if (B && a > 0.02) { x.globalAlpha = a; x.drawImage(B.canvas, Math.round(at.x - B.ax - bufX), Math.round(at.y - B.ay + Math.sin(P.te * 0.5) * 2 - bufY)); x.globalAlpha = 1; any = true; }
-      }
+      if (!dbg.skip.body && !dbg.skip.blob && drawBody(x, P, P.head && !P.head.under ? (P.corpse ? 0.55 : 1) : P.under * 0.75)) any = true;
       if (P.head && !P.dead && (P.head.under || P.head.sink > 0)) { any = true; const s = tintSil; x.globalAlpha = Math.max(0.25, 1 - P.head.sink / 320) * (P.cine !== null || !P.head.under ? 1 : P.under * 0.8); { const y0 = Math.round(at.y + P.head.sink + P.head.dy - s.ay), skip = P.head.under ? 0 : Math.max(0, Math.round(at.y) - y0); if (skip < s.h) x.drawImage(s.canvas, 0, skip, s.w, s.h - skip, Math.round(at.x + P.head.dx - s.ax - bufX), y0 + skip - bufY, s.w, s.h - skip); } x.globalAlpha = 1; }
       for (let i = 0; i < 8; i++) { // the part of each arm below the surface: a darker shape that fades with depth
         const st = P._arm[i]; if (!st || st.slide <= 0) continue;
@@ -7589,27 +7586,51 @@ const World = (() => {
       }
       return P;
     }
-    let prevCine = -1, splashT = 0, blob = null;
+    let prevCine = -1, splashT = 0, blob = null, bodyBuf = null;
     // A soft-edged dark shape, in the same multiply tint as the other under-water shadows: a broad mantle under
     // the head plus a thick limb out to the base of each arm, its edge broken into a dither so it melts into the
     // water. It never surfaces; it only darkens the water from below.
-    function bodyBlob() {
-      if (blob || !K) return blob;
-      const pts = ARMS.map(A => [A.dx, A.dy + 10]), minX = Math.min(...pts.map(p => p[0])) - 70, maxX = Math.max(...pts.map(p => p[0])) + 70;
-      const W = Math.ceil(maxX - minX), top = -90, Hh = 250, p = new Pix(W, Hh), ox = -minX, oy = -top;
-      const segD = (px, py, ax, ay, bx, by) => { const vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(px - ax - vx * t, py - ay - vy * t); };
+    // The one great body under it all, drawn in two layers (pale rim, dark core) so overlapping pieces merge cleanly.
+    const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+    function blobLayers(W, Hh, ox, oy, dist) {
+      const lo = new Pix(W, Hh), hi = new Pix(W, Hh);
       for (let y = 0; y < Hh; y++) for (let xx = 0; xx < W; xx++) {
-        const X = xx - ox + 0.5, Y = y - oy + 0.5;
-        let d = Math.hypot(X / (K.HD.W * 0.36), (Y - 34) / 62) - 1; // the mantle under the head (in units of its size)
-        d = Math.min(d, (Math.hypot(X / 340, (Y - 30) / 44) - 1)); // a broad, low body spreading across the harbor
-        for (const [ax, ay] of pts) { const w = 30 + 14 * Math.sin(ax * 0.03); d = Math.min(d, segD(X, Y, 0, 40, ax, ay) / w - 1); } // a limb out to each arm
-        d += 0.12 * Math.sin(X * 0.045 + Y * 0.02) + 0.08 * Math.sin(X * 0.11 - Y * 0.07); // a lumpy, living outline
+        const X = xx - ox + 0.5, Y = y - oy + 0.5, d = dist(X, Y) + 0.12 * Math.sin(X * 0.045 + Y * 0.02) + 0.08 * Math.sin(X * 0.11 - Y * 0.07); // a lumpy, living outline
         if (d > 0.25) continue;
-        const k = d < -0.15 ? 1 : (0.25 - d) / 0.4, bay = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5][(y & 3) * 4 + (xx & 3)] / 16;
-        if (bay >= k) continue; // the dithered fringe
-        p.set(xx, y, d < -0.45 ? '#5a3a4c' : '#7a5c6c'); // darkest at the core (it multiplies onto the water)
+        const k = d < -0.15 ? 1 : (0.25 - d) / 0.4; if (BAY[(y & 3) * 4 + (xx & 3)] / 16 >= k) continue; // the dithered fringe
+        lo.set(xx, y, '#7a5c6c'); if (d < -0.45) hi.set(xx, y, '#5a3a4c'); // darkest at the core (it multiplies onto the water)
       }
-      return (blob = { canvas: p.canvas(), w: W, h: Hh, ax: ox, ay: oy });
+      return { lo: lo.canvas(), hi: hi.canvas(), ax: ox, ay: oy };
+    }
+    function bodyBlob() { // the mantle under the head and a broad, low body spreading across the harbor
+      if (blob || !K) return blob;
+      const W = 760, Hh = 200, mw = K.HD.W * 0.36;
+      blob = { core: blobLayers(W, Hh, W / 2, 100, (X, Y) => Math.min(Math.hypot(X / mw, (Y - 4) / 62), Math.hypot(X / 340, Y / 44)) - 1), lumps: [] };
+      for (let r = 12; r <= 40; r += 4) { const w = r * 2 + 16, h = Math.round(r * 1.24) + 16; blob.lumps[r] = blobLayers(w, h, w / 2, h / 2, (X, Y) => Math.hypot(X / r, Y / (r * 0.62)) - 1); }
+      return blob;
+    }
+    // Draw the body into the under-water buffer: it rides up and down with the head, and a limb runs from it to the
+    // base of every arm, ending just under the point where the arm leaves it, so each arm grows out of its top.
+    function drawBody(x, P, a) {
+      const B = bodyBlob(); if (!B || a <= 0.02) return false;
+      if (!bodyBuf) { bodyBuf = document.createElement('canvas'); bodyBuf.width = buf.width; bodyBuf.height = buf.height; }
+      const c = bodyBuf.getContext('2d'); c.clearRect(0, 0, bodyBuf.width, bodyBuf.height);
+      const sink = P.head ? P.head.sink : 160, cx = Math.round(at.x - bufX), cy = Math.round(at.y + 30 + sink * 0.55 + Math.sin(P.te * 0.5) * 2 - bufY);
+      const snap = (v, o) => o + Math.round((v - o) / 4) * 4; // keep every piece on the core's dither grid
+      const stamps = [];
+      for (let i = 0; i < 8; i++) {
+        const st = P._arm && P._arm[i]; if (!st) continue;
+        const f = st.mix > 0.5 ? st.alt : st.fr, sunk = st.slide >= f.ay, hw = f.ends[0][2] * 0.8;
+        const re = Math.max(12, Math.min(40, hw * 1.25)), ex = st.x - bufX, ey = st.y + st.slide * (sunk ? 0.75 : 1) - bufY + re * 0.62 * 0.45;
+        const sx = cx + ARMS[i].dx * 0.35, sy = cy + 4, n = Math.max(2, Math.ceil(Math.hypot(ex - sx, ey - sy) / 10));
+        for (let k = 0; k <= n; k++) { const u = k / n, r = Math.round((34 + (re - 34) * u) / 4) * 4; stamps.push([B.lumps[Math.max(12, Math.min(40, r))], snap(sx + (ex - sx) * u, cx), snap(sy + (ey - sy) * u, cy)]); }
+      }
+      for (const L of ['lo', 'hi']) {
+        c.drawImage(B.core[L], cx - B.core.ax, cy - B.core.ay);
+        for (const [s, sx, sy] of stamps) c.drawImage(s[L], Math.round(sx - s.ax), Math.round(sy - s.ay));
+      }
+      x.globalAlpha = a; x.drawImage(bodyBuf, 0, 0); x.globalAlpha = 1;
+      return true;
     }
     function breach() { cine = { t0: now() }; prevCine = -1; hooks.start(); }
     function eyeHit(wx, wy) {
