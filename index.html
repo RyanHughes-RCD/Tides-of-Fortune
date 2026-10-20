@@ -7434,11 +7434,13 @@ const World = (() => {
     function drawPool(ctx, P, T) {
       const step = 2, R = Math.round(P.poolR / 20) * 20, W = Math.ceil(R * 2.6 / step), Hh = Math.ceil(R * 1.5 / step);
       if (!poolGeo || poolGeo.R !== R) { // per cell: polar position, the sines of 3a and 7a, and whether it's water
+        // a patch of red round every arm's base, so each one stands in the pool (laid out for the full-grown pool, growing with it)
+        const lobes = ARMS.map(A => [A.dx / 450, (A.dy - 10) / (450 * 0.55), 0.2, 0.3]);
         const n = W * Hh, g = { R, W, Hh, e0: new Float32Array(n), s3: new Float32Array(n), c3: new Float32Array(n), s7: new Float32Array(n), c7: new Float32Array(n), q: new Float32Array(n), ok: new Uint8Array(n) };
         for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
           const k = j * W + i, wx = at.x + (i + 0.5) * step - W * step / 2, wy = at.y + 10 + (j + 0.5) * step - Hh * step / 2;
           g.ok[k] = isWater(wx, wy) ? 1 : 0; const dx = (wx - at.x) / R, dy = (wy - at.y - 10) / (R * 0.55), a = Math.atan2(dy, dx);
-          g.e0[k] = Math.hypot(dx, dy); g.s3[k] = Math.sin(a * 3); g.c3[k] = Math.cos(a * 3); g.s7[k] = Math.sin(a * 7); g.c7[k] = Math.cos(a * 7); g.q[k] = dx * 9 + dy * 7;
+          g.e0[k] = Math.min(Math.hypot(dx, dy), ...lobes.map(([lx, ly, rx, ry]) => 0.25 + 0.75 * Math.hypot((dx - lx) / rx, (dy - ly) / ry))); g.s3[k] = Math.sin(a * 3); g.c3[k] = Math.cos(a * 3); g.s7[k] = Math.sin(a * 7); g.c7[k] = Math.cos(a * 7); g.q[k] = dx * 9 + dy * 7;
         }
         poolGeo = g; pool = null;
       }
