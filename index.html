@@ -7590,20 +7590,15 @@ const World = (() => {
     // A soft-edged dark shape, in the same multiply tint as the other under-water shadows: a broad mantle under
     // the head plus a thick limb out to the base of each arm, its edge broken into a dither so it melts into the
     // water. It never surfaces; it only darkens the water from below.
-    function bodyBlob() {
+    function bodyBlob() { // one dark disc under the whole creature, wide enough to reach every arm's base
       if (blob || !K) return blob;
-      const pts = ARMS.map(A => [A.dx, A.dy + 10]), minX = Math.min(...pts.map(p => p[0])) - 70, maxX = Math.max(...pts.map(p => p[0])) + 70;
-      const W = Math.ceil(maxX - minX), top = -90, Hh = 250, p = new Pix(W, Hh), ox = -minX, oy = -top;
-      const segD = (px, py, ax, ay, bx, by) => { const vx = bx - ax, vy = by - ay, t = Math.max(0, Math.min(1, ((px - ax) * vx + (py - ay) * vy) / (vx * vx + vy * vy || 1))); return Math.hypot(px - ax - vx * t, py - ay - vy * t); };
+      const xs = ARMS.map(A => A.dx), ys = ARMS.map(A => A.dy), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2 + 10;
+      const rx = (Math.max(...xs) - Math.min(...xs)) / 2 + 50, ry = Math.max(rx * 0.32, (Math.max(...ys) - Math.min(...ys)) / 2 + 40);
+      const W = Math.ceil(rx * 2) + 8, Hh = Math.ceil(ry * 2) + 8, p = new Pix(W, Hh), ox = W / 2 - cx, oy = Hh / 2 - cy;
       for (let y = 0; y < Hh; y++) for (let xx = 0; xx < W; xx++) {
-        const X = xx - ox + 0.5, Y = y - oy + 0.5;
-        let d = Math.hypot(X / (K.HD.W * 0.36), (Y - 34) / 62) - 1; // the mantle under the head (in units of its size)
-        d = Math.min(d, (Math.hypot(X / 340, (Y - 30) / 44) - 1)); // a broad, low body spreading across the harbor
-        for (const [ax, ay] of pts) { d = Math.min(d, segD(X, Y, 0, 40, ax, ay) / 34 - 1); } // a limb out to each arm
-        d += 0.03 * Math.sin(X * 0.03 + Y * 0.02); // a faint ripple in the outline
-        if (d > 0.1) continue;
-        const k = d < -0.1 ? 1 : (0.1 - d) / 0.2, bay = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5][(y & 3) * 4 + (xx & 3)] / 16;
-        if (bay >= k) continue; // the dithered fringe
+        const d = Math.hypot((xx + 0.5 - W / 2) / rx, (y + 0.5 - Hh / 2) / ry) - 1;
+        if (d > 0) continue;
+        if (d > -0.06 && [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5][(y & 3) * 4 + (xx & 3)] / 16 >= -d / 0.06) continue; // a thin dithered rim
         p.set(xx, y, '#4a2a3c'); // the same shade as the arms under the surface (it multiplies onto the water)
       }
       return (blob = { canvas: p.canvas(), w: W, h: Hh, ax: ox, ay: oy });
