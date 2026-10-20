@@ -5911,9 +5911,9 @@ const Art = (() => {
       return sprUp(p, cx, 0);
     }
     // A3 reaching over the lighthouse: leaning in, the hook coming down over the tower, a squeeze, the smash
-    function grabFrames(name, mirror = false) { // mirrored, it reaches to the left
+    function grabFrames(name) {
       const src = pixOf(imgs[name]), [b0, b1] = bounds(src), bx = (b0 + b1 + 1) / 2;
-      return [[0, 1], [0.18, 1], [0.36, 0.98], [0.5, 0.95], [0.54, 0.9], [0.95, 0.85], [1.35, 0.8]].map(([a, sq]) => { const { p, R } = rotate(src, mirror ? -a : a, bx, src.h - 2, mirror, sq), s = sprUp(p, R, R); s.ends = [[s.ax, s.ay, (b1 - b0 + 2) * KS * 0.62]]; return s; });
+      return [[0, 1], [0.18, 1], [0.36, 0.98], [0.5, 0.95], [0.54, 0.9], [0.95, 0.85], [1.35, 0.8]].map(([a, sq]) => { const { p, R } = rotate(src, a, bx, src.h - 2, false, sq), s = sprUp(p, R, R); s.ends = [[s.ax, s.ay, (b1 - b0 + 2) * KS * 0.62]]; return s; });
     }
     // ---- the head ----
     const PADX = 60, PADT = 26;
@@ -7244,7 +7244,7 @@ const World = (() => {
   const KZ = (() => {
     const H_ = 3600000;
     let K = null, at = null, buf = null, bufX = 0, bufY = 0, tintSil = null;
-    let pool = null, waterAlpha = null, cine = null, hooks = { start: () => {}, end: () => {} };
+    let pool = null, poolT = -1, waterAlpha = null, cine = null, hooks = { start: () => {}, end: () => {} };
     const NE = TOF.KRAKEN.eyes;
     const dbg = { paused: false, pausedAt: 0, lost: 0, rig: false, skip: {} };
     const parts = [], debris = [];
@@ -7256,25 +7256,25 @@ const World = (() => {
     // ---- the eight arms, from the four drawn tentacles (each used twice, once mirrored): where each meets the
     // water (screen px from the head's waterline) and when it erupts in the breach. A3 also reaches for the
     // lighthouse. Arms whose base sits behind the head (dy < 0) are drawn before it. ----
-    const ARMS = [ // each arm's base, from the head's waterline point (placed to the approved layout)
-      { s: 'a1', m: false, dx: -265, dy: 2, t0: 3.6, low: 10 },
-      { s: 'a1', m: true, dx: 115, dy: -150, t0: 3.9, low: 36 },
-      { s: 'a4', m: false, dx: -210, dy: 158, t0: 3.0, low: 58 },
-      { s: 'a4', m: true, dx: 150, dy: 70, t0: 3.15, low: 40 },
-      { s: 'a2', m: false, dx: -342, dy: 0, t0: 5.0, low: 96 },
-      { s: 'a2', m: true, dx: 360, dy: 38, t0: 5.3, low: 110 },
-      { s: 'a3', m: true, dx: 30, dy: 98, t0: 5.6, low: 84 },
-      { s: 'a3', m: true, dx: 210, dy: -35, t0: 6.0, striker: true }, // reaches left over the lighthouse and breaks it
+    const ARMS = [
+      { s: 'a1', m: false, dx: -214, dy: -18, t0: 3.6, low: 10 },
+      { s: 'a1', m: true, dx: 330, dy: 6, t0: 3.9, low: 36 },
+      { s: 'a4', m: false, dx: -118, dy: 30, t0: 3.0, low: 58 }, // these two stand in front of the head's lower corners, up first
+      { s: 'a4', m: true, dx: 120, dy: 34, t0: 3.15, low: 40 },
+      { s: 'a2', m: false, dx: -330, dy: -46, t0: 5.0, low: 96 },
+      { s: 'a2', m: true, dx: 420, dy: -30, t0: 5.3, low: 110 },
+      { s: 'a3', m: true, dx: -104, dy: 70, t0: 5.6, low: 84 },
+      { s: 'a3', m: false, dx: 0, dy: -40, t0: 6.0, striker: true },
     ];
     const IDLE = 10, RAGE = 6, SLAM = 7;
     function armJobs() {
       const jobs = [], cache = {};
       ARMS.forEach(A => jobs.push(() => { const key = A.s + (A.m ? 'm' : ''); const T = cache[key] || (cache[key] = K.tentacle(A.s, A.m).T); A.idle = T.idle; A.rage = T.rage; A.limp = T.limp; A.base = T.base; A.slam = []; }));
-      jobs.push(() => { ARMS[7].slam = K.grabFrames('a3', ARMS[7].m); });
+      jobs.push(() => { ARMS[7].slam = K.grabFrames('a3'); });
       return jobs;
     }
     let jobs = null, built = 0;
-    function init(atTile) { at = atTile; }
+    function init(atTile, isletW) { at = atTile; ARMS[7].dx = isletW.x - at.x - 128; ARMS[7].dy = isletW.y - at.y + 40; }
     // Build lazily, only once the event is near, so ordinary days pay nothing. step() spends a few ms per frame.
     function ensure() {
       if (K) return;
@@ -7398,7 +7398,7 @@ const World = (() => {
       if (P.countdown !== null) return drawCountdown(ctx, P.countdown);
       if (!P.show || !K || !buf) return;
       const T = now();
-      if (P.pool > 0 && !dbg.skip.pool) drawPool(ctx, P);
+      if (P.pool > 0 && !dbg.skip.pool) drawPool(ctx, P, T);
       if (P.wisps && !dbg.skip.wisps) drawWisps(ctx, P);
       // silhouettes under the surface, into a white buffer multiplied onto the water
       const x = buf.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.fillStyle = '#ffffff'; x.fillRect(0, 0, buf.width, buf.height);
@@ -7418,7 +7418,7 @@ const World = (() => {
       // ripples: slow wide rings round the body, faster ones where arms cut the surface
       const te = P.te;
       for (let k = 0; k < 4; k++) { const u = (te * (P.cine ? 0.6 : 0.18) + k / 4) % 1, R = 70 + u * 220; ringAt(ctx, at.x, at.y + 4, R, (1 - u) * 0.35 * (P.head && !P.head.under ? 1 : P.under)); }
-      if (!dbg.skip.arms) for (const c of P._cross) for (let k = 0; k < 2; k++) { const u = (te * 0.9 + k / 2 + c[2] * 0.03) % 1; ringAt(ctx, c[0], c[1], c[2] * 1.6 + u * 40, (1 - u) * 0.5); }
+      for (const c of P._cross) for (let k = 0; k < 2; k++) { const u = (te * 0.9 + k / 2 + c[2] * 0.03) % 1; ringAt(ctx, c[0], c[1], c[2] * 1.6 + u * 40, (1 - u) * 0.5); }
       if (P.cine !== null && P.cine > 2 && P.cine < 4.6) { const u = (P.cine - 2) / 2.6; for (let k = 0; k < 3; k++) ringAt(ctx, at.x, at.y + 4, 40 + u * 260 - k * 26, 0.8 * (1 - u)); } // the swell
     }
     function ringAt(ctx, x, y, R, a) { if (a <= 0.02 || R < 6) return; const s = K.ringFor(R); ctx.globalAlpha = Math.min(1, a); ctx.drawImage(s.canvas, Math.round(x - s.ax), Math.round(y - s.ay)); ctx.globalAlpha = 1; }
@@ -7431,9 +7431,8 @@ const World = (() => {
     }
     // the crimson pool: a slowly churning blob, dithered in a few steps from harbor blue to blood red, only on water
     let poolGeo = null;
-    const POOL_T = 1792535209.6; // the pool holds still, in the shape it had at this moment (seconds), the one that was approved
     const POOL_LOBES = [[-0.45, 0.6, 0.6, 0.55], [0.8, 0.05, 0.45, 0.6]]; // reaches out under the outer arms: centre and radii, in pool radii
-    function drawPool(ctx, P) {
+    function drawPool(ctx, P, T) {
       const step = 2, R = Math.round(P.poolR / 20) * 20, W = Math.ceil(R * 2.6 / step), Hh = Math.ceil(R * 1.5 / step);
       if (!poolGeo || poolGeo.R !== R) { // per cell: polar position, the sines of 3a and 7a, and whether it's water
         const n = W * Hh, g = { R, W, Hh, e0: new Float32Array(n), s3: new Float32Array(n), c3: new Float32Array(n), s7: new Float32Array(n), c7: new Float32Array(n), q: new Float32Array(n), ok: new Uint8Array(n) };
@@ -7444,9 +7443,9 @@ const World = (() => {
         }
         poolGeo = g; pool = null;
       }
-      if (!pool || Math.abs((pool._a || 0) - P.pool) > 0.03) {
-        if (!pool) { pool = document.createElement('canvas'); pool.width = W; pool.height = Hh; }
-        const g = poolGeo, x = pool.getContext('2d'), img = x.createImageData(W, Hh), d = img.data, tt = POOL_T;
+      if (!pool || T - poolT > 1200 || Math.abs((pool._a || 0) - P.pool) > 0.03) {
+        poolT = T; if (!pool) { pool = document.createElement('canvas'); pool.width = W; pool.height = Hh; }
+        const g = poolGeo, x = pool.getContext('2d'), img = x.createImageData(W, Hh), d = img.data, tt = T / 1000;
         const p1 = tt * 0.07, p2 = -tt * 0.11, sp1 = Math.sin(p1), cp1 = Math.cos(p1), sp2 = Math.sin(p2), cp2 = Math.cos(p2), sq = Math.sin(tt * 0.2), cq = Math.cos(tt * 0.2);
         const cols = [[47, 130, 196], [70, 92, 160], [92, 48, 110], [110, 22, 60], [96, 10, 34], [64, 6, 22]];
         const BAY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
@@ -7658,10 +7657,9 @@ const World = (() => {
   function drawKraken(ctx) { // the creature itself, inside the depth-sorted world
     if (!krP || !krP.show || KZ.dbg.skip.body) return;
     const order = KZ.ARMS.map((a, i) => i).sort((a, b) => KZ.ARMS[a].dy - KZ.ARMS[b].dy);
-    const arms = !KZ.dbg.skip.arms;
-    for (const i of order) if (arms && KZ.ARMS[i].dy < 0) KZ.drawArm(ctx, krP, i);
+    for (const i of order) if (KZ.ARMS[i].dy < 0) KZ.drawArm(ctx, krP, i);
     KZ.headDraw(ctx, krP);
-    for (const i of order) if (arms && KZ.ARMS[i].dy >= 0) KZ.drawArm(ctx, krP, i);
+    for (const i of order) if (KZ.ARMS[i].dy >= 0) KZ.drawArm(ctx, krP, i);
   }
   function render() {
     const W = canvas.width, H = canvas.height;
@@ -8101,7 +8099,7 @@ const World = (() => {
     buildMap(); buildExt(); buildTerrain();
     TEX = Art.buildAll();
     populate();
-    { const a = tileCenter(36, 28); KZ.init({ x: a.x, y: a.y }); KZ.setWaterMask(groundCanvas, OX, OY);
+    { const a = tileCenter(36, 28), isl = tileCenter(ISLET.gx, ISLET.gy); KZ.init({ x: a.x, y: a.y }, isl); KZ.setWaterMask(groundCanvas, OX, OY);
       krObj = addObj({ kind: 'kraken', x: a.x, y: a.y, depth: a.y, draw: drawKraken }); }
     staticEmitters = emitters.slice();
     resize();
