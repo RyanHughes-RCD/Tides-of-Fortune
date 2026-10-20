@@ -7409,7 +7409,7 @@ const World = (() => {
       if (P.head && !P.dead && (P.head.under || P.head.sink > 0)) { any = true; const s = tintSil; x.globalAlpha = Math.max(0.25, 1 - P.head.sink / 320) * (P.cine !== null || !P.head.under ? 1 : P.under * 0.8); { const y0 = Math.round(at.y + P.head.sink + P.head.dy - s.ay), skip = P.head.under ? 0 : Math.max(0, Math.round(at.y) - y0); if (skip < s.h) x.drawImage(s.canvas, 0, skip, s.w, s.h - skip, Math.round(at.x + P.head.dx - s.ax - bufX), y0 + skip - bufY, s.w, s.h - skip); } x.globalAlpha = 1; }
       for (let i = 0; i < 8; i++) { // the part of each arm below the surface: a darker shape that fades with depth
         const st = P._arm[i]; if (!st || st.slide <= 0) continue;
-        if (!st.mix && st.slide < st.fr.ay * 0.94) continue; // an arm standing out of the water has its red stump below instead
+        if (st.mix || st.slide < st.fr.ay * 0.94) continue; // an arm standing out of the water has its red stump below instead; a limp one lies on top of it
         const fr = st.mix > 0.5 ? st.alt : st.fr, t = tinted(fr), deep = Math.min(1, st.slide / (fr.ay + 60));
         const sunk = st.slide >= fr.ay, y0 = Math.round(st.y + st.slide * (sunk ? 0.75 : 1) - fr.ay), skip = sunk ? 0 : Math.max(0, Math.round(st.y) - y0); // only the part below the surface
         x.globalAlpha = (1 - deep * 0.8) * (P.arms[i].alpha ?? 1) * (P.cine !== null || !P.head || !P.head.under ? 1 : 0.7);
