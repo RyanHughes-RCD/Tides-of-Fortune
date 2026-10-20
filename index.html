@@ -7432,7 +7432,6 @@ const World = (() => {
     }
     // the crimson pool: a slowly churning blob, dithered in a few steps from harbor blue to blood red, only on water
     let poolGeo = null;
-    const POOL_LOBES = [[-0.45, 0.6, 0.6, 0.55], [0.8, 0.05, 0.45, 0.6]]; // reaches out under the outer arms: centre and radii, in pool radii
     function drawPool(ctx, P, T) {
       const step = 2, R = Math.round(P.poolR / 20) * 20, W = Math.ceil(R * 2.6 / step), Hh = Math.ceil(R * 1.5 / step);
       if (!poolGeo || poolGeo.R !== R) { // per cell: polar position, the sines of 3a and 7a, and whether it's water
@@ -7440,7 +7439,7 @@ const World = (() => {
         for (let j = 0; j < Hh; j++) for (let i = 0; i < W; i++) {
           const k = j * W + i, wx = at.x + (i + 0.5) * step - W * step / 2, wy = at.y + 10 + (j + 0.5) * step - Hh * step / 2;
           g.ok[k] = isWater(wx, wy) ? 1 : 0; const dx = (wx - at.x) / R, dy = (wy - at.y - 10) / (R * 0.55), a = Math.atan2(dy, dx);
-          g.e0[k] = Math.min(Math.hypot(dx, dy), ...POOL_LOBES.map(([lx, ly, rx, ry]) => 0.25 + 0.75 * Math.hypot((dx - lx) / rx, (dy - ly) / ry))); g.s3[k] = Math.sin(a * 3); g.c3[k] = Math.cos(a * 3); g.s7[k] = Math.sin(a * 7); g.c7[k] = Math.cos(a * 7); g.q[k] = dx * 9 + dy * 7;
+          g.e0[k] = Math.hypot(dx, dy); g.s3[k] = Math.sin(a * 3); g.c3[k] = Math.cos(a * 3); g.s7[k] = Math.sin(a * 7); g.c7[k] = Math.cos(a * 7); g.q[k] = dx * 9 + dy * 7;
         }
         poolGeo = g; pool = null;
       }
