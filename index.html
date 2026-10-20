@@ -7394,8 +7394,6 @@ const World = (() => {
       // silhouettes under the surface, into a white buffer multiplied onto the water
       const x = buf.getContext('2d'); x.globalCompositeOperation = 'source-over'; x.fillStyle = '#ffffff'; x.fillRect(0, 0, buf.width, buf.height);
       let any = false;
-      // the one great body under it all: a dark mass beneath the head, reaching out to every arm's base
-      if (!dbg.skip.body && !dbg.skip.blob && drawBody(x, P, P.head && !P.head.under ? (P.corpse ? 0.55 : 1) : P.under * 0.7)) any = true;
       if (P.head && !P.dead && (P.head.under || P.head.sink > 0)) { any = true; const s = tintSil; x.globalAlpha = Math.max(0.25, 1 - P.head.sink / 320) * (P.cine !== null || !P.head.under ? 1 : P.under * 0.8); { const y0 = Math.round(at.y + P.head.sink + P.head.dy - s.ay), skip = P.head.under ? 0 : Math.max(0, Math.round(at.y) - y0); if (skip < s.h) x.drawImage(s.canvas, 0, skip, s.w, s.h - skip, Math.round(at.x + P.head.dx - s.ax - bufX), y0 + skip - bufY, s.w, s.h - skip); } x.globalAlpha = 1; }
       for (let i = 0; i < 8; i++) { // the part of each arm below the surface: a darker shape that fades with depth
         const st = P._arm[i]; if (!st || st.slide <= 0) continue;
@@ -7586,32 +7584,7 @@ const World = (() => {
       }
       return P;
     }
-    let prevCine = -1, splashT = 0, blob = null;
-    // A soft-edged dark shape, in the same multiply tint as the other under-water shadows: a broad mantle under
-    // the head plus a thick limb out to the base of each arm, its edge broken into a dither so it melts into the
-    // water. It never surfaces; it only darkens the water from below.
-    function bodyBlob() { // one dark disc under the whole creature, wide enough to reach every arm's base
-      if (blob || !K) return blob;
-      const xs = ARMS.map(A => A.dx), ys = ARMS.map(A => A.dy), cx = (Math.min(...xs) + Math.max(...xs)) / 2, cy = (Math.min(...ys) + Math.max(...ys)) / 2 + 10;
-      const rx = (Math.max(...xs) - Math.min(...xs)) / 2 + 50, ry = Math.max(rx * 0.32, (Math.max(...ys) - Math.min(...ys)) / 2 + 40);
-      const W = Math.ceil(rx * 2) + 8, Hh = Math.ceil(ry * 2) + 8, p = new Pix(W, Hh), ox = W / 2 - cx, oy = Hh / 2 - cy;
-      for (let y = 0; y < Hh; y++) for (let xx = 0; xx < W; xx++) {
-        const d = Math.hypot((xx + 0.5 - W / 2) / rx, (y + 0.5 - Hh / 2) / ry) - 1;
-        if (d > 0) continue;
-        if (d > -0.06 && [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5][(y & 3) * 4 + (xx & 3)] / 16 >= -d / 0.06) continue; // a thin dithered rim
-        p.set(xx, y, '#4a2a3c'); // the same shade as the arms under the surface (it multiplies onto the water)
-      }
-      return (blob = { canvas: p.canvas(), w: W, h: Hh, ax: ox, ay: oy });
-    }
-    // It rides up and down with the arms: as deep as their bases sit on average, so they always grow out of it.
-    function drawBody(x, P, a) {
-      const B = bodyBlob(); if (!B || a <= 0.02) return false;
-      let sum = 0, n = 0;
-      for (const st of P._arm || []) { if (!st) continue; const f = st.mix > 0.5 ? st.alt : st.fr; sum += st.slide * (st.slide >= f.ay ? 0.75 : 1); n++; }
-      const dy = n ? Math.min(140, sum / n) : 0, deep = Math.min(1, (dy + 40) / 220); // and fades with depth just as an arm does
-      x.globalAlpha = a * (1 - deep * 0.8); x.drawImage(B.canvas, Math.round(at.x - B.ax - bufX), Math.round(at.y - B.ay + dy + Math.sin(P.te * 0.5) * 2 - bufY)); x.globalAlpha = 1;
-      return true;
-    }
+    let prevCine = -1, splashT = 0;
     function breach() { cine = { t0: now() }; prevCine = -1; hooks.start(); }
     function eyeHit(wx, wy) {
       if (!P || !P._eyeAt || cine) return -1;
