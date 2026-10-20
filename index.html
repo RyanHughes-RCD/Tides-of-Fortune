@@ -443,7 +443,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.7.2';
+  const GAME_VERSION = '1.7.3';
   const SAVE_VERSION = 6;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -5951,8 +5951,10 @@ const Art = (() => {
     }
     // --- foam collars where something breaks the surface (back half drawn first, front half last) ---
     const foam = {};
-    function foamFor(R, f) {
-      R = Math.max(4, Math.min(110, Math.round(R / 2) * 2)); const key = R + '_' + f;
+    // curve (px): curve the top of the white water into a shallow bowl, lowest in the middle and rising c px toward the
+    // sides, so it meets a wide body along a curve and still covers its lower corners
+    function foamFor(R, f, curve = 0) {
+      R = Math.max(4, Math.min(110, Math.round(R / 2) * 2)); const key = R + '_' + f + '_' + curve;
       if (foam[key]) return foam[key];
       const S = Math.ceil(R * 3.2) + 8, cx = S / 2, cy = Math.ceil(R * 0.9) + 4, Hh = Math.ceil(R * 1.8) + 8;
       const back = new Pix(S, Hh), front = new Pix(S, Hh), sunk = new Pix(S, Hh);
@@ -5964,7 +5966,7 @@ const Art = (() => {
         const ex = dx / (R * 1.02), inner = Math.abs(ex) < 1 ? R * 0.5 * Math.sqrt(1 - ex * ex) : -1;
         const c = e < 0.78 || hash(x, y, 2 + f) < 0.4 ? '#e9f7fc' : '#bfe6f6';
         if (inner >= 0 && dy > -inner && dy < inner - 1.5) { // the hole the body fills: in front of it, white water churned right up to its edge
-          const lip = 3 + 4 * hash(x >> 1, f + 3, R), top = -2 - 3 * hash(x >> 1, f, R); // a ragged band of white water hugging the body
+          const lip = 3 + 4 * hash(x >> 1, f + 3, R), top = curve ? 3 - curve * (1 - Math.sqrt(Math.max(0, 1 - ex * ex))) - 2 * hash(x >> 1, f, R) : -2 - 3 * hash(x >> 1, f, R); // a ragged band of white water hugging the body
           if (dy >= top) { // churning white water all the way out to the ring: clumps of bright foam, paler troughs, a few gaps
             const n = hash(x >> 1, y >> 1, 11 + f) * 0.6 + hash(x >> 2, y >> 2, 13 + f) * 0.4, fl = dy < lip ? 1 : 0;
             if (n > 0.18 || fl) sunk.set(x, y, n > 0.62 || fl ? '#f2fafd' : n > 0.4 ? '#d6eef8' : '#a9d8ef');
@@ -7515,7 +7517,7 @@ const World = (() => {
       }
       const f = K.frames[Math.max(0, Math.min(K.SPLIT, Math.round(Hd.split * K.SPLIT)))];
       const x = Math.round(at.x + Hd.dx - f.ax), y = Math.round(at.y + Hd.sink + Hd.dy - f.ay);
-      const fb = K.foamFor(K.HD.W * 0.21, Math.floor(P.te * 4) % 2); // as wide as the head where it meets the water
+      const fb = K.foamFor(K.HD.W * 0.21, Math.floor(P.te * 4) % 2, 22); // as wide as the head where it meets the water, curving up at the sides
       const fy = at.y - 3, splashSides = [-K.HD.W * 0.2, K.HD.W * 0.2];
       ctx.drawImage(fb.back.canvas, Math.round(at.x - fb.back.ax), Math.round(fy - fb.back.ay));
       if (P.dead && Hd.sink > 30) ctx.globalAlpha = 1 - Math.min(1, (Hd.sink - 30) / 40);
