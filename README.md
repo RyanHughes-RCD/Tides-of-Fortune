@@ -95,6 +95,8 @@ When four have come true, a countdown starts in the water. The Unseen breaches *
 
 **Aftermath.** Clear the **North Reach** to roughly double your building land, with new roads and a new stretch of coast to the right of the field. Rebuild the lighthouse around one of the kraken's eyes: the tower keeps a crack where it broke, and its lantern, beam and night glow burn orange.
 
+**After the kraken.** The very top of the game now opens only once the Unseen is dead: the three tier-5 ships (Arcane Frigate, Leviathan Trawler, Star Clipper), level 3 of Stronger cannons, Reinforced hull and Magic lures, charting Leviathan Deep (its lair), the Chest of Gold and the Founder's Statue. Anything you already own stays yours.
+
 **Higher-tier materials.** Tier-2 goods appear in Stores under "Tier 2: ghost-touched" with placeholder icons. Nothing uses them yet. Spectral salvage is now tier-2 iron ore.
 
 | Tier 1 | Tier 2 (ghost) | Tier 3 (darkness) | Tier 4 (slain gods) |

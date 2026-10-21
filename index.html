@@ -581,7 +581,7 @@ const TOF = (() => {
     outer:  { name: 'Outer Reef', ring: 2, cost: { charts: 4 }, req: { cartographer: 1 }, minExplore: 4, dist: 1.35, danger: 1.3, family: 'lost', yield: { exploration: 1.4 }, witch: true, x: 0.12, y: 0.86, desc: 'The last reef before open ocean. Strange lights at night.', landmark: 'The Witch’s Light' },
     ghost:  { name: 'Ghost Sea', ring: 3, cost: { charts: 8 }, req: { cartographer: 2, seaWitch: 1 }, minExplore: 6, dist: 1.6, danger: 1.8, family: 'pirate', ghosts: true, moonfish: 0.08, curse: 0.12, yield: { combat: 1.3 }, x: 0.9, y: 0.86, desc: 'Cold green fog and crewless ships. Magic matters more than cannons here.', landmark: 'The Lantern Fleet' },
     temple: { name: 'Drowned Temple', ring: 3, cost: { charts: 8 }, req: { cartographer: 2, seaWitch: 1 }, minExplore: 6, dist: 1.6, danger: 1.7, family: 'lost', yield: { treasure: 2 }, chest: 2, curse: 0.15, x: 0.88, y: 0.16, desc: 'Steps leading down into the sea. Its gold is cursed.', landmark: 'The Sunken Stair' },
-    deep:   { name: 'Leviathan Deep', ring: 3, cost: { charts: 10 }, req: { cartographer: 3, seaWitch: 1 }, minExplore: 7, dist: 1.8, danger: 2.4, family: 'sunken', yield: { all: 1.8 }, monsters: 0.25, kraken: 0.2, moonfish: 0.05, x: 0.5, y: 0.94, desc: 'The water goes black and bottomless. Sailors stop singing here.', landmark: 'The Bitten Wreck' },
+    deep:   { name: 'Leviathan Deep', ring: 3, postKraken: true, cost: { charts: 10 }, req: { cartographer: 3, seaWitch: 1 }, minExplore: 7, dist: 1.8, danger: 2.4, family: 'sunken', yield: { all: 1.8 }, monsters: 0.25, kraken: 0.2, moonfish: 0.05, x: 0.5, y: 0.94, desc: 'The water goes black and bottomless. Sailors stop singing here.', landmark: 'The Bitten Wreck' },
   };
   const REGION_ORDER = Object.keys(REGIONS);
   // Small finds that don't take up room in the hold.
@@ -616,10 +616,10 @@ const TOF = (() => {
     xebec:      { name: 'Corsair Xebec',       role: 'combat', tier: 4, blurb: 'A swift raider with lateen sails. Fights, scouts and loots, without the galleon’s bulk.', speed: 7, hull: 100, combat: 9, cargo: 110, fishing: 2, exploration: 6, magic: 1, cost: { coins: 1600, relics: 1, planks: 60, rope: 30, iron: 25 }, aff: { combat: 1.1, exploration: 1.1, treasure: 1.2 } },
     caravel:    { name: 'Exploration Caravel', role: 'exploration', tier: 4, blurb: 'Long-distance discovery.', speed: 6, hull: 70, combat: 2, cargo: 90, fishing: 2, exploration: 10, magic: 1, cost: { coins: 1200, charts: 4, planks: 50, rope: 30 }, aff: { exploration: 1.5 } },
     barge:      { name: 'Salvage Barge',       role: 'treasure', tier: 3, blurb: 'Wreck recovery. Shrugs off reef damage.', speed: 1, hull: 120, combat: 0, cargo: 260, fishing: 1, exploration: 3, magic: 0, cost: { coins: 700, pearls: 3, planks: 50, iron: 20 }, aff: { treasure: 1.8 }, dmg: 0.5 },
-    frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 60, rope: 30, iron: 30 }, aff: { treasure: 1.25 } },
+    frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, postKraken: true, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 60, rope: 30, iron: 30 }, aff: { treasure: 1.25 } },
     // 1.4: top-tier specialists
-    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 24, exploration: 3, magic: 2, cost: { coins: 4000, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
-    clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 90, rope: 60, iron: 30 }, aff: { exploration: 1.4 } },
+    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 24, exploration: 3, magic: 2, cost: { coins: 4000, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
+    clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 90, rope: 60, iron: 30 }, aff: { exploration: 1.4 } },
     // 1.8: built only from the blueprint salvaged out of the Unseen's carcass. Strong at everything, best at nothing.
     krakenwake: { name: 'Krakenwake',          role: 'combat', tier: 5, blueprint: 'krakenBlueprint', blurb: 'A hull grown around the Unseen’s ribs. Fights, hauls, finds and scouts with the best of them.', speed: 6, hull: 170, combat: 13, cargo: 300, fishing: 16, exploration: 10, magic: 8, cost: { coins: 6000, pearls: 8, relics: 4, planks: 120, rope: 60, iron: 60 }, aff: { treasure: 1.2 }, dmg: 0.8 },
   };
@@ -693,7 +693,7 @@ const TOF = (() => {
     roses:        { name: 'Roses', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { power: { combat: 0.03 } }, effect: '+3% pirate-hunting power.', desc: 'Red roses. Sailors fight harder with a sweetheart waiting.' },
     tulips:       { name: 'Tulips', group: 'flowers', size: [1, 1], soil: true, cost: { coins: 150, timber: 10 }, bonus: { yield: { fishing: 0.03 } }, effect: '+3% fishing hauls.', desc: 'Neat rows of red, pink and yellow cups.' },
     fountain:     { name: 'Fountain', group: 'seaside', size: [2, 2], cost: { coins: 900, planks: 20, iron: 15 }, bonus: { chest: 0.1 }, effect: 'Treasure chests turn up 10% more often.', desc: 'Toss a coin for luck. It freezes over when it snows.' },
-    goldChest:    { name: 'Chest of Gold', group: 'prestige', size: [1, 1], cost: { coins: 6000, pearls: 10, relics: 5 }, bonus: { coins: 0.05 }, effect: '+5% coins from every trip.', desc: 'An open chest heaped with gold, for all to admire. A long-term investment.' },
+    goldChest:    { name: 'Chest of Gold', group: 'prestige', postKraken: true, size: [1, 1], cost: { coins: 6000, pearls: 10, relics: 5 }, bonus: { coins: 0.05 }, effect: '+5% coins from every trip.', desc: 'An open chest heaped with gold, for all to admire. A long-term investment.' },
     // 1.4: village buildings and square pieces. `multi`: build as many as you like (up to DECOR_COPIES) to fill
     // the village; only the first earns the bonus. `variants`: paint or style choices, changed for free.
     cottage:      { name: 'Seaside Cottage', group: 'buildings', size: [2, 2], multi: true, variants: 6, cost: { coins: 400, planks: 30, timber: 20 }, bonus: { storage: 25 }, effect: '+25 storage for each bulk good.', desc: 'A snug home for a fisher family. Paint the roof any colour you like.' },
@@ -704,7 +704,7 @@ const TOF = (() => {
     stall:        { name: 'Market Stall', group: 'square', size: [1, 1], multi: true, variants: 4, cost: { coins: 200, planks: 10, rope: 4 }, bonus: { coins: 0.03 }, effect: '+3% coins from every trip.', desc: 'A striped awning over a table of odds and ends.' },
     topiary:      { name: 'Topiary Hedge', group: 'square', size: [1, 1], multi: true, variants: 3, soil: true, cost: { coins: 120, timber: 5 }, bonus: { yield: { treasure: 0.03 } }, effect: '+3% treasure-hunting hauls.', desc: 'Clipped into a ball, a cone or a spiral: your choice.' },
     pond:         { name: 'Duck Pond', group: 'square', size: [2, 2], multi: true, variants: 2, soil: true, cost: { coins: 350, timber: 10 }, bonus: { power: { exploration: 0.03 } }, effect: '+3% exploration power.', desc: 'Lily pads, reeds and two very opinionated ducks.' },
-    statue:       { name: 'Founder’s Statue', group: 'square', size: [1, 1], multi: true, variants: 2, cost: { coins: 600, iron: 15, relics: 1 }, bonus: { power: { combat: 0.03 } }, effect: '+3% pirate-hunting power.', desc: 'The harbor’s first captain in bronze, or the mermaid who guided her home.' },
+    statue:       { name: 'Founder’s Statue', group: 'square', postKraken: true, size: [1, 1], multi: true, variants: 2, cost: { coins: 600, iron: 15, relics: 1 }, bonus: { power: { combat: 0.03 } }, effect: '+3% pirate-hunting power.', desc: 'The harbor’s first captain in bronze, or the mermaid who guided her home.' },
     // 1.6: ten more. 1.8: the Kraken Skeleton is no longer sold: it only comes out of the Unseen's carcass (below).
     beehives:     { name: 'Beehives', group: 'farm', size: [1, 1], soil: true, cost: { coins: 220, timber: 15, hemp: 5 }, bonus: { cropSpeed: 0.05 }, effect: 'The field ripens 5% faster.', desc: 'Three straw skeps humming with bees that work the field’s flowers.' },
     smokehouse:   { name: 'Smokehouse', group: 'farm', size: [1, 1], cost: { coins: 350, timber: 20, iron: 4 }, bonus: { cropFood: 2 }, effect: '+2 food every harvest.', desc: 'A little brick hut that turns the harvest into food that keeps.' },
@@ -1023,7 +1023,11 @@ const TOF = (() => {
   // doubling its land, and the lighthouse can be rebuilt around one of the creature's eyes.
   const EXPANSION = { gyMin: -48, gxMax: 26, cost: { coins: 5000, timber: 200, planks: 120, rope: 40 } };
   const LIGHTHOUSE_REPAIR = { coins: 2500, planks: 60, iron: 30 };
-  const krakenSlain = state => Number.isFinite(state.kraken.deadAt);
+  const krakenSlain = state => !!(state.kraken && Number.isFinite(state.kraken.deadAt));
+  // 1.8: the top of the game opens only once the Unseen is dead (the tier-5 hulls, level 3 of the fighting and
+  // magic upgrades, Leviathan Deep, the Chest of Gold and the Founder's Statue). Anything already owned is kept.
+  const POST_KRAKEN_LOCK = 'Only after the Unseen is dead.';
+  const POST_KRAKEN_UPGRADES = ['cannons', 'reinforcedHull', 'magicLures'];
   function expandVillage(state, now) {
     if (state.flags.expanded) return { ok: false, reason: 'The North Reach is already cleared.' };
     if (!krakenSlain(state) || now < state.kraken.deadAt) return { ok: false, reason: 'Nobody will clear the woods while the Unseen lives.' };
@@ -1242,6 +1246,7 @@ const TOF = (() => {
     const need = Object.keys(cost).filter(k => k !== 'coins' && !state.discovered.includes(k));
     const tier = SHIP_CLASSES[cls].tier;
     const dockNeed = tier <= 1 ? 0 : Math.min(3, tier - 1);
+    if (SHIP_CLASSES[cls].postKraken && !krakenSlain(state)) return POST_KRAKEN_LOCK;
     if (SHIP_CLASSES[cls].blueprint && !hasFound(state, SHIP_CLASSES[cls].blueprint)) return 'Needs the Krakenwake Blueprint, salvaged from the Unseen’s carcass.';
     if (buildingLevel(state, 'dockyard') < dockNeed) return dockNeed === 1 ? 'Build a Dockyard first.' : `Needs a level ${dockNeed} Dockyard.`;
     if (need.length) {
@@ -1567,6 +1572,7 @@ const TOF = (() => {
     const Rg = REGIONS[id];
     if (!Rg) return 'Unknown waters.';
     if (revealed(state, id)) return null;
+    if (Rg.postKraken && !krakenSlain(state)) return 'Its lair. No chart of it can be drawn while the Unseen lives.';
     if (Rg.ring > 1 && !REGION_ORDER.some(k => REGIONS[k].ring === Rg.ring - 1 && revealed(state, k))) return 'Chart a nearer region first.';
     for (const [b, lvl] of Object.entries(Rg.req || {})) if (buildingLevel(state, b) < lvl) return lvl > 1 ? `Needs a level ${lvl} ${BUILDINGS[b].name}.` : `Needs a ${BUILDINGS[b].name}.`;
     return null;
@@ -1868,6 +1874,7 @@ const TOF = (() => {
   }
 
   function upgradeGate(state, ship, key) {
+    if (POST_KRAKEN_UPGRADES.includes(key) && (ship.upgrades[key] || 0) === 2 && !krakenSlain(state)) return 'Level 3 is out of reach while the Unseen lives.';
     const g = UPGRADES[key].gate;
     if (!g || (ship.upgrades[key] || 0) < 1) return null;
     return buildingLevel(state, g) >= 1 ? null : `Levels 2 and 3 need a ${BUILDINGS[g].name}.`;
@@ -1984,6 +1991,7 @@ const TOF = (() => {
     const d = DECOR[type];
     if (!d) return 'Unknown decoration.';
     if (d.hw) return (state.decorInv && state.decorInv[type] > 0) ? null : 'None left to place. The West Woods cauldron gives these out.';
+    if (d.postKraken && !krakenSlain(state)) return POST_KRAKEN_LOCK;
     if (d.won) {
       if (!(state.decorInv && state.decorInv[type] > 0)) return 'None left to place. Only the Unseen’s carcass gives these up.';
       if (!d.multi && ownsDecor(state, type)) return 'You already have one.';
@@ -2703,7 +2711,7 @@ const TOF = (() => {
     HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, KRAKEN, krakenView, settleKraken, krakenLockdown, emptyKraken,
     OMENS, RELICS, RELIC_ORDER, CARCASS, giveRelic, relicState, relicsLeft, carcassLeft, specialBlock, rollPortal, rollCarcass, hasFound, WON_DECOR, STASHED,
     MATERIAL_TIERS, MATERIAL_BASES, T2, TIER2, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
-    EXPANSION, LIGHTHOUSE_REPAIR, expandVillage, repairLighthouse, buildMinY, krakenSlain, spendCoins, noteGathered, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
+    EXPANSION, LIGHTHOUSE_REPAIR, POST_KRAKEN_UPGRADES, expandVillage, repairLighthouse, buildMinY, krakenSlain, spendCoins, noteGathered, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     DECOR_COPIES, repaintDecor,
     GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
   };
@@ -3755,11 +3763,12 @@ function runTofTests(TOF) {
   });
 
   // ---------- 1.4 ----------
-  test('the two new tier-5 hulls are the best at fishing and exploring, and need a level 3 dockyard', () => {
+  test('the two new tier-5 hulls are the best at fishing and exploring, and need a level 3 dockyard (and, from 1.8, a dead kraken)', () => {
     const pow = (cls, type) => TOF.typePower(TOF.shipStats({ cls, upgrades: {} }), type);
     for (const c of TOF.CLASS_ORDER) if (c !== 'leviathan') ok(pow('leviathan', 'fishing') > pow(c, 'fishing'), `leviathan out-fishes ${c}`);
     for (const c of TOF.CLASS_ORDER) if (c !== 'clipper') ok(pow('clipper', 'exploration') > pow(c, 'exploration'), `clipper out-explores ${c}`);
     const s = veteran(T0); for (const k of Object.keys(s.resources)) s.resources[k] = 9999; s.discovered = Object.keys(TOF.RESOURCES);
+    ok(/Unseen is dead/.test(TOF.classLock(s, 'clipper')), 'locked while the Unseen lives'); s.kraken.deadAt = T0;
     ok(/Dockyard/.test(TOF.classLock(s, 'clipper')), 'locked without a dockyard');
     s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null });
     ok(TOF.buildShip(s, 'leviathan').ok && TOF.buildShip(s, 'clipper').ok, 'built at level 3');
@@ -4051,6 +4060,22 @@ function runTofTests(TOF) {
     const r2 = s.expeditions[0]; TOF.claim(s, r2.id, t + H); s.ships[0].hp = TOF.shipStats(s.ships[0]).hull;
     for (const id of TOF.RELIC_ORDER) s.kraken.relics[id] = 'found'; s.kraken.breachSeen = true; const u = slay(s, t + H);
     ok(!TOF.krakenLockdown(s, u) && TOF.dispatch(s, 'ship-1', 1, u, 1).ok, 'free to sail once it is dead');
+  });
+  test('1.8: the top of the game opens only after the kraken; anything already owned is kept', () => {
+    const s = rich(); s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }, { id: 'b-c', type: 'cartographer', gx: 1, gy: 34, level: 3, pending: null, job: null }, { id: 'b-ws', type: 'seaWitch', gx: 5, gy: 34, level: 1, pending: null, job: null });
+    s.flags.witchFound = true;
+    for (const c of ['frigate', 'leviathan', 'clipper']) ok(/Unseen is dead/.test(TOF.classLock(s, c)), c + ' locked');
+    for (const c of ['galleon', 'xebec', 'caravel', 'barge']) eq(TOF.classLock(s, c), null, c + ' open before');
+    const sh = s.ships[0]; for (const k of TOF.UPGRADE_KEYS) sh.upgrades[k] = 2;
+    for (const k of TOF.UPGRADE_KEYS) eq(!!TOF.upgradeGate(s, sh, k), TOF.POST_KRAKEN_UPGRADES.includes(k), k + ' level 3');
+    s.regions = TOF.REGION_ORDER.filter(r => r !== 'deep'); ok(/lair/.test(TOF.regionLock(s, 'deep')), 'Leviathan Deep locked'); eq(TOF.regionLock(s, 'temple'), null, 'other far seas open');
+    for (const d of ['goldChest', 'statue']) ok(/Unseen is dead/.test(TOF.decorLock(s, d)), d + ' locked'); eq(TOF.decorLock(s, 'fountain'), null, 'fountain open');
+    const old = rich(); old.regions = TOF.REGION_ORDER.slice(); TOF.addShip(old, 'frigate'); old.decor.push({ id: 'd-g', type: 'goldChest', gx: 20, gy: 20 });
+    const st = memStorage(); TOF.saveGame(st, old, T0); const back = TOF.loadGame(st, T0).state;
+    ok(back.ships.some(x => x.cls === 'frigate') && back.regions.includes('deep') && back.decor.some(d => d.type === 'goldChest'), 'owned things stay owned');
+    s.kraken.deadAt = T0;
+    for (const c of ['frigate', 'leviathan', 'clipper']) eq(TOF.classLock(s, c), null, c + ' open after');
+    for (const k of TOF.UPGRADE_KEYS) eq(TOF.upgradeGate(s, sh, k), null, k + ' open after'); eq(TOF.regionLock(s, 'deep'), null, 'deep open after'); eq(TOF.decorLock(s, 'goldChest'), null, 'chest open after');
   });
   test('1.8: six relics of sin, one per sin, each with its own text', () => {
     eq(TOF.RELIC_ORDER.length, 6, 'six'); const sins = new Set(TOF.RELIC_ORDER.map(k => TOF.RELICS[k].sin)); eq(sins.size, 6, 'six sins'); ok(!sins.has('Greed'), 'greed is the kraken');
@@ -9438,7 +9463,8 @@ const UI = (() => {
         const d = TOF.DECOR[type], owned = state.decor.find(x => x.type === type), afford = TOF.canAfford(state, d.cost);
         let btn;
         const copies = state.decor.filter(x => x.type === type).length;
-        if (d.multi) btn = copies >= TOF.DECOR_COPIES ? `<p class="ok-text">${copies} built, as many as the village can fit.</p>`
+        if (d.postKraken && !TOF.krakenSlain(state)) btn = `<p class="lock">Only after the Unseen is dead.</p>`;
+        else if (d.multi) btn = copies >= TOF.DECOR_COPIES ? `<p class="ok-text">${copies} built, as many as the village can fit.</p>`
           : `<button class="btn ${afford ? 'primary' : ''}" data-act="dplace" data-type="${type}" ${afford ? '' : 'disabled'}>${afford ? (copies ? `Build another (${copies} built)` : 'Choose a spot') : `Need ${missingText(state, d.cost)}`}</button>`;
         else if (owned) btn = d.fixed ? `<p class="ok-text">Built${d.fixed === 'field' ? ' at the field' : ' beside the lighthouse'}.</p>`
           : `<div class="btn-row"><button class="btn small" data-act="dmove" data-d="${owned.id}">Move it</button><button class="btn small" data-act="dshow" data-d="${owned.id}">Show me</button></div>`;
