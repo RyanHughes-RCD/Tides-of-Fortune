@@ -317,6 +317,38 @@ built-in numerals with a warning. Invalid fonts and images are rejected with the
 
 ---
 
+## Standalone generator: `fair_gem_dice.py`
+
+A single-file, NumPy-only script for fair gemstone-style D4s and D6s, independent of the
+studio:
+
+```
+python fair_gem_dice.py                      # demo: 2 D4s, 2 D6s, and a deliberately rejected flat-ended barrel
+python fair_gem_dice.py --list               # shape families
+python fair_gem_dice.py --die d6 --family long_barrel --style gem --seed 7 --size 13 --format obj
+```
+
+Families:
+* D4: crystal shard, tetragonal disphenoid, square anti-wedge.
+* D6: trigonal trapezohedron, long hexagonal barrel (pointed, gem or flat ends),
+  asymmetric hexahedron.
+
+Each die goes through these steps:
+* its exact symmetry group is computed, and the numbered faces must form one orbit;
+* a static rest analysis requires numbered faces to be stable and end facets to tip over;
+* a D6 (or roller D4) needs an exactly parallel top face; a tetrahedral D4 needs a clear
+  apex; edges must have a real rocking barrier;
+* the solid angles Ω of every face are measured from the centre of mass, unstable
+  facets are drained to the face the die tumbles onto, and the effective basins must
+  be equal;
+* failing parameters are repaired by a bounded Nelder–Mead search, and the die is
+  rejected if they can't be repaired.
+
+Output is ASCII STL or OBJ. The script's docstring explains two geometric facts it
+enforces. A congruent-faced hexahedron with a parallel top face must be a rhombohedron,
+so the "asymmetric" family converges onto one. A flat-ended barrel can always stand on
+its end, so it's always rejected. Tests: `tests/test_fair_gem_dice.py`.
+
 ## 4. Project structure
 
 ```
