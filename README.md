@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.7.7.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.7.8.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -66,7 +66,7 @@ When you get a new version of the game, upload the new files to the same reposit
 
 ## What's new in 1.7: The Unseen
 
-Every October 31 a kraken rises in the harbor. From the 28th a countdown shimmers in the water. From 8 AM on the 31st the harbor slowly turns wrong: red wisps, a spreading pool of crimson, the town going indoors (only the witch stays out), a vast shape under the surface, and finally six yellow eyes opening in the dark. At 6 PM it breaks the surface in a cutscene that plays when you next open the game, and one of its tentacles crushes the lighthouse. Tap its eyes to strike them out; when the last one bursts it dies, and its body floats in the harbor until next year. Tap the body once to salvage it (2,500 coins, 8 relics, 12 pearls, 6 spectral salvage).
+Every October 31 a kraken rises in the harbor. From the 28th a countdown shimmers in the water. From 8 AM on the 31st the harbor slowly turns wrong: red wisps, a spreading pool of crimson, the town going indoors (only the witch stays out), a vast shape under the surface, and finally six yellow eyes opening in the dark. At 6 PM it breaks the surface in a cutscene that plays when you next open the game, and one of its tentacles crushes the lighthouse. At 4 PM every ship still at sea races home with whatever it has gathered, and no ship can leave the harbor until the kraken is dead. Once it is up, the witch glows purple. Tap its eyes to strike them out; when the last one bursts it dies, and its body floats in the harbor until next year. Tap the body once to salvage it (2,500 coins, 8 relics, 12 pearls, 6 spectral salvage).
 
 To see every stage now, turn on Developer mode in Options and use the "The Unseen" buttons.
 
