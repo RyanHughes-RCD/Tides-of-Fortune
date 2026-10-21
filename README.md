@@ -74,7 +74,7 @@ The kraken no longer comes on a date. It answers greed. Five omens watch how you
 - Open your first chest: *"The Unseen lurks beneath you…"*
 - Hold 2,500 coins at once: *"To sink your teeth into flesh is a wonderful thing…"*
 
-When four have come true, a countdown starts in the water. The Unseen breaches **3 real days** later and breaks the lighthouse. Then the Sea Witch tears open a swirling portal in the water in front of the field. The countdown survives closing the app.
+When four have come true, a countdown starts in the water. The Unseen breaches **3 real days** later and breaks the lighthouse. Then the Sea Witch tears open a swirling portal in the water in front of the field. Two hours before the breach, every ship at sea races home, and from then until the kraken dies only portal trips can leave the harbor. The Sea Witch glows purple while it lives. The countdown survives closing the app.
 
 **The six Ancient Relics of Sin.** Tap the portal, or the red **eyes** chip at the top, to open the Unseen panel. Send ships through the portal on 15-minute trips. Each trip seeks one relic of your choosing, finds it about 35% of the time, and brings back tier-2 goods. Give each relic to the Sea Witch at the docks, and it destroys one of the kraken's six eyes:
 

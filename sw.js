@@ -1,6 +1,6 @@
 // Service worker: keeps Tides of Fortune on the phone so it plays offline.
 // The version below changes with every build, which is how phones learn an update exists.
-const CACHE = 'tof-1.8.0-b0888653';
+const CACHE = 'tof-1.8.0-c65916aa';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-180.png', './icon-192.png', './icon-512.png', './icon-maskable-512.png'];
 
 self.addEventListener('install', e => {

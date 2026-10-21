@@ -807,7 +807,9 @@ const TOF = (() => {
   // After the breach the Sea Witch tears a portal open in front of the field. Ships sail through it for the
   // six Ancient Relics of Sin, and every relic handed to her at the docks destroys one of its six eyes. The
   // sixth kills it; its carcass is stripped by ships for rare spoils, and the harbor settles into its after.
-  const KRAKEN = { eyes: 6, omensNeeded: 4, countdownHours: 72, riseHours: 10, painMs: 3200, deathMs: 10000, flyMs: 1400,
+  // recallHour (1.7.8): hours into the rising when every ship at sea turns for home (rushHours of sailing to get there);
+  // from then until it dies the harbor is shut to every trip but the portal's
+  const KRAKEN = { eyes: 6, omensNeeded: 4, countdownHours: 72, riseHours: 10, recallHour: 8, rushHours: 0.25, painMs: 3200, deathMs: 10000, flyMs: 1400,
     relicChance: 0.35, portalHours: 0.25, carcassHours: 1, carcassLoads: 12 };
   const OMENS = [
     { id: 'witch', text: 'The water harbors darkness…', met: s => buildingLevel(s, 'seaWitch') >= 1 },
@@ -839,7 +841,7 @@ const TOF = (() => {
     drops: [{ decor: 'krakenLantern', p: 0.3 }, { decor: 'krakenPlush', p: 0.18 }, { decor: 'krakenBones', p: 0.12, unique: true }, { decor: 'krakenBlueprint', p: 0.1, unique: true }],
   };
   const emptyKraken = () => ({ omens: [], omensShown: [], triggeredAt: null, unit: null, breachAt: null, breachSeen: false, portalSeen: false,
-    lighthouseDown: false, relics: {}, hits: Array(KRAKEN.eyes).fill(0), deadAt: null, deathSeen: false, slainBy: null, hauled: 0, misses: {}, drops: {}, shown: [] });
+    lighthouseDown: false, recalled: false, relics: {}, hits: Array(KRAKEN.eyes).fill(0), deadAt: null, deathSeen: false, slainBy: null, hauled: 0, misses: {}, drops: {}, shown: [] });
   // Where the story stands at `now`. phase: none | countdown | rising | emerged | dead.
   function krakenView(state, now) {
     const k = state.kraken || emptyKraken(), U = k.unit || HOUR_MS, on = Number.isFinite(k.breachAt);
@@ -866,6 +868,17 @@ const TOF = (() => {
     if (!Number.isFinite(k.breachAt) && !Number.isFinite(k.deadAt) && k.omens.length >= KRAKEN.omensNeeded) {
       const U = hourMs(state); k.triggeredAt = now; k.unit = U; k.breachAt = now + KRAKEN.countdownHours * U; changed = true;
     }
+    // hour 8 of the rising: every ship still out turns for home at once, with only what she has gathered so far
+    // (whether or not the player was watching; a trip that would have ended sooner is left alone)
+    const R = Number.isFinite(k.breachAt) ? k.breachAt - (KRAKEN.riseHours - KRAKEN.recallHour) * (k.unit || HOUR_MS) : null;
+    if (R !== null && now >= R && !k.recalled && !Number.isFinite(k.deadAt)) {
+      k.recalled = true; changed = true;
+      for (const e of state.expeditions) {
+        if (e.endAt <= R || e.startAt >= R || e.special) continue;
+        const frac = Math.max(0, Math.min(1, (R - e.startAt) / (e.endAt - e.startAt)));
+        e.cut = Math.max(0.25, Math.round(e.hours * frac * 4) / 4); e.endAt = Math.min(e.endAt, R + KRAKEN.rushHours * hourMs(state)); e.recalled = true; // cut: the hours she actually worked
+      }
+    }
     if (Number.isFinite(k.breachAt) && now >= k.breachAt) {
       if (!k.lighthouseDown) { k.lighthouseDown = true; changed = true; }
       if (startShift(state, 'unseen', k.breachAt, k.unit || HOUR_MS)) changed = true;
@@ -873,6 +886,11 @@ const TOF = (() => {
     if (Number.isFinite(k.deadAt) && now >= k.deadAt && endShift(state, 'unseen', k.deadAt)) changed = true;
     if (settleWorld(state, now)) changed = true;
     return changed ? { omens: fresh } : false;
+  }
+  // From hour 8 of the rising until it dies, no ordinary trip may leave the harbor (the portal is the exception).
+  function krakenLockdown(state, now) {
+    const v = krakenView(state, now);
+    return (v.phase === 'rising' && v.hours >= KRAKEN.recallHour) || v.phase === 'emerged';
   }
   const relicState = (state, id) => (state.kraken.relics || {})[id] || null; // null | 'found' | 'given'
   function relicsLeft(state) { return RELIC_ORDER.filter(id => !relicState(state, id)); }
@@ -1507,8 +1525,9 @@ const TOF = (() => {
 
   function hourMs(state) { return state.settings.devMode ? state.settings.devSecondsPerHour * 1000 : HOUR_MS; }
 
-  function sailBlock(state, ship, type, now) {
+  function sailBlock(state, ship, type, now, special) {
     if (expeditionForShip(state, ship.id)) return `${ship.name} is already at sea.`;
+    if (special !== 'portal' && krakenLockdown(state, now)) return 'The harbor is shut. Something vast is under the water, and no crew will sail until it is dead.';
     const st = shipStats(ship);
     if (ship.hp < Math.ceil(st.hull * MIN_SAIL_HULL)) return `${ship.name} is too damaged to sail. Repair her first.`;
     if (type === 'combat' && typePower(st, 'combat') < 2) return 'She has no guns. Fit cannons at the Shipwright first.';
@@ -1633,7 +1652,7 @@ const TOF = (() => {
     }
     if (!DURATIONS.includes(hours)) return { ok: false, reason: 'Pick a listed duration.' };
     if (!TYPES[type]) return { ok: false, reason: 'Unknown expedition type.' };
-    const block = sailBlock(state, ship, type, now);
+    const block = sailBlock(state, ship, type, now, special);
     if (block) return { ok: false, reason: block };
     const region = opts.region || 'home';
     const rb = regionSailBlock(state, ship, region);
@@ -1684,7 +1703,7 @@ const TOF = (() => {
     if (now < exp.endAt) return { ok: false, reason: 'Still at sea.' };
     const ship = getShip(state, exp.shipId);
     const result = exp.special === 'portal' ? rollPortal(exp.stats, exp.seed, exp.mods, exp.relic)
-      : exp.special === 'carcass' ? rollCarcass(exp.stats, exp.seed, exp.mods) : rollExpedition(exp.stats, exp.type, exp.hours, exp.seed, exp.mods);
+      : exp.special === 'carcass' ? rollCarcass(exp.stats, exp.seed, exp.mods) : rollExpedition(exp.stats, exp.type, exp.cut || exp.hours, exp.seed, exp.mods);
     // Remove first, then credit: a second call can never find it again.
     state.expeditions = state.expeditions.filter(e => e.id !== expId);
     state.claimed.push(expId);
@@ -1744,6 +1763,7 @@ const TOF = (() => {
     const finds = [];
     for (const [k, [one, many]] of Object.entries(LOG_NAMES)) { const n = r.items[k]; if (n) finds.push(`${n} ${n === 1 ? one : many}`); }
     for (const id of Object.keys(CHESTS)) { const n = r.items[id]; if (n) finds.push(`${n > 1 ? n + ' ' : 'a '}${CHESTS[id].name.toLowerCase()}${n > 1 ? 's' : ''}`); }
+    if (exp.recalled) lines.push({ kind: 'danger', text: 'Turned for home early: the harbor had gone red.' });
     if (finds.length) lines.push({ kind: 'find', text: `Found ${finds.join(', ')}.` });
     if (r.trophy) lines.push({ kind: 'trophy', text: `Brought home the ${TROPHIES[r.trophy].name}!` });
     if (r.monster) lines.push({ kind: r.monster.won ? 'win' : 'danger', text: r.monster.won ? `Fought off ${r.monster.name}.` : `Fled from ${r.monster.name}.` });
@@ -2469,6 +2489,7 @@ const TOF = (() => {
           ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}) } : { ...NO_MODS, region: 'home' },
         supplies: !!e.supplies, region: REGIONS[e.region] ? e.region : 'home',
         ...(e.special === 'portal' || e.special === 'carcass' ? { special: e.special } : {}), ...(e.special === 'portal' && RELICS[e.relic] ? { relic: e.relic } : {}),
+        ...(e.recalled ? { recalled: true } : {}), ...(Number.isFinite(e.cut) && e.cut > 0 && e.cut <= e.hours ? { cut: e.cut } : {}),
       }));
     s.log = Array.isArray(raw.log) ? raw.log.filter(x => x && typeof x === 'object').slice(0, 30) : [];
     s.regions = ['home', ...new Set((Array.isArray(raw.regions) ? raw.regions : []).filter(k => REGIONS[k] && k !== 'home'))];
@@ -2537,7 +2558,7 @@ const TOF = (() => {
       const ids = (list, all) => [...new Set((Array.isArray(list) ? list : []).filter(x => all.includes(x)))];
       K.omens = ids(rk.omens, OMENS.map(o => o.id)); K.omensShown = ids(rk.omensShown, K.omens);
       if (ok(rk.breachAt) && ok(rk.triggeredAt) && rk.breachAt >= rk.triggeredAt) { K.breachAt = rk.breachAt; K.triggeredAt = rk.triggeredAt; K.unit = ok(rk.unit) && rk.unit > 0 && rk.unit <= HOUR_MS ? rk.unit : HOUR_MS; }
-      K.breachSeen = !!rk.breachSeen; K.portalSeen = !!rk.portalSeen; K.lighthouseDown = !!rk.lighthouseDown; K.deathSeen = !!rk.deathSeen;
+      K.breachSeen = !!rk.breachSeen; K.portalSeen = !!rk.portalSeen; K.lighthouseDown = !!rk.lighthouseDown; K.deathSeen = !!rk.deathSeen; K.recalled = !!rk.recalled;
       for (const id of RELIC_ORDER) { const v = rk.relics && rk.relics[id]; if (v === 'found' || v === 'given') K.relics[id] = v; }
       K.hits = Array.from({ length: KRAKEN.eyes }, (_, i) => (Array.isArray(rk.hits) && ok(rk.hits[i]) && rk.hits[i] > 0 ? rk.hits[i] : 0));
       K.hits.forEach((h, i) => { if (!h && K.relics[RELIC_ORDER[i]] === 'given') K.relics[RELIC_ORDER[i]] = 'found'; }); // a used relic always has its eye
@@ -2679,7 +2700,7 @@ const TOF = (() => {
     repairCost, repair, sell, sellAll, canAfford, upgradeCost, buyUpgrade,
     migrate, sanitize, loadGame, saveGame, resetSave, mulberry32, exportSave, importSave,
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
-    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, KRAKEN, krakenView, settleKraken, emptyKraken,
+    HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, KRAKEN, krakenView, settleKraken, krakenLockdown, emptyKraken,
     OMENS, RELICS, RELIC_ORDER, CARCASS, giveRelic, relicState, relicsLeft, carcassLeft, specialBlock, rollPortal, rollCarcass, hasFound, WON_DECOR, STASHED,
     MATERIAL_TIERS, MATERIAL_BASES, T2, TIER2, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
     EXPANSION, LIGHTHOUSE_REPAIR, expandVillage, repairLighthouse, buildMinY, krakenSlain, spendCoins, noteGathered, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
@@ -4016,6 +4037,20 @@ function runTofTests(TOF) {
     ok(!s.kraken.lighthouseDown, 'lighthouse stands'); TOF.settleKraken(s, B + 5);
     const v = TOF.krakenView(s, B + 5); eq(v.phase, 'emerged', 'risen'); ok(v.portal, 'the portal is open'); ok(s.kraken.lighthouseDown, 'lighthouse broken');
     eq(TOF.worldShift(s, B + 5).phase, 'during', 'the world shift begins');
+  });
+  test('1.8 (from 1.7.8): at hour 8 ships rush home; only portal trips sail until it dies', () => {
+    const s = greedy(T0), R = s.kraken.breachAt - 2 * H;
+    ok(TOF.dispatch(s, 'ship-1', 12, R - 3 * H, 7).ok, 'sails three hours before hour 8');
+    const e = s.expeditions[0], end0 = e.endAt;
+    TOF.settleKraken(s, R - 1); eq(e.endAt, end0, 'no change before hour 8');
+    TOF.settleKraken(s, R + 1); ok(e.recalled && e.endAt === R + TOF.KRAKEN.rushHours * H, 'turned for home'); ok(e.cut > 0 && e.cut < 12, 'only the hours she worked count');
+    const c = TOF.claim(s, e.id, e.endAt); ok(c.ok && c.result.report.some(l => /Turned for home/.test(l.text)), 'the log says why');
+    ok(/harbor is shut/.test(TOF.dispatch(s, 'ship-1', 1, R + H, 1).reason), 'no sailing at hour 9');
+    const t = s.kraken.breachAt + 1; TOF.settleKraken(s, t);
+    ok(/harbor is shut/.test(TOF.dispatch(s, 'ship-1', 1, t, 1).reason), 'nor while it is up'); ok(TOF.dispatch(s, 'ship-1', 1, t, 1, 'fishing', { special: 'portal', relic: 'pride' }).ok, 'but the portal is open');
+    const r2 = s.expeditions[0]; TOF.claim(s, r2.id, t + H); s.ships[0].hp = TOF.shipStats(s.ships[0]).hull;
+    for (const id of TOF.RELIC_ORDER) s.kraken.relics[id] = 'found'; s.kraken.breachSeen = true; const u = slay(s, t + H);
+    ok(!TOF.krakenLockdown(s, u) && TOF.dispatch(s, 'ship-1', 1, u, 1).ok, 'free to sail once it is dead');
   });
   test('1.8: six relics of sin, one per sin, each with its own text', () => {
     eq(TOF.RELIC_ORDER.length, 6, 'six'); const sins = new Set(TOF.RELIC_ORDER.map(k => TOF.RELICS[k].sin)); eq(sins.size, 6, 'six sins'); ok(!sins.has('Greed'), 'greed is the kraken');
@@ -7553,8 +7588,9 @@ const World = (() => {
       } else if (status === 'returned' && (o.mode === 'away' || o.mode === 'leaving')) {
         if (animate) {
           const pts = tripPath(ship.berth, sp).reverse();
-          o.mode = 'arriving'; o.hidden = false; o.alpha = 0; o.tex = texFor(o, true); o.x = pts[0].x; o.y = pts[0].y;
-          o.path = { pts, i: 0, speed: 48, fadeFirst: true };
+          const rush = !!(ex && ex.recalled); // (1.7) fleeing the kraken: full sail, spray flying
+          o.mode = 'arriving'; o.hidden = false; o.alpha = 0; o.tex = texFor(o, true); o.x = pts[0].x; o.y = pts[0].y; o.rush = rush; o.wakeT = 0;
+          o.path = { pts, i: 0, speed: rush ? 125 : 48, fadeFirst: true };
         } else { dock(o, ship.berth, true); }
       } else if (status === 'returned' && o.mode === 'docked') {
         o.bubble = true;
@@ -7675,7 +7711,7 @@ const World = (() => {
         const P = o.path, a = P.pts[P.i], b = P.pts[P.i + 1];
         if (!b) {
           if (o.mode === 'leaving') { o.mode = 'away'; o.hidden = true; }
-          else if (o.mode === 'arriving') { o.mode = 'docked'; o.tex = texFor(o); o.bubble = true; o.alpha = 1; }
+          else if (o.mode === 'arriving') { o.mode = 'docked'; o.tex = texFor(o); o.bubble = true; o.alpha = 1; if (o.rush) splash(o.x, o.y); o.rush = false; }
           o.path = null;
         } else {
           const dx = b.x - o.x, dy = b.y - o.y, dist = Math.hypot(dx, dy), step = P.speed * dt;
@@ -7687,6 +7723,7 @@ const World = (() => {
           if (P.fadeFirst && P.i > 0) o.alpha = 1;
         }
       }
+      if (o.rush && o.path) { o.wakeT += dt; if (o.wakeT > 0.12) { o.wakeT = 0; splash(o.x + (Math.random() - 0.5) * 6, o.y + 2); } o.y += Math.sin(time * 14 + o.x) * 0.25; } // a white wake and a pitching bow
       if (o.launch > 0) { o.launch = Math.max(0, o.launch - dt * 0.8); o.alpha = 1 - o.launch; }
       if (o.damaged && o.mode === 'docked') {
         o.smokeT += dt;
@@ -8174,6 +8211,19 @@ const World = (() => {
     syncLighthouse(st);
   }
   let krStruck = false;
+  // (1.7) once the kraken is up the witch answers it: a bright pink outline and a purple glow
+  const witchAwake = () => !!(krView && krView.phase === 'emerged');
+  const litCache = new Map();
+  function witchLit(t) {
+    let L = litCache.get(t); if (L) return L;
+    const W = t.canvas.width + 2, Hh = t.canvas.height + 2, c = document.createElement('canvas'); c.width = W; c.height = Hh;
+    const x = c.getContext('2d'); x.drawImage(t.canvas, 1, 1);
+    const img = x.getImageData(0, 0, W, Hh), d = img.data, a = i => d[i * 4 + 3] > 40;
+    const edge = []; for (let y = 0; y < Hh; y++) for (let i = 0; i < W; i++) { const k = y * W + i; if (!a(k) && ((i > 0 && a(k - 1)) || (i < W - 1 && a(k + 1)) || (y > 0 && a(k - W)) || (y < Hh - 1 && a(k + W)))) edge.push(k); }
+    for (const k of edge) { d[k * 4] = 255; d[k * 4 + 1] = 72; d[k * 4 + 2] = 214; d[k * 4 + 3] = 255; }
+    x.putImageData(img, 0, 0);
+    L = { canvas: c, w: W, h: Hh, ax: t.ax + 1, ay: t.ay + 1 }; litCache.set(t, L); return L;
+  }
   function syncLighthouse(st) {
     if (!lighthouseObj) return;
     const down = st.kraken && st.kraken.lighthouseDown && (st.kraken.breachSeen || krStruck), fixed = down && st.flags.lighthouseFixed;
@@ -8247,7 +8297,7 @@ const World = (() => {
   // the witch, standing (or casting, arms of purple light about her hands)
   function drawWitch(c, o) {
     if (!TEX.witch || (o.alpha ?? 1) < 0.02) return;
-    const cast = o === witchCastObj, f = TEX.witch[0], bob = cast ? Math.round(Math.sin(time * 3) * 1 - (o.lift || 0) * 3) : 0;
+    const cast = o === witchCastObj, f = witchAwake() ? witchLit(TEX.witch[0]) : TEX.witch[0], bob = cast ? Math.round(Math.sin(time * 3) * 1 - (o.lift || 0) * 3) : 0;
     c.globalAlpha = o.alpha ?? 1;
     c.save(); if (o.flip) { c.translate(Math.round(o.x), 0); c.scale(-1, 1); c.drawImage(f.canvas, -f.ax, Math.round(o.y - f.ay + bob)); } else c.drawImage(f.canvas, Math.round(o.x - f.ax), Math.round(o.y - f.ay + bob)); c.restore();
     const g = cast ? (o.lift || 0) : 0.35 + 0.15 * Math.sin(time * 2.2);
@@ -8351,6 +8401,7 @@ const World = (() => {
       if (o.kind === 'villager') {
         const moving = o.wait <= 0 && o.prog < 1;
         t = (o.look === 'witch' ? TEX.witch : TEX.villagers[o.look])[moving ? (Math.floor(time * 6) % 2) : 0];
+        if (o.look === 'witch' && witchAwake()) t = witchLit(t);
       } else t = TEX[o.tex];
       let y = o.y;
       if (o.kind === 'ship' || o.kind === 'buoy' || o.kind === 'ghostship') y += Math.sin(time * 2 + o.x * 0.1) * 0.8;
@@ -8565,6 +8616,13 @@ const World = (() => {
         else if (eventOn && o.kind === 'building' && o.haunt === 2) halo(o.x - (o.fw - o.fd) * 4, o.y - 18, 34, 0.25 * sky.lights, ['255,140,60', '200,120,255', '150,255,110'][(Math.floor(time / 2 + Math.abs(o.x)) % 3 + 3) % 3]);
         else if (o.kind === 'ship' && o.alpha > 0.5) halo(o.x - 6, o.y - 8, 12, 0.3 * sky.lights, '255,190,110');
         else if (o.kind === 'building' && o.tex && o.tex.startsWith('bld_')) halo(o.x - (o.fw - o.fd) * 4, o.y - 10, 30, 0.12 * sky.lights, '255,190,120');
+        else if (o.kind === 'villager' && o.look === 'witch' && witchAwake()) { // she glows purple, and her outline burns through the dark
+          const p = 0.85 + 0.15 * Math.sin(time * 2.4), moving = o.wait <= 0 && o.prog < 1, t = witchLit(TEX.witch[moving ? (Math.floor(time * 6) % 2) : 0]);
+          halo(o.x, o.y - 10, 34, 0.55 * p, '170,70,255'); halo(o.x, o.y - 10, 14, 0.5 * p, '230,140,255');
+          ctx.globalCompositeOperation = 'source-over'; ctx.globalAlpha = Math.min(1, sky.lights * 1.3);
+          if (o.flip) { ctx.save(); ctx.translate(Math.round(o.x), 0); ctx.scale(-1, 1); ctx.drawImage(t.canvas, -t.ax, Math.round(o.y - t.ay)); ctx.restore(); } else ctx.drawImage(t.canvas, Math.round(o.x - t.ax), Math.round(o.y - t.ay));
+          ctx.globalAlpha = sky.lights; ctx.globalCompositeOperation = 'lighter';
+        }
         else if (o === fireObj) { // the fire lights the rock and the water round it
           const fl = 0.8 + 0.12 * Math.sin(time * 9.7) + 0.08 * Math.sin(time * 23.3);
           halo(o.x, o.y - 18, 90, 0.42 * sky.lights * fl, '255,120,40'); halo(o.x, o.y - 16, 34, 0.6 * sky.lights * fl, '255,200,90');
@@ -9182,7 +9240,7 @@ const UI = (() => {
       html += `<p class="desc type-desc">A 1-hour salvage run on the Unseen’s carcass. <b>${TOF.carcassLeft(state)}</b> of ${TOF.KRAKEN.carcassLoads} loads left.</p>
         <p class="estimate">Coins, relics, pearls, spectral salvage and the odd rare catch every run. Its spoils turn up by chance: kraken-eye lanterns, a plush, its skeleton, and a ship’s blueprint.</p>`;
     }
-    const block = TOF.sailBlock(state, ship, 'exploration', now) || TOF.specialBlock(state, plan.special, plan.special === 'portal' ? plan.relic : null, now);
+    const block = TOF.sailBlock(state, ship, 'exploration', now, plan.special) || TOF.specialBlock(state, plan.special, plan.special === 'portal' ? plan.relic : null, now);
     const ms = (plan.special === 'portal' ? TOF.KRAKEN.portalHours : TOF.KRAKEN.carcassHours) * TOF.hourMs(state);
     html += block ? `<p class="warn">${esc(block)}</p>` : `<button class="btn primary" data-act="sail" data-ship="${ship.id}">${plan.special === 'portal' ? 'Sail into the portal' : 'Send her to the carcass'}, back in ${span(ms)}</button>`;
     return html;
