@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.7.7.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.8.0.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -64,7 +64,55 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
 
-## What's new in 1.7: The Unseen
+## What's new in 1.8: The Unseen
+
+The kraken no longer comes on a date. It answers greed. Five omens watch how you play, and each one appears on screen once, the first time it comes true:
+
+- Build the Sea Witch's hut: *"The water harbors darkness…"*
+- Spend 10,000 coins: *"You are prey…"*
+- Gather 1,000 goods from trips and harvests: *"You feel the buildup of viscera under your fingernails…"*
+- Open your first chest: *"The Unseen lurks beneath you…"*
+- Hold 2,500 coins at once: *"To sink your teeth into flesh is a wonderful thing…"*
+
+When four have come true, a countdown starts in the water. The Unseen breaches **3 real days** later and breaks the lighthouse. Then the Sea Witch tears open a swirling portal in the water in front of the field. The countdown survives closing the app.
+
+**The six Ancient Relics of Sin.** Tap the portal, or the red **eyes** chip at the top, to open the Unseen panel. Send ships through the portal on 15-minute trips. Each trip seeks one relic of your choosing, finds it about 35% of the time, and brings back tier-2 goods. Give each relic to the Sea Witch at the docks, and it destroys one of the kraken's six eyes:
+
+| Relic | Sin |
+|---|---|
+| The Mirror Crown | Pride |
+| The Weeping Eye | Envy |
+| The Searing Gauntlet | Wrath |
+| The Sleeper's Hourglass | Sloth |
+| The Toothed Chalice | Gluttony |
+| The Thorned Locket | Lust |
+
+(Greed is the kraken itself.)
+
+**The carcass.** After the sixth relic it dies. Send ships on twelve 1-hour salvage runs to the carcass for coins, relics, pearls and spectral salvage. Only the carcass gives up these decorations: **Kraken-Eye Lanterns** (they glow orange at night), a **Kraken Plush**, the redrawn **Kraken Skeleton** (no longer sold), and the **Krakenwake Blueprint**, which lets the Shipwright build the Krakenwake. Anything you haven't found turns up on the last run.
+
+**The world shift.** While the Unseen lives, the harbor slowly changes over about six hours. The light bruises violet, the sea darkens, a purple mist rolls in on clear days, the music slows into a darker key over a low drone, most of the town stays indoors and the gulls leave. After its death everything settles into a permanent, faintly scarred harbor. Future bosses can reuse the same system.
+
+**Aftermath.** Clear the **North Reach** to roughly double your building land, with new roads and a new stretch of coast to the right of the field. Rebuild the lighthouse around one of the kraken's eyes: the tower keeps a crack where it broke, and its lantern, beam and night glow burn orange.
+
+**Higher-tier materials.** Tier-2 goods appear in Stores under "Tier 2: ghost-touched" with placeholder icons. Nothing uses them yet. Spectral salvage is now tier-2 iron ore.
+
+| Tier 1 | Tier 2 (ghost) | Tier 3 (darkness) | Tier 4 (slain gods) |
+|---|---|---|---|
+| Timber | Shimmerwood | Gloamwood | Godbone |
+| Hemp | Ghostflax | Nightshade fibre | Divine sinew |
+| Iron ore | Spectral salvage | Umbral ore | Clotted ichor |
+| Fish | Wraithfin | Blindfish | Godflesh |
+| Planks | Wraithwood planks | Gloam planks | Ossuary planks |
+| Rope | Phantom rope | Shadowcord | Sinewcord |
+| Iron | Soulmetal | Voidsteel | Ichorsteel |
+| Preserved food | Spirit rations | Black rations | Ambrosial jerky |
+
+**Old saves.** Coins spent and goods gathered are estimated from your records. A kraken you already killed under the 1.7 rules stays dead: its carcass waits to be salvaged and the harbor goes straight to its aftermath.
+
+To see every stage now, turn on Developer mode in Options and use the "The Unseen" buttons.
+
+## What's new in 1.7: The Unseen (replaced by 1.8)
 
 Every October 31 a kraken rises in the harbor. From the 28th a countdown shimmers in the water. From 8 AM on the 31st the harbor slowly turns wrong: red wisps, a spreading pool of crimson, the town going indoors (only the witch stays out), a vast shape under the surface, and finally six yellow eyes opening in the dark. At 6 PM it breaks the surface in a cutscene that plays when you next open the game, and one of its tentacles crushes the lighthouse. Tap its eyes to strike them out; when the last one bursts it dies, and its body floats in the harbor until next year. Tap the body once to salvage it (2,500 coins, 8 relics, 12 pearls, 6 spectral salvage).
 
