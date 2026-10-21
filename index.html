@@ -111,6 +111,11 @@ body.cinematic #nav, body.cinematic #sheet, body.cinematic #toasts { visibility:
 .relic-row.given { opacity: 0.6; }
 .chip.unseen { border-color: #5a2a8a; }
 .chips.relics .chip { display: inline-flex; align-items: center; gap: 4px; }
+.codex-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; text-align: center; padding: 4px 0; border-bottom: 1px dashed var(--sail-2); }
+.codex-row span { display: flex; flex-direction: column; align-items: center; gap: 2px; font-size: 11px; line-height: 1.15; min-width: 0; overflow-wrap: anywhere; }
+.codex-row.head span { font-weight: 700; font-size: 12px; } .codex-row.head small { font-weight: 400; color: var(--muted); }
+.codex-row span.unknown img { opacity: 0.55; filter: saturate(0.6); }
+.ghostwork { border-color: #3fa88a; }
 .rar { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 7px; border: 2px solid var(--ink); border-radius: 999px; }
 .rar-common { background: #e3ddd0; color: var(--ink); } .rar-uncommon { background: #9fdc8a; color: var(--ink); }
 .rar-rare { background: #8fc0f0; color: var(--ink); } .rar-veryRare { background: #c89af0; color: var(--ink); }
@@ -517,6 +522,9 @@ const TOF = (() => {
   // Resource keys for the tier-2 stock (Spectral salvage keeps its old key so saves carry over).
   const T2 = { timber: 'shimmerwood', hemp: 'ghostflax', ironOre: 'salvage', fish: 'wraithfin', planks: 'wraithPlanks', rope: 'phantomRope', iron: 'soulmetal', food: 'spiritRations' };
   const TIER2 = MATERIAL_BASES.map(b => T2[b]);
+  // keys for the tier 3 and 4 names (art only for now: they are not stock)
+  const T3 = { timber: 'gloamwood', hemp: 'nightshade', ironOre: 'umbralOre', fish: 'blindfish', planks: 'gloamPlanks', rope: 'shadowcord', iron: 'voidsteel', food: 'blackRations' };
+  const T4 = { timber: 'godbone', hemp: 'divineSinew', ironOre: 'clottedIchor', fish: 'godflesh', planks: 'ossuaryPlanks', rope: 'sinewcord', iron: 'ichorsteel', food: 'ambrosialJerky' };
   for (const b of MATERIAL_BASES) if (!RESOURCES[T2[b]]) RESOURCES[T2[b]] = { name: MATERIAL_TIERS[1].items[b], price: 0 };
   // ======================= Phase 4: the wider sea =======================
   const FAMILIES = ['sunken', 'pirate', 'lost'];
@@ -621,7 +629,7 @@ const TOF = (() => {
     leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 24, exploration: 3, magic: 2, cost: { coins: 4000, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
     clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 90, rope: 60, iron: 30 }, aff: { exploration: 1.4 } },
     // 1.8: built only from the blueprint salvaged out of the Unseen's carcass. Strong at everything, best at nothing.
-    krakenwake: { name: 'Krakenwake',          role: 'combat', tier: 5, blueprint: 'krakenBlueprint', blurb: 'A hull grown around the Unseen’s ribs. Fights, hauls, finds and scouts with the best of them.', speed: 6, hull: 170, combat: 13, cargo: 300, fishing: 16, exploration: 10, magic: 8, cost: { coins: 6000, pearls: 8, relics: 4, planks: 120, rope: 60, iron: 60 }, aff: { treasure: 1.2 }, dmg: 0.8 },
+    krakenwake: { name: 'Krakenwake',          role: 'combat', tier: 5, blueprint: 'krakenBlueprint', abyssal: true, blurb: 'A hull grown around the Unseen’s ribs. Strong at everything, and nothing in the portal’s dark will touch her: she brings back half as much again from it.', speed: 6, hull: 170, combat: 13, cargo: 300, fishing: 16, exploration: 10, magic: 8, cost: { coins: 6000, pearls: 8, relics: 4, wraithPlanks: 40, phantomRope: 20, soulmetal: 30 }, aff: { treasure: 1.2 }, dmg: 0.8 },
   };
   const CLASS_ORDER = Object.keys(SHIP_CLASSES);
 
@@ -655,6 +663,16 @@ const TOF = (() => {
     seaWitch:     { name: 'Sea Witch’s Hut', size: [3, 3], secret: true, desc: 'Brews moonfish into enchanted essence, makes warding charms and lifts curses. Needed for magic lure levels 2 and 3.', recipe: { in: { moonfish: 2 }, out: 'essence', hours: 1 / 10 }, costs: [{ coins: 800, planks: 30, moonfish: 2 }, { coins: 1500, planks: 50, essence: 5 }, { coins: 3000, planks: 80, essence: 15, relics: 3 }] },
   };
   const BUILDING_ORDER = Object.keys(BUILDINGS);
+  // 1.8: a level 2 workshop can also work the ghost-touched (tier-2) goods that come back through the portal.
+  const T2_RECIPES = {
+    sawmill:    { in: { shimmerwood: 2 }, out: 'wraithPlanks', hours: 1 / 8, level: 2 },
+    ropemaker:  { in: { ghostflax: 2 }, out: 'phantomRope', hours: 1 / 8, level: 2 },
+    blacksmith: { in: { salvage: 2 }, out: 'soulmetal', hours: 1 / 5, level: 2 },
+    fishmonger: { in: { wraithfin: 3 }, out: 'spiritRations', hours: 1 / 10, level: 2 },
+  };
+  const recipesOf = type => [BUILDINGS[type] && BUILDINGS[type].recipe, T2_RECIPES[type]].filter(Boolean);
+  // Worked tier-2 goods sell at any shop; spirit rations are kept for the portal.
+  const REFINED2 = ['wraithPlanks', 'phantomRope', 'soulmetal'], REFINED2_PRICE = 40;
   const BUILD_HOURS = [0.25, 1, 4];
   const MAX_BUILDERS = 2;
   const START_RESOURCES = { coins: 20, timber: 30 }; // the original stock, doubled in newGame()
@@ -935,10 +953,11 @@ const TOF = (() => {
   function rollPortal(st, seed, mods, relic) {
     const rng = mulberry32((seed ^ 0x9071A1E5) >>> 0), r = newResult({ ...NO_MODS, ...(mods || {}), yield: 1, coins: 1 });
     if (relic && rng() < KRAKEN.relicChance) r.relic = relic;
-    const mag = 1 + st.magic * 0.06;
+    // spirit rations and the Krakenwake each bring back half as much again, and either keeps the dark off her hull
+    const mag = (1 + st.magic * 0.06) * (mods && mods.rations ? 1.5 : 1) * (mods && mods.abyssal ? 1.5 : 1), safe = mods && (mods.rations || mods.abyssal);
     for (const b of RAW_BASES) if (rng() < 0.7) r.items[T2[b]] = Math.max(1, Math.round((1 + Math.floor(rng() * 4)) * mag));
     for (const b of ['planks', 'rope', 'iron', 'food']) if (rng() < 0.08) r.items[T2[b]] = 1;
-    if (rng() < 0.25) { const d = Math.max(1, Math.round(st.hull * (0.08 + rng() * 0.14) * st.dmg * r.dm)); r.damage += d; r.events.push({ type: 'storm', text: `Something in the dark between worlds raked her hull (-${d} hull).` }); }
+    if (rng() < 0.25 && !safe) { const d = Math.max(1, Math.round(st.hull * (0.08 + rng() * 0.14) * st.dmg * r.dm)); r.damage += d; r.events.push({ type: 'storm', text: `Something in the dark between worlds raked her hull (-${d} hull).` }); }
     if (r.relic) r.events.push({ type: 'rare', text: `She came back through the portal with ${RELICS[r.relic].name}.` });
     else if (relic) r.events.push({ type: 'storm', text: `No sign of ${RELICS[relic].name} this time. The crew will not say what they saw instead.` });
     return r;
@@ -1250,7 +1269,7 @@ const TOF = (() => {
     if (SHIP_CLASSES[cls].blueprint && !hasFound(state, SHIP_CLASSES[cls].blueprint)) return 'Needs the Krakenwake Blueprint, salvaged from the Unseen’s carcass.';
     if (buildingLevel(state, 'dockyard') < dockNeed) return dockNeed === 1 ? 'Build a Dockyard first.' : `Needs a level ${dockNeed} Dockyard.`;
     if (need.length) {
-      const how = { charts: 'explore to find sea charts', pearls: 'hunt treasure to find pearls', relics: 'hunt treasure or pirates to find relics', rareFish: 'fish to land a rare catch', shellfish: 'go fishing for shellfish', planks: 'build a Sawmill for planks', rope: 'build a Ropemaker for rope', iron: 'build a Blacksmith for iron', timber: 'explore for timber', hemp: 'explore for hemp', ironOre: 'hunt treasure or pirates for iron ore' };
+      const how = { ...Object.fromEntries(REFINED2.map(k => [k, 'sail through the Unseen’s portal and work its goods at a level 2 workshop'])), charts: 'explore to find sea charts', pearls: 'hunt treasure to find pearls', relics: 'hunt treasure or pirates to find relics', rareFish: 'fish to land a rare catch', shellfish: 'go fishing for shellfish', planks: 'build a Sawmill for planks', rope: 'build a Ropemaker for rope', iron: 'build a Blacksmith for iron', timber: 'explore for timber', hemp: 'explore for hemp', ironOre: 'hunt treasure or pirates for iron ore' };
       return 'First ' + need.map(k => how[k] || k).join(', then ') + '.';
     }
     return null;
@@ -1292,6 +1311,9 @@ const TOF = (() => {
     food: 'Harvest the field, or a Fishmonger salts fish.',
     moonfish: 'Fishing in the Kelp Forest, the Whale Road and farther waters.', essence: 'The Sea Witch brews it from moonfish.',
     salvage: 'Beating ghost ships in the Ghost Sea, or trips through the Unseen’s portal.',
+    shimmerwood: 'Trips through the Unseen’s portal.', ghostflax: 'Trips through the Unseen’s portal.', wraithfin: 'Trips through the Unseen’s portal.',
+    wraithPlanks: 'A level 2 Sawmill saws shimmerwood, or the portal now and then.', phantomRope: 'A level 2 Ropemaker twists ghostflax, or the portal now and then.',
+    soulmetal: 'A level 2 Blacksmith smelts spectral salvage, or the portal now and then.', spiritRations: 'A level 2 Fishmonger salts wraithfin, or the portal now and then.',
   };
   const BEGINNER_TRIPS = 10;
 
@@ -1654,7 +1676,8 @@ const TOF = (() => {
     if (special) {
       const why = specialBlock(state, special, relic, now);
       if (why) return { ok: false, reason: why };
-      hours = special === 'portal' ? KRAKEN.portalHours : KRAKEN.carcassHours; type = 'exploration'; opts = { supplies: opts.supplies, charm: opts.charm };
+      if (special === 'portal' && opts.rations && state.resources.spiritRations < 1) return { ok: false, reason: 'You have no spirit rations.' };
+      hours = special === 'portal' ? KRAKEN.portalHours : KRAKEN.carcassHours; type = 'exploration'; opts = { supplies: opts.supplies, charm: opts.charm, rations: special === 'portal' && !!opts.rations };
     }
     if (!DURATIONS.includes(hours)) return { ok: false, reason: 'Pick a listed duration.' };
     if (!TYPES[type]) return { ok: false, reason: 'Unknown expedition type.' };
@@ -1683,7 +1706,11 @@ const TOF = (() => {
       mods: (() => { const m = tripMods(state, type, now, supplies, region, charm); if (beginner) { m.yield = round3(m.yield * 2); m.beginner = true; } return m; })(),
       supplies, region,
     };
-    if (special) { exp.special = special; if (relic) exp.relic = relic; }
+    if (special) {
+      exp.special = special; if (relic) exp.relic = relic;
+      if (opts.rations) { state.resources.spiritRations--; exp.mods.rations = true; }
+      if (SHIP_CLASSES[ship.cls].abyssal) exp.mods.abyssal = true;
+    }
     state.expeditions.push(exp);
     ship.lastTrip = { type, hours, region };
     Stats.add(state, 'tripsStarted');
@@ -2224,24 +2251,25 @@ const TOF = (() => {
   const BATCH_PER_LEVEL = 25;
   function maxBatch(b) { return BATCH_PER_LEVEL * Math.max(1, b.level); }
   // How many a batch could make right now: limited by inputs, the building's batch size and room in storage.
-  function batchLimit(state, b) {
-    const rc = BUILDINGS[b.type].recipe;
-    if (!rc) return 0;
+  function batchLimit(state, b, r = 0) {
+    const rc = recipesOf(b.type)[r];
+    if (!rc || (rc.level && b.level < rc.level)) return 0;
     let n = maxBatch(b);
     for (const [k, v] of Object.entries(rc.in)) n = Math.min(n, Math.floor(state.resources[k] / v));
     if (BULK.includes(rc.out)) n = Math.min(n, Math.max(0, storageCap(state) - state.resources[rc.out]));
     return Math.max(0, n);
   }
 
-  function queueJob(state, id, qty, now) {
+  function queueJob(state, id, qty, now, r = 0) {
     const b = getBuilding(state, id);
     if (!b) return { ok: false, reason: 'No such building.' };
-    const rc = BUILDINGS[b.type].recipe;
+    const rc = recipesOf(b.type)[r];
     if (!rc) return { ok: false, reason: 'This building doesn’t make anything.' };
     if (b.level < 1) return { ok: false, reason: 'Still under construction.' };
+    if (rc.level && b.level < rc.level) return { ok: false, reason: `Ghost-touched work needs a level ${rc.level} ${BUILDINGS[b.type].name}.` };
     settleProduction(state, now);
     if (b.job) return { ok: false, reason: 'Already working on a batch.' };
-    const n = Math.min(Math.floor(Number(qty) || 0), batchLimit(state, b));
+    const n = Math.min(Math.floor(Number(qty) || 0), batchLimit(state, b, r));
     if (n < 1) return { ok: false, reason: BULK.includes(rc.out) && state.resources[rc.out] >= storageCap(state) ? `Storage for ${RESOURCES[rc.out].name.toLowerCase()} is full.` : `Not enough ${Object.keys(rc.in).map(k => RESOURCES[k].name.toLowerCase()).join(' or ')}.` };
     for (const [k, v] of Object.entries(rc.in)) state.resources[k] -= v * n;
     b.job = { out: rc.out, per: { ...rc.in }, qty: n, done: 0, startAt: now, unitMs: Math.max(1, Math.round(rc.hours * hourMs(state) / recipeSpeed(b.level))) };
@@ -2295,13 +2323,14 @@ const TOF = (() => {
 
   // ---------- refined goods ----------
   // Planks, rope and iron sell at any shop (the Stores or a Trading Post) for REFINED_PRICE each.
+  const refinedPrice = res => (REFINED2.includes(res) ? REFINED2_PRICE : REFINED_PRICE);
   function sellRefined(state, res, qty) {
-    if (!REFINED.includes(res)) return { ok: false, reason: 'Only planks, rope and iron sell here.' };
+    if (!REFINED.includes(res) && !REFINED2.includes(res)) return { ok: false, reason: 'Only planks, rope and iron (and their ghost-touched kin) sell here.' };
     const n = Math.min(state.resources[res], Math.max(0, Math.floor(Number(qty) || 0)));
     if (n < 1) return { ok: false, reason: `No ${RESOURCES[res].name.toLowerCase()} to sell.` };
     state.resources[res] -= n;
-    earnCoins(state, n * REFINED_PRICE);
-    return { ok: true, qty: n, coins: n * REFINED_PRICE };
+    earnCoins(state, n * refinedPrice(res));
+    return { ok: true, qty: n, coins: n * refinedPrice(res) };
   }
 
   // ---------- trading post ----------
@@ -2494,7 +2523,7 @@ const TOF = (() => {
         seed: (Number(e.seed) >>> 0), dev: !!e.dev,
         stats: validStats(e.stats) ? snapshot({ ...e.stats, aff: { fishing: 1, treasure: 1, combat: 1, exploration: 1, ...e.stats.aff } }) : snapshot(shipStats(shipById[e.shipId])),
         mods: validMods(e.mods) ? { power: e.mods.power, yield: e.mods.yield, damage: e.mods.damage, region: REGIONS[e.mods.region] ? e.mods.region : 'home',
-          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}) } : { ...NO_MODS, region: 'home' },
+          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}), ...(e.mods.rations ? { rations: true } : {}), ...(e.mods.abyssal ? { abyssal: true } : {}) } : { ...NO_MODS, region: 'home' },
         supplies: !!e.supplies, region: REGIONS[e.region] ? e.region : 'home',
         ...(e.special === 'portal' || e.special === 'carcass' ? { special: e.special } : {}), ...(e.special === 'portal' && RELICS[e.relic] ? { relic: e.relic } : {}),
         ...(e.recalled ? { recalled: true } : {}), ...(Number.isFinite(e.cut) && e.cut > 0 && e.cut <= e.hours ? { cut: e.cut } : {}),
@@ -2521,8 +2550,8 @@ const TOF = (() => {
       if (p && Number.isFinite(p.endAt) && Number.isInteger(p.toLevel) && p.toLevel === nb.level + 1 && p.toLevel <= BUILDING_MAX_LEVEL)
         nb.pending = { toLevel: p.toLevel, startAt: Number.isFinite(p.startAt) ? p.startAt : p.endAt, endAt: p.endAt };
       if (nb.level === 0 && !nb.pending) continue; // an unfinished site with no work order is dropped
-      const j = b.job, rc = BUILDINGS[nb.type].recipe;
-      if (j && rc && j.out === rc.out && Number.isFinite(j.startAt) && Number.isFinite(j.unitMs) && j.unitMs > 0) {
+      const j = b.job, rc = j && recipesOf(nb.type).find(x => x.out === j.out);
+      if (j && rc && Number.isFinite(j.startAt) && Number.isFinite(j.unitMs) && j.unitMs > 0) {
         const qty = clampInt(j.qty, 1, 1000);
         nb.job = { out: rc.out, per: { ...rc.in }, qty, done: clampInt(j.done, 0, qty), startAt: j.startAt, unitMs: j.unitMs };
       }
@@ -2710,7 +2739,7 @@ const TOF = (() => {
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
     HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, KRAKEN, krakenView, settleKraken, krakenLockdown, emptyKraken,
     OMENS, RELICS, RELIC_ORDER, CARCASS, giveRelic, relicState, relicsLeft, carcassLeft, specialBlock, rollPortal, rollCarcass, hasFound, WON_DECOR, STASHED,
-    MATERIAL_TIERS, MATERIAL_BASES, T2, TIER2, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
+    MATERIAL_TIERS, MATERIAL_BASES, T2, TIER2, T3, T4, T2_RECIPES, recipesOf, REFINED2, REFINED2_PRICE, refinedPrice, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
     EXPANSION, LIGHTHOUSE_REPAIR, POST_KRAKEN_UPGRADES, expandVillage, repairLighthouse, buildMinY, krakenSlain, spendCoins, noteGathered, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     DECOR_COPIES, repaintDecor,
     GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
@@ -4077,6 +4106,23 @@ function runTofTests(TOF) {
     for (const c of ['frigate', 'leviathan', 'clipper']) eq(TOF.classLock(s, c), null, c + ' open after');
     for (const k of TOF.UPGRADE_KEYS) eq(TOF.upgradeGate(s, sh, k), null, k + ' open after'); eq(TOF.regionLock(s, 'deep'), null, 'deep open after'); eq(TOF.decorLock(s, 'goldChest'), null, 'chest open after');
   });
+  test('1.8: level 2 workshops work tier-2 goods; worked goods sell for 40; spirit rations and the Krakenwake guard portal trips', () => {
+    const s = rich(); const saw = s.buildings.find(b => b.type === 'sawmill') || (s.buildings.push({ id: 'b-sx', type: 'sawmill', gx: 0, gy: 40, level: 1, pending: null, job: null }), s.buildings[s.buildings.length - 1]);
+    saw.level = 1; saw.job = null; s.resources.shimmerwood = 20; s.resources.wraithPlanks = 0;
+    ok(/level 2/.test(TOF.queueJob(s, saw.id, 5, T0, 1).reason), 'needs level 2'); eq(TOF.batchLimit(s, saw, 1), 0, 'no batch at level 1');
+    saw.level = 2; const r = TOF.queueJob(s, saw.id, 99, T0, 1); eq(r.qty, 10, '2 shimmerwood per plank'); eq(s.resources.shimmerwood, 0, 'inputs taken');
+    TOF.settleProduction(s, T0 + 99 * H); eq(s.resources.wraithPlanks, 10, 'made'); ok(!saw.job, 'done');
+    for (const [b, rc] of Object.entries(TOF.T2_RECIPES)) { ok(TOF.recipesOf(b).length === 2 && TOF.TIER2.includes(rc.out) && Object.keys(rc.in).every(k => TOF.TIER2.includes(k)), b); }
+    const c0 = s.resources.coins, sr = TOF.sellRefined(s, 'wraithPlanks', 4); eq(sr.coins, 4 * TOF.REFINED2_PRICE, 'sells for 40'); eq(s.resources.coins, c0 + 160, 'paid');
+    ok(!TOF.sellRefined(s, 'shimmerwood', 1).ok && !TOF.sellRefined(s, 'spiritRations', 1).ok, 'raw goods and rations are not sold');
+    const st = memStorage(); saw.job = null; s.resources.shimmerwood = 6; TOF.queueJob(s, saw.id, 3, T0, 1); TOF.saveGame(st, s, T0); eq(TOF.loadGame(st, T0).state.buildings.find(b => b.id === saw.id).job.out, 'wraithPlanks', 'a tier-2 batch survives a reload');
+    const k = TOF.SHIP_CLASSES.krakenwake; ok(k.abyssal && ['wraithPlanks', 'phantomRope', 'soulmetal'].every(x => k.cost[x] > 0), 'the Krakenwake is built from worked tier-2 goods');
+    const st0 = { speed: 5, hull: 100, combat: 5, cargo: 100, fishing: 5, exploration: 5, magic: 0, aff: {}, dmg: 1 }, sum = m => { let n = 0, d = 0; for (let i = 1; i < 300; i++) { const x = TOF.rollPortal(st0, i * 31, m); n += TOF.TIER2.reduce((a, q) => a + (x.items[q] || 0), 0); d += x.damage; } return [n, d]; };
+    const [n0, d0] = sum({}), [n1, d1] = sum({ rations: true }), [n2, d2] = sum({ abyssal: true, rations: true });
+    ok(d0 > 0 && d1 === 0 && d2 === 0, 'no harm with rations or the Krakenwake'); ok(n1 > n0 * 1.3 && n2 > n1 * 1.3, 'more goods each');
+    const { s: q, t } = risen(); q.resources.spiritRations = 1; const sh = q.ships[0];
+    ok(TOF.dispatch(q, sh.id, 1, t, 3, 'fishing', { special: 'portal', rations: true }).ok, 'packed'); eq(q.resources.spiritRations, 0, 'one ration used'); ok(q.expeditions[0].mods.rations, 'recorded');
+  });
   test('1.8: six relics of sin, one per sin, each with its own text', () => {
     eq(TOF.RELIC_ORDER.length, 6, 'six'); const sins = new Set(TOF.RELIC_ORDER.map(k => TOF.RELICS[k].sin)); eq(sins.size, 6, 'six sins'); ok(!sins.has('Greed'), 'greed is the kraken');
     for (const k of TOF.RELIC_ORDER) { const R = TOF.RELICS[k]; ok(R.name && R.text.length > 60 && R.hint, k); }
@@ -4112,7 +4158,7 @@ function runTofTests(TOF) {
   });
   test('1.8: ships strip the carcass in 12 hour-long runs; every spoil turns up by the last; the blueprint unlocks the Krakenwake', () => {
     const { s, t } = risen(); const u = slay(s, t) + TOF.KRAKEN.deathMs; s.resources.coins = 1e6;
-    for (const k of ['pearls', 'relics', 'planks', 'rope', 'iron']) s.resources[k] = 500; s.discovered = Object.keys(TOF.RESOURCES); s.buildings.push({ id: 'b-d', type: 'dockyard', gx: 0, gy: 30, level: 3, pending: null, job: null });
+    for (const k of ['pearls', 'relics', 'planks', 'rope', 'iron', 'wraithPlanks', 'phantomRope', 'soulmetal']) s.resources[k] = 500; s.discovered = Object.keys(TOF.RESOURCES); s.buildings.push({ id: 'b-d', type: 'dockyard', gx: 0, gy: 30, level: 3, pending: null, job: null });
     ok(/Blueprint/.test(TOF.classLock(s, 'krakenwake')), 'locked without the blueprint');
     const sh = s.ships[0]; let runs = 0; const found = {};
     while (TOF.carcassLeft(s)) {
@@ -4678,7 +4724,7 @@ const Art = (() => {
     galleon:    { L: 22, B: 8, hullH: 6, hull: ['#2a1712', '#4a2418', '#6b2e22'], rim: '#e0b44a', masts: [{ a: 12, h: 38, rig: 'square', w: 8, sails: 2 }, { a: 2, h: 48, rig: 'square', w: 10, sails: 3 }, { a: -11, h: 36, rig: 'lateen' }], castle: { from: -1, to: -0.5, h: 7 }, cannons: 5, flag: '#c8463c' },
     caravel:    { L: 17, B: 6, hull: ['#4a2e1a', '#6e4627', '#8a5a33'], rim: '#e8e2d5', masts: [{ a: 7, h: 34, rig: 'lateen' }, { a: -3, h: 39, rig: 'lateen' }], castle: { from: -1, to: -0.6, h: 4 }, cross: '#c8463c', flag: '#3f6fb0' },
     barge:      { L: 17, B: 8, shape: 'flat', hull: ['#3b3d40', '#55585c', '#6b6e72'], rim: '#a06c40', masts: [{ a: -6, h: 20, rig: 'none' }], crane: true, crates: 4, flag: '#e0b44a' },
-    krakenwake: { L: 22, B: 7.5, hullH: 6, hull: ['#2a0810', '#4a0c18', '#6e1424'], rim: '#f2d23c', masts: [{ a: 10, h: 40, rig: 'square', w: 8, sails: 2 }, { a: 0, h: 48, rig: 'square', w: 9, sails: 3 }, { a: -10, h: 36, rig: 'square', w: 7, sails: 2 }], sailC: ['#4a2440', '#3a1a32', '#2a1024'], castle: { from: -1, to: -0.55, h: 6 }, glow: true, cannons: 4, flag: '#f2d23c' },
+    krakenwake: { L: 22, B: 7.5, hullH: 6, hull: ['#2a0810', '#4a0c18', '#6e1424'], rim: '#f2d23c', masts: [{ a: 10, h: 40, rig: 'square', w: 8, sails: 2 }, { a: 0, h: 48, rig: 'square', w: 9, sails: 3 }, { a: -10, h: 36, rig: 'square', w: 7, sails: 2 }], sailC: ['#4a2440', '#3a1a32', '#2a1024'], castle: { from: -1, to: -0.55, h: 6 }, cannons: 4, flag: '#f2d23c', kraken: true },
     frigate:    { L: 20, B: 7, hull: ['#151c33', '#232c52', '#2f3a6e'], rim: '#9be3e8', masts: [{ a: 9, h: 40, rig: 'square', w: 8, sails: 2 }, { a: -2, h: 47, rig: 'square', w: 9, sails: 3 }, { a: -12, h: 34, rig: 'gaff', boom: -6 }], sailC: ['#c7b1f0', '#9a7fdc', '#7a5ec4'], glow: true, cannons: 4, flag: '#9be3e8' },
   };
 
@@ -4709,6 +4755,20 @@ const Art = (() => {
       p.poly([pr(a0, -bw, h1), pr(a1, -bw, h1), pr(a1, bw, h1), pr(a0, bw, h1)], top);
     };
     if (o.castle) box(o.castle.from * L * 0.88, o.castle.to * L, B * 0.82, hullH, hullH + o.castle.h, o.hull[2], o.rim);
+    // 1.8: the Krakenwake: yellow-ringed suckers along her red flanks and two of the Unseen's arms wrapped round her hull
+    const krakenArm = (a0, side, rise, curl) => {
+      const n = 22;
+      for (let i = 0; i <= n; i++) {
+        const t = i / n, a = a0 + curl * Math.sin(t * Math.PI * 1.1) * 3, b = side * B * (1.08 - 0.25 * t), h = rise * Math.sin(t * Math.PI * 0.62) - (t > 0.75 ? (t - 0.75) * 18 : 0);
+        const q = pr(a + curl * t * 2.5, b, Math.max(0, h)), r = 2.2 - 1.5 * t;
+        p.circle(q[0], q[1], r, (x, y) => (y < q[1] - r * 0.3 ? '#c0303a' : '#820215'));
+        if (i % 4 === 2 && r > 1) p.set(Math.round(q[0]) + dir, Math.round(q[1]), '#f2d23c');
+      }
+    };
+    if (o.kraken) {
+      for (let i = 0; i < 9; i++) { const q = pr(L * (-0.7 + 1.35 * i / 8), bvis * 0.99, 1 + (i % 2)); p.set(q[0], q[1], '#f2d23c'); p.set(q[0], q[1] + 1, '#5a0a14'); }
+      krakenArm(-L * 0.55, -dir, 13, 1); krakenArm(L * 0.35, -dir, 11, -1);
+    }
     if (o.cabin) {
       box(o.cabin.a0, o.cabin.a1, B * 0.5, hullH, hullH + o.cabin.h, '#e8e2d5', '#c8463c');
       const w = pr((o.cabin.a0 + o.cabin.a1) / 2, bvis * 0.5, hullH + o.cabin.h - 3);
@@ -4750,6 +4810,12 @@ const Art = (() => {
         const y0 = pr(m.a + 8, 0, hullH + 4), y1 = pr(m.a - 10, 0, m.h + 1);
         p.line(y0[0], y0[1], y1[0], y1[1], '#5e3b22');
       }
+    }
+    if (o.kraken) { // the near-side arms, an eye painted on the mainsail, and a living eye for a figurehead
+      krakenArm(-L * 0.2, dir, 15, 1); krakenArm(L * 0.62, dir, 10, -1);
+      const mm = o.masts.reduce((x, y) => (y.h > x.h ? y : x)), e = pr(mm.a, bvis * 0.2, (hullH + mm.h) / 2 + 2);
+      p.ellipse(e[0], e[1], 4, 2.6, '#c0303a'); p.ellipse(e[0], e[1], 2.4, 1.8, '#f2d23c'); p.rect(e[0], e[1] - 1, 1, 3, '#1a0406');
+      const f = pr(L * 1.02, 0, hullH + 2); p.ellipse(f[0], f[1], 2.6, 2.2, '#ff9a3c'); p.set(f[0] - 1, f[1] - 1, '#ffd27a'); p.rect(f[0], f[1] - 1, 1, 3, '#1a0406');
     }
     if (o.jib) {
       const fm = o.masts.reduce((x, y) => (y.a > x.a ? y : x));
@@ -4932,14 +4998,38 @@ const Art = (() => {
     relic_gluttony: [['kkkkkkkkkk', 'kswswswswk', 'kwrrrrrrwk', '.kgggggggk', '.kgGgggggk', '..kgggggk.', '...kgggk..', '....kgk...', '...kgggk..', '..kkkkkkk.'], { k: PAL.ink, s: '#ffffff', w: '#c9d2dc', r: '#6a0a18', g: '#a9b2bb', G: '#e3e8ed' }],
     relic_lust: [['.t.....t..', 'tkkt.tkkt.', 'kppkkkppk.', 'kpPppppppk', 'kpPpppppk.', '.kpppppk..', '..kpppk.t.', '.t.kpk....', '....k.....'], { k: PAL.ink, p: '#e0505a', P: '#ffb0c0', t: '#3f7d4f' }],
   });
-  // 1.8: stand-ins for the tier-2 goods until their own art arrives: a ghostly crate marked with the good's letter
-  const T2_MARK = { shimmerwood: 'W', ghostflax: 'F', salvage: null, wraithfin: 'f', wraithPlanks: 'P', phantomRope: 'R', soulmetal: 'S', spiritRations: 'r' };
-  const T2_GLYPH = { W: ['k.k.k', 'k.k.k', 'kkkkk'], F: ['kkk', 'kk.', 'k..'], f: ['.kk', 'kkk', 'kk.'], P: ['kkk', 'kkk', 'k..'], R: ['kkk', 'kk.', 'k.k'], S: ['.kk', '.k.', 'kk.'], r: ['k.k', '.k.', 'k.k'] };
-  for (const [k, m] of Object.entries(T2_MARK)) if (m) {
-    const rows = ['.kkkkkkkk.', 'kccccccchk', 'kcccccccck', 'kcccccccck', 'kcccccccck', 'kcccccccck', 'kcccccccck', '.kkkkkkkk.'].map(r => r.split(''));
-    T2_GLYPH[m].forEach((g, y) => [...g].forEach((ch, x) => { if (ch === 'k') rows[2 + y][3 + x] = 'm'; }));
-    ICONS[k] = [rows.map(r => r.join('')), { k: PAL.ink, c: '#59d1a0', h: '#c8ffe8', m: '#1d4a3a' }];
-  }
+  // 1.8: the higher-tier materials, each drawn on the shape of its everyday kin so a glance tells you what it is.
+  // Tier 2 is ghost-touched (pale teal, glowing, see-through), tier 3 is darkness (black and violet, with a cold
+  // glint), tier 4 is cut from the bodies of slain gods (bone, flesh, sinew and golden ichor).
+  const K = PAL.ink;
+  Object.assign(ICONS, {
+    // ---- tier 2: ghost ----
+    shimmerwood: [['..s......s..', '....kkkkkkk.', '..kkbbbbbbbk', '.kwwkbGbbGbk', 'kwgwwkbbbbbk', 'kwwgwkbGbbk.', '.kwwkbbbbbk.', '..kkkkkkkk..'], { k: K, w: '#e8fff6', g: '#7ae0c8', b: '#3f6f68', G: '#7ae0c8', s: '#ffffff' }],
+    ghostflax: [['.w...w...w.', '..g.g.g.g..', '..ggggggg..', '...gGgGg...', '...ggggg...', '...kyyyk...', '...ggggg...', '...gGgGg...', '...ggggg...', '....g.g....'], { k: K, g: '#c8ffe8', G: '#7ae0c8', y: '#3fa88a', w: '#ffffff' }],
+    wraithfin: [['....kkkk....', '..kkbbbbk..k', '.kbbbbbbbkkb', 'kbgbsbsbsbbk', 'kbssssssssbk', '.kbbsbsbskbk', '..kkbbbbk..k', '....kkkk....'], { k: K, b: '#c8ffe8', s: '#3fa88a', g: '#7ae0c8' }],
+    wraithPlanks: [['kkkkkkkkkkkk', 'kppgpppppgpk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk', 'kpppppgppppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk'], { k: K, p: '#c8ffe8', P: '#7ae0c8', g: '#ffffff' }],
+    phantomRope: [['..kkkkkk..', '.kyyyyyyk.', 'kyykkkkyyk', 'kyk.gg.kyk', 'kyk.gg.kyk', 'kyykkkkyyk', '.kyyyyyyk.', '..kkkkkkyk', '.....w..kk'], { k: K, y: '#b8f4e0', g: '#7ae0c8', w: '#ffffff' }],
+    soulmetal: [['...kkkkkkk..', '..kwwssssk..', '.kssfssfssk.', 'ksssssssfssk', 'kssssffssssk', 'kddddddddddk', '.kkkkkkkkkk.'], { k: K, s: '#9fe8d8', w: '#ffffff', f: '#2f7a6a', d: '#3fa88a' }],
+    spiritRations: [['..kkkkk..', '.kwwwwwk.', '..kkkkk..', '.kggggGk.', 'kgGggggGk', 'kggggGggk', 'kgGgsgggk', 'kggggggsk', '.kkkkkkk.'], { k: K, w: '#c8ffe8', g: '#7ae0c8', G: '#ffffff', s: '#3fa88a' }],
+    // ---- tier 3: darkness ----
+    gloamwood: [['....kkkkkkk.', '..kkbbbbbbbk', '.kyykbgbbbbk', 'kyoyykbbbgbk', 'kyyoykbbbbk.', '.kyykbgbbbk.', '..kkkkkkkk..'], { k: K, y: '#2a1e38', o: '#7a4ab0', b: '#120c18', g: '#c87aff' }],
+    nightshade: [['.g.g.r.g.', '.ggggggg.', '..grggg..', '..gGgGg..', '..ggrgg..', '..kyyyk..', '..ggggg..', '..gGgGg..', '..ggggg..', '..g.g.g..'], { k: K, g: '#3a2050', G: '#7a4ab0', y: '#22182e', r: '#c87aff' }],
+    umbralOre: [['...kkkk...', '..kggrgk..', '.kgrrgggk.', 'kgggggrggk', 'kgrgggrrgk', '.kgggggk..', '..kkkkk...'], { k: K, g: '#2a2238', r: '#c87aff' }],
+    blindfish: [['.....r......', '......k.....', '....kkkk...k', '..kkbbbbk.kb', '.kbbbbbbbkbk', 'kbtbbbbbbbbk', 'kbbbbbbbbbbk', '.kddddddkkdk', '..kkddddk..k', '....kkkk....'], { k: K, b: '#d8d0dc', d: '#a89cb0', t: '#f4ecf8', r: '#c87aff' }],
+    gloamPlanks: [['kkkkkkkkkkkk', 'kppppgpppppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk', 'kpppppppgppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk'], { k: K, p: '#3a2a4a', P: '#22182e', g: '#7a4ab0' }],
+    shadowcord: [['..kkkkkk..', '.kyyvyyyk.', 'kyykkkkyyk', 'kyk....kyk', 'kvk....kyk', 'kyykkkkvyk', '.kyyyvyyk.', '..kkkkkkyk', '........kk'], { k: K, y: '#3a2050', v: '#c87aff' }],
+    voidsteel: [['...kkkkkkk..', '..kwssssskk.', '.kssssgssssk', 'ksgssssssgsk', 'kddddddddddk', '.kkkkkkkkkk.'], { k: K, s: '#2a2238', w: '#7a4ab0', g: '#c87aff', d: '#120c18' }],
+    blackRations: [['..kkkkk..', '.kwwwwwk.', '.kkkkkkk.', 'kbbbbbbbk', 'kbybbbybk', 'kbbbbbbbk', 'kbbgbbbbk', 'kbbbbbbbk', '.kkkkkkk.'], { k: K, b: '#22182e', y: '#7a4ab0', w: '#3a2a4a', g: '#c87aff' }],
+    // ---- tier 4: slain gods ----
+    godbone: [['.kk......kk.', 'kwhk....kwhk', 'kwwwkkkkwwwk', '.kwddddddwk.', 'kwwwkkkkwwwk', 'kwwk....kwwk', '.kk......kk.'], { k: K, w: '#f0e6d0', d: '#c8b890', h: '#fff2b8' }],
+    divineSinew: [['.r.R.r.R.', '.rrRrrRr.', '..rRrRr..', '..rrRrr..', '..rRrRr..', '..kyyyk..', '..rrRrr..', '..rRrRr..', '..rrrrr..', '..r.R.r..'], { k: K, r: '#a8303a', R: '#f0a0a0', y: '#f2c94c' }],
+    clottedIchor: [['...kkkk...', '.kkyyyykk.', 'kyywwyyyyk', 'kyyyyyoyyk', 'kyoyyyyyyk', '.kyyyyyok.', '..kkykkk..', '...kyk....', '....k.....'], { k: K, y: '#f2c94c', w: '#fff2b8', o: '#c9922c' }],
+    godflesh: [['..kkkkkkk...', '.krrrrrrrkk.', 'krrRrryrrrrk', 'krrrrryRrrrk', 'krRrrrrrryrk', 'kwwwwwwwwwwk', '.kkkkkkkkkk.'], { k: K, r: '#a8303a', R: '#d8606a', y: '#f2c94c', w: '#f0e6d0' }],
+    ossuaryPlanks: [['kkkkkkkkkkkk', 'kppdppppdppk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk', 'kppppdppppdk', 'kPPPPPPPPPPk', 'kkkkkkkkkkkk'], { k: K, p: '#f0e6d0', P: '#c8b890', d: '#8a7a5a' }],
+    sinewcord: [['..kkkkkk..', '.kyyyyyyk.', 'kyykkkkgyk', 'kyk....kyk', 'kgk....kyk', 'kyykkkkyyk', '.kyygyyyk.', '..kkkkkkyk', '........kk'], { k: K, y: '#c8606a', g: '#f2c94c' }],
+    ichorsteel: [['...kkkkkkk..', '..kwwssssk..', '.kssssrsssk.', 'ksssrrssssk', 'kddddddddddk', '.kkkkkkkkkk.'], { k: K, s: '#f2c94c', w: '#fff2b8', r: '#c8463c', d: '#a8741f' }],
+    ambrosialJerky: [['.kkk.kkk..', 'krrkkrrrk.', 'krRrkrRrrk', 'kryrkrryrk', '.krrkrrrk.', '..krrkrrk.', '...kkkkk..'], { k: K, r: '#8a2a2a', R: '#c86048', y: '#f2c94c' }],
+  });
   function iconURL(name, scale = 1) {
     const [rows, pal] = ICONS[name];
     const w = Math.max(...rows.map(r => r.length)), h = rows.length;
@@ -8985,7 +9075,7 @@ const App = (() => {
     sellRefined(res, qty) { return done(TOF.sellRefined(state, res, qty), 'trade'); },
     setEvent(v) { state.settings.eventOverride = v; TOF.settleGhostShip(state, now()); commit('event'); },
     upgradeBuilding(id) { return done(TOF.upgradeBuilding(state, id, now()), 'bupgrade'); },
-    queueJob(id, qty) { return done(TOF.queueJob(state, id, qty, now()), 'job'); },
+    queueJob(id, qty, r) { return done(TOF.queueJob(state, id, qty, now(), r || 0), 'job'); },
     cancelJob(id) { return done(TOF.cancelJob(state, id, now()), 'job'); },
     trade(side, res, qty) { return done(TOF.trade(state, side, res, qty), 'trade'); },
     settle() {
@@ -9261,6 +9351,10 @@ const UI = (() => {
       if (plan.relic === undefined || (plan.relic === null && left.length && !plan.spoils)) plan.relic = left[0] || null;
       html += `<p class="desc type-desc">A 15-minute trip into the dark between worlds. Every trip brings back ghost-touched (tier 2) goods; the portal can rake a hull.</p>`;
       if (left.length) html += `<p class="label">Seek</p><div class="chips relics">${left.map(id => `<button class="chip relic" role="radio" aria-checked="${plan.relic === id}" data-act="seek" data-ship="${ship.id}" data-relic="${id}">${icon('relic_' + id, 'tiny')} ${esc(TOF.RELICS[id].name)}<small>${TOF.RELICS[id].sin}</small></button>`).join('')}<button class="chip" role="radio" aria-checked="${!plan.relic}" data-act="seek" data-ship="${ship.id}" data-relic="">Spoils only</button></div>`;
+      const rat = state.resources.spiritRations || 0; if (!rat) plan.rations = false;
+      if (rat || state.discovered.includes('spiritRations')) html += `<label class="supplies ${rat ? '' : 'off'}"><input type="checkbox" data-act="rations" data-ship="${ship.id}" ${plan.rations ? 'checked' : ''} ${rat ? '' : 'disabled'}>
+        <span class="track"><span class="knob"></span></span><span>${icon('spiritRations', 'tiny')} <b>Pack spirit rations</b> (1, you have ${rat})<br><small>Half as much again, and the dark won’t touch her hull.</small></span></label>`;
+      if (TOF.SHIP_CLASSES[ship.cls].abyssal) html += `<p class="tide">${icon('relics', 'tiny')} <b>Krakenwake:</b> half as much again from the portal, and its dark never touches her.</p>`;
       html += `<p class="estimate">${plan.relic ? `About a <b>${Math.round(TOF.KRAKEN.relicChance * 100)}%</b> chance she comes back with ${esc(TOF.RELICS[plan.relic].name)}. ` : ''}Shimmerwood, ghostflax, spectral salvage and wraithfin on most trips; now and then something already worked.</p><p class="estimate risk">Hull damage on about 25% of trips.</p>`;
     } else {
       html += `<p class="desc type-desc">A 1-hour salvage run on the Unseen’s carcass. <b>${TOF.carcassLeft(state)}</b> of ${TOF.KRAKEN.carcassLoads} loads left.</p>
@@ -9347,11 +9441,19 @@ const UI = (() => {
       html += `<h3 class="group">${title}</h3><div class="card">` + shown.map(r => {
         const n = state.resources[r], bulk = TOF.BULK.includes(r), sellable = TOF.SELLABLE.includes(r);
         const full = bulk && n >= cap;
-        const refined = TOF.REFINED.includes(r), act = refined ? 'sellref' : 'sell';
-        const btns = sellable || refined ? `<div class="m-btns"><button class="btn small" data-act="${act}" data-res="${r}" data-q="10" ${n ? '' : 'disabled'}>Sell 10</button><button class="btn small" data-act="${act}" data-res="${r}" data-q="${n}" ${n ? '' : 'disabled'}>Sell all${refined && n ? ` (${n * TOF.REFINED_PRICE})` : ''}</button></div>` : '';
-        const sub = TOF.TIER2.includes(r) ? `Tier-2 ${{ timber: 'timber', hemp: 'hemp', ironOre: 'iron ore', fish: 'fish', planks: 'planks', rope: 'rope', iron: 'iron', food: 'food' }[TOF.MATERIAL_BASES[TOF.TIER2.indexOf(r)]]}. No use yet.` : sellable ? `${TOF.sellPrice(state, r)} coins each` : refined ? `${TOF.REFINED_PRICE} coins each at any shop` : TOF.TRADE.sell[r] ? 'Trading Post buys' : TOF.TRADE.buy[r] ? 'Trading Post sells' : 'Not for sale';
+        const refined = TOF.REFINED.includes(r) || TOF.REFINED2.includes(r), act = refined ? 'sellref' : 'sell';
+        const btns = sellable || refined ? `<div class="m-btns"><button class="btn small" data-act="${act}" data-res="${r}" data-q="10" ${n ? '' : 'disabled'}>Sell 10</button><button class="btn small" data-act="${act}" data-res="${r}" data-q="${n}" ${n ? '' : 'disabled'}>Sell all${refined && n ? ` (${n * TOF.refinedPrice(r)})` : ''}</button></div>` : '';
+        const t2use = { shimmerwood: 'A level 2 Sawmill saws it.', ghostflax: 'A level 2 Ropemaker twists it.', salvage: 'A level 2 Blacksmith smelts it.', wraithfin: 'A level 2 Fishmonger salts it.', wraithPlanks: `${TOF.REFINED2_PRICE} coins each at any shop.`, phantomRope: `${TOF.REFINED2_PRICE} coins each at any shop.`, soulmetal: `${TOF.REFINED2_PRICE} coins each at any shop.`, spiritRations: 'Pack them for portal trips.' };
+        const sub = TOF.TIER2.includes(r) ? `Tier-2 ${{ timber: 'timber', hemp: 'hemp', ironOre: 'iron ore', fish: 'fish', planks: 'planks', rope: 'rope', iron: 'iron', food: 'food' }[TOF.MATERIAL_BASES[TOF.TIER2.indexOf(r)]]}. ${t2use[r]}` : sellable ? `${TOF.sellPrice(state, r)} coins each` : refined ? `${TOF.REFINED_PRICE} coins each at any shop` : TOF.TRADE.sell[r] ? 'Trading Post buys' : TOF.TRADE.buy[r] ? 'Trading Post sells' : 'Not for sale';
         return `<div class="mrow">${icon(r, 'mid')}<div class="m-info"><b>${TOF.RESOURCES[r].name} <span class="amt ${full ? 'full' : ''}">${n}${bulk ? `<small>/${cap}</small>` : ''}</span></b><span>${sub}</span></div>${btns}</div>`;
       }).join('') + `</div>`;
+    }
+    // 1.8: every tier of every material, so the names and art are all in one place (tiers 3 and 4 have no use yet)
+    if (TOF.TIER2.some(k => state.discovered.includes(k))) {
+      const keyOf = (t, b) => [b, TOF.T2[b], TOF.T3[b], TOF.T4[b]][t];
+      html += `<h3 class="group">Materials codex</h3><div class="card codex"><div class="codex-row head"><span>Tier 1</span><span>Tier 2<br><small>ghost</small></span><span>Tier 3<br><small>darkness</small></span><span>Tier 4<br><small>slain gods</small></span></div>` +
+        TOF.MATERIAL_BASES.map(b => `<div class="codex-row">${[0, 1, 2, 3].map(t => `<span class="${t > 1 ? 'unknown' : ''}">${icon(keyOf(t, b), 'mid')}<small>${esc(TOF.MATERIAL_TIERS[t].items[b])}</small></span>`).join('')}</div>`).join('') +
+        `<p class="note">Tiers 3 and 4 lie beyond anything charted so far.</p></div>`;
     }
     const chests = Object.keys(TOF.CHESTS).filter(k => state.resources[k] > 0);
     if (chests.length) {
@@ -9682,27 +9784,30 @@ const UI = (() => {
     }
     html += `</article>`;
     if (b.level >= 1) {
-      const rc = d.recipe;
-      if (rc) {
-        html += `<article class="card"><h3>Production</h3><p class="desc">${effectText(state, b, b.level)}</p>`;
-        if (b.job) {
-          const j = b.job;
-          html += `<div class="progress"><i data-jbar="${b.id}"></i></div><p class="eta">${icon(j.out, 'tiny')} <b data-jcount="${b.id}">${j.done}</b> of ${j.qty} ${resName(j.out)} made. Batch done in <b data-jtimer="${b.id}"></b>.</p>
-            <button class="btn" data-act="canceljob" data-b="${b.id}">Stop and refund the rest</button>`;
-        } else {
+      const recipes = TOF.recipesOf(b.type);
+      if (recipes.length && b.job) { // one batch at a time, whichever recipe it is
+        const j = b.job;
+        html += `<article class="card"><h3>Production</h3><div class="progress"><i data-jbar="${b.id}"></i></div><p class="eta">${icon(j.out, 'tiny')} <b data-jcount="${b.id}">${j.done}</b> of ${j.qty} ${resName(j.out)} made. Batch done in <b data-jtimer="${b.id}"></b>.</p>
+          <button class="btn" data-act="canceljob" data-b="${b.id}">Stop and refund the rest</button></article>`;
+      } else recipes.forEach((rc, r) => {
+        const t2 = r > 0, price = TOF.refinedPrice(rc.out), sells = TOF.REFINED.includes(rc.out) || TOF.REFINED2.includes(rc.out);
+        if (t2 && !Object.keys(rc.in).some(k => App.state.discovered.includes(k)) && !App.state.discovered.includes(rc.out)) return; // (shown once the portal has given up some)
+        html += `<article class="card ${t2 ? 'ghostwork' : ''}"><h3>${t2 ? `${icon(rc.out, 'tiny')} Ghost-touched work` : 'Production'}</h3><p class="desc">${t2 ? `${Object.entries(rc.in).map(([k, v]) => `${v} ${resName(k)}`).join(' + ')} make 1 ${resName(rc.out)}.` : effectText(state, b, b.level)}</p>`;
+        if (rc.level && b.level < rc.level) html += `<p class="lock">Needs a level ${rc.level} ${d.name}.</p>`;
+        else {
           // batch choices: 1, 5, 10 and the most this batch can make (inputs, batch size and storage room all count)
-          const can = TOF.batchLimit(state, b), refined = TOF.REFINED.includes(rc.out);
+          const can = TOF.batchLimit(state, b, r);
           const have = Object.entries(rc.in).map(([k]) => `${state.resources[k]} ${resName(k)}`).join(', ');
           const unitMs = Math.max(1, Math.round(rc.hours * TOF.hourMs(state) / TOF.recipeSpeed(b.level)));
-          const opt = (n, label) => `<button class="btn small ${label ? 'primary' : ''}" data-act="job" data-b="${b.id}" data-q="${n}" ${n >= 1 && n <= can ? '' : 'disabled'}>${label || n}</button>`;
+          const opt = (n, label) => `<button class="btn small ${label ? 'primary' : ''}" data-act="job" data-b="${b.id}" data-r="${r}" data-q="${n}" ${n >= 1 && n <= can ? '' : 'disabled'}>${label || n}</button>`;
           html += `<p class="desc">You have ${have}. Up to <b>${TOF.maxBatch(b)}</b> per batch at level ${b.level}${TOF.BULK.includes(rc.out) ? `, while storage has room (${state.resources[rc.out]}/${TOF.storageCap(state)})` : ''}.</p>
             <div class="batch">${opt(1)}${opt(5)}${opt(10)}${opt(can, `Max${can ? ` ${can}` : ''}`)}</div>
-            ${can ? `<p class="note">A batch of ${can} takes ${span(can * unitMs)}${refined ? ` and sells for <b>${can} × ${TOF.REFINED_PRICE} = ${can * TOF.REFINED_PRICE} coins</b> at any shop` : ''}.</p>` : `<p class="note">${Object.entries(rc.in).map(([k, v]) => `${v} ${resName(k)}`).join(' + ')} make 1 ${unit(rc.out, 1)}.</p>`}`;
+            ${can ? `<p class="note">A batch of ${can} takes ${span(can * unitMs)}${sells ? ` and sells for <b>${can} × ${price} = ${can * price} coins</b> at any shop` : ''}.</p>` : `<p class="note">${Object.entries(rc.in).map(([k, v]) => `${v} ${resName(k)}`).join(' + ')} make 1 ${unit(rc.out, 1)}.</p>`}`;
         }
         html += `</article>`;
         const n = state.resources[rc.out];
-        if (TOF.REFINED.includes(rc.out) && n > 0) html += `<button class="btn" data-act="sellref" data-res="${rc.out}" data-q="${n}">Sell all ${n} ${resName(rc.out)}: ${n} × ${TOF.REFINED_PRICE} = ${n * TOF.REFINED_PRICE} coins</button>`;
-      }
+        if (sells && n > 0) html += `<button class="btn" data-act="sellref" data-res="${rc.out}" data-q="${n}">Sell all ${n} ${resName(rc.out)}: ${n} × ${price} = ${n * price} coins</button>`;
+      });
       if (b.type === 'tradingPost') {
         html += `<article class="card"><h3>Buy</h3>${Object.keys(TOF.TRADE.buy).map(r => `<div class="mrow">${icon(r, 'mid')}<div class="m-info"><b>${TOF.RESOURCES[r].name}</b><span>${TOF.tradePrice(state, 'buy', r)} coins each, you have ${state.resources[r]}</span></div>
           <div class="m-btns"><button class="btn small" data-act="trade" data-side="buy" data-res="${r}" data-q="10">Buy 10</button><button class="btn small" data-act="trade" data-side="buy" data-res="${r}" data-q="50">Buy 50</button></div></div>`).join('')}</article>
@@ -9988,7 +10093,7 @@ const UI = (() => {
       case 'special': { const p = planFor(ship); p.special = b.dataset.sp; p.relic = undefined; p.spoils = false; ui.pendingSpecial = null; refreshPanel(); break; }
       case 'seek': { ui.pendingSpecial = null; const p = planFor(ship); p.relic = b.dataset.relic || null; p.spoils = !b.dataset.relic; refreshPanel(); break; }
       case 'sail': {
-        const p = planFor(ship), r = App.dispatch(id, p.hours, p.type, { supplies: !!ui.supplies[id], charm: !!ui.charm[id], region: p.region, ...(p.special ? { special: p.special, relic: p.relic || null } : {}) });
+        const p = planFor(ship), r = App.dispatch(id, p.hours, p.type, { supplies: !!ui.supplies[id], charm: !!ui.charm[id], region: p.region, ...(p.special ? { special: p.special, relic: p.relic || null, rations: !!p.rations } : {}) });
         if (r.ok) { ui.pendingRegion = null; ui.pendingSpecial = null; }
         if (!r.ok) toast(r.reason, 'bad');
         else { Sound.play('sail'); toast(p.special === 'portal' ? `${ship.name} sails into the portal.` : p.special === 'carcass' ? `${ship.name} sets out to cut into the carcass.` : `${ship.name} set out ${{ fishing: 'fishing', treasure: 'treasure hunting', combat: 'to hunt pirates', exploration: 'exploring' }[p.type]}.`); ui.fleetShip = null; closePanel(); World.focusShip(id); }
@@ -10046,14 +10151,14 @@ const UI = (() => {
       case 'gtrade': { const r = App.ghostTrade(b.dataset.o); say(r, r.ok ? `The ghostly crew hands over ${Object.entries(r.offer.get).map(([k, v]) => `${v} ${resName(k)}`).join(', ')}.` : ''); if (r.ok) Sound.play('coins'); break; }
       case 'drepaint': { const r = App.repaintDecor(b.dataset.d); if (!r.ok) toast(r.reason, 'bad'); else Sound.play('tap'); break; }
       case 'dstow': { const r = App.stowDecor(b.dataset.d); say(r, r.ok ? `${TOF.DECOR[r.decor.type].name} packed away.` : ''); if (r.ok) ui.hwDecor = null; refreshPanel(); break; }
-      case 'sellref': { const r = App.sellRefined(b.dataset.res, +b.dataset.q); say(r, `Sold ${r.qty} ${resName(b.dataset.res)} for ${r.coins} coins (${TOF.REFINED_PRICE} each).`); if (r.ok) Sound.play('coins'); break; }
+      case 'sellref': { const r = App.sellRefined(b.dataset.res, +b.dataset.q); say(r, `Sold ${r.qty} ${resName(b.dataset.res)} for ${r.coins} coins (${TOF.refinedPrice(b.dataset.res)} each).`); if (r.ok) Sound.play('coins'); break; }
       case 'evt': App.setEvent(b.dataset.v); toast(`Halloween event: ${{ auto: 'by date', on: 'forced on', off: 'forced off' }[b.dataset.v]}.`); break;
       case 'dplace': beginPlacing(b.dataset.type); break;
       case 'dbuy': { const r = App.buyDecor(b.dataset.type); say(r, `${TOF.DECOR[b.dataset.type].name} built. ${TOF.DECOR[b.dataset.type].effect}`); if (r.ok) Sound.play('success'); break; }
       case 'dmove': { const d = st.decor.find(x => x.id === b.dataset.d); if (d) beginPlacing(d.type, d.id); break; }
       case 'dshow': closePanel(); World.focusDecor(b.dataset.d); break;
       case 'bupgrade': { const r = App.upgradeBuilding(b.dataset.b); say(r, `Builders started on the ${r.ok ? bName(r.building.type) : ''}.`); break; }
-      case 'job': { const r = App.queueJob(b.dataset.b, +b.dataset.q); say(r, `Started making ${r.qty} ${unit(TOF.BUILDINGS[TOF.getBuilding(App.state, b.dataset.b).type].recipe.out, r.qty)}.`); break; }
+      case 'job': { const ri = +(b.dataset.r || 0), r = App.queueJob(b.dataset.b, +b.dataset.q, ri); say(r, `Started making ${r.qty} ${unit(TOF.recipesOf(TOF.getBuilding(App.state, b.dataset.b).type)[ri].out, r.qty)}.`); break; }
       case 'canceljob': { const r = App.cancelJob(b.dataset.b); say(r, `Stopped. Inputs for ${r.refunded} unmade unit${r.refunded === 1 ? '' : 's'} refunded.`); break; }
       case 'trade': { const r = App.trade(b.dataset.side, b.dataset.res, +b.dataset.q); say(r, `${b.dataset.side === 'buy' ? 'Bought' : 'Sold'} ${r.qty} ${resName(b.dataset.res)} for ${r.coins} coins.`); break; }
       case 'showb': closePanel(); World.focusBuilding(b.dataset.b); break;
@@ -10119,6 +10224,7 @@ const UI = (() => {
       e.target.files[0].text().then(txt => { const ta = document.getElementById('importCode'); if (ta) ta.value = txt.trim(); ui.importArmed = false; toast('Save file read. Tap “Load this save” twice to use it.'); });
       return;
     }
+    if (e.target.dataset.act === 'rations') { const sh = TOF.getShip(App.state, e.target.dataset.ship); if (sh) planFor(sh).rations = e.target.checked; refreshPanel(); return; }
     if (e.target.dataset.act === 'charm') { ui.charm[e.target.dataset.ship] = e.target.checked; refreshPanel(); return; }
     if (e.target.dataset.act === 'supplies') { ui.supplies[e.target.dataset.ship] = e.target.checked; refreshPanel(); return; }
     if (e.target.dataset.act === 'dev') { App.setDev(e.target.checked); toast(e.target.checked ? 'Developer mode on.' : 'Developer mode off.'); }
@@ -10218,7 +10324,7 @@ const UI = (() => {
       portalStart: () => { closePanel(); $('#modal').hidden = true; document.body.classList.add('cinematic'); },
       portalEnd: () => { document.body.classList.remove('cinematic'); App.portalSeen(); toast('The Sea Witch has opened a way beneath the waves. Tap the portal.', 'good'); },
     });
-    for (const n of ['coin', 'fish', 'shellfish', 'rareFish', 'pearls', 'relics', 'charts', 'boat', 'hammer', 'gear', 'market', 'chest', 'cannon', 'compass', 'wrench', 'timber', 'planks', 'hemp', 'rope', 'ironOre', 'iron', 'food', 'house', 'crate', 'sun', 'moon', 'rain', 'snow', 'fog', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', 'charm', 'map', 'candy', ...Object.keys(TOF.TROPHIES), ...TOF.TIER2, ...TOF.RELIC_ORDER.map(id => 'relic_' + id)]) ICON[n] = Art.iconURL(n);
+    for (const n of ['coin', 'fish', 'shellfish', 'rareFish', 'pearls', 'relics', 'charts', 'boat', 'hammer', 'gear', 'market', 'chest', 'cannon', 'compass', 'wrench', 'timber', 'planks', 'hemp', 'rope', 'ironOre', 'iron', 'food', 'house', 'crate', 'sun', 'moon', 'rain', 'snow', 'fog', 'sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'essence', 'salvage', 'charm', 'map', 'candy', ...Object.keys(TOF.TROPHIES), ...TOF.TIER2, ...Object.values(TOF.T3), ...Object.values(TOF.T4), ...TOF.RELIC_ORDER.map(id => 'relic_' + id)]) ICON[n] = Art.iconURL(n);
     for (const [k, c] of Object.entries(TOF.CHESTS)) ICON[k] = Art.chestURL(c.family, c.size, false);
     $('#modalBody').addEventListener('click', e => {
       const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
