@@ -1021,7 +1021,7 @@ const TOF = (() => {
   // ======================= 1.8: the aftermath =======================
   // Once the Unseen is dead the village may grow into the woods to the north (the right of the screen),
   // doubling its land, and the lighthouse can be rebuilt around one of the creature's eyes.
-  const EXPANSION = { gyMin: -30, gxMax: 24, cost: { coins: 5000, timber: 200, planks: 120, rope: 40 } };
+  const EXPANSION = { gyMin: -48, gxMax: 26, cost: { coins: 5000, timber: 200, planks: 120, rope: 40 } };
   const LIGHTHOUSE_REPAIR = { coins: 2500, planks: 60, iron: 30 };
   const krakenSlain = state => Number.isFinite(state.kraken.deadAt);
   function expandVillage(state, now) {
@@ -7020,7 +7020,7 @@ const World = (() => {
     15, 16, 17, 18, 19, 19, 18, 17];
   const coastAt = gy => COAST[Math.max(0, Math.min(gy - 8, COAST.length - 1))];
   // 1.8: north of the map the coast bulges east a little, the shore of the North Reach
-  const reachBulge = gy => (gy <= -8 && gy >= -30 ? Math.round(3 * Math.sin((-8 - gy) / 22 * Math.PI)) : 0);
+  const reachBulge = gy => (gy <= -8 && gy >= -54 ? Math.round(5 * Math.sin((-8 - gy) / 46 * Math.PI)) : 0);
   function isWater(gx, gy) {
     if (gy <= -8) return gx >= 22 + reachBulge(gy);
     if (gy <= 4) return gx >= 22;
@@ -7092,7 +7092,7 @@ const World = (() => {
   // tall phone screen never shows an empty void: the coast, forest and open sea simply carry on.
   // Tiles outside the 40x40 map are scenery only (nothing can be built there).
   // 1.8: the picture also reaches XR px further right and PT px further up, over the woods of the North Reach
-  const PAD = 260, PT = 128, XR = 320, M = 64, EN = N + 2 * M;
+  const PAD = 260, PT = 256, XR = 320, M = 64, EN = N + 2 * M;
   const ext = [];  // ext[gy + M][gx + M] -> tile type, for every tile in or near the picture
   let wd = [], ld = []; // water: tiles to the nearest land; land: tiles to the nearest water
   const inMap = (gx, gy) => gx >= 0 && gy >= 0 && gx < N && gy < N;
@@ -7110,7 +7110,8 @@ const World = (() => {
     }
     if (expanded) { // 1.8: roads through the North Reach, joined to the village's north road, where nothing already stands
       const road = (gx, gy) => { const r = ext[gy + M], t = r && r[gx + M]; if ((t === T.GRASS || t === T.SAND) && !blocked.some(f => gx >= f.gx && gy >= f.gy && gx < f.gx + f.fw && gy < f.gy + f.fd)) r[gx + M] = T.ROAD; };
-      for (let gy = -1; gy >= -28; gy--) road(9, gy);
+      for (let gy = -1; gy >= -40; gy--) road(9, gy);
+      for (let gx = 4; gx <= 21; gx++) road(gx, -36);
       for (let gx = -4; gx <= 20; gx++) road(gx, -14);
       for (let gx = 2; gx <= 22; gx++) road(gx, -25);
       for (let gy = -14; gy >= -25; gy--) road(18, gy);
