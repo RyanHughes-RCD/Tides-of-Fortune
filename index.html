@@ -590,6 +590,11 @@ const TOF = (() => {
     ghost:  { name: 'Ghost Sea', ring: 3, cost: { charts: 8 }, req: { cartographer: 2, seaWitch: 1 }, minExplore: 6, dist: 1.6, danger: 1.8, family: 'pirate', ghosts: true, moonfish: 0.08, curse: 0.12, yield: { combat: 1.3 }, x: 0.9, y: 0.86, desc: 'Cold green fog and crewless ships. Magic matters more than cannons here.', landmark: 'The Lantern Fleet' },
     temple: { name: 'Drowned Temple', ring: 3, cost: { charts: 8 }, req: { cartographer: 2, seaWitch: 1 }, minExplore: 6, dist: 1.6, danger: 1.7, family: 'lost', yield: { treasure: 2 }, chest: 2, curse: 0.15, x: 0.88, y: 0.16, desc: 'Steps leading down into the sea. Its gold is cursed.', landmark: 'The Sunken Stair' },
     deep:   { name: 'Leviathan Deep', ring: 3, postKraken: true, cost: { charts: 10 }, req: { cartographer: 3, seaWitch: 1 }, minExplore: 7, dist: 1.8, danger: 2.4, family: 'sunken', yield: { all: 1.8 }, monsters: 0.25, kraken: 0.2, moonfish: 0.05, x: 0.5, y: 0.94, desc: 'The water goes black and bottomless. Sailors stop singing here.', landmark: 'The Bitten Wreck' },
+    // 1.8: three more far seas, charted only once the Unseen is dead. `t2`: ghost-touched goods turn up here on any trip
+    // (chance per hour at sea), so the portal is no longer the only source.
+    shimmer: { name: 'The Shimmering Isles', ring: 3, cost: { charts: 9 }, req: { cartographer: 2 }, minExplore: 7, dist: 1.6, danger: 1.5, family: 'lost', yield: { exploration: 1.6 }, raw: 1.5, t2: { shimmerwood: 0.45, ghostflax: 0.35 }, x: 0.36, y: 0.07, desc: 'Islands of pale trees that glow at dusk and ring like bells in the wind.', landmark: 'The Glass Grove' },
+    wraith: { name: 'Wraithwater', ring: 3, cost: { charts: 9 }, req: { cartographer: 2 }, minExplore: 6, dist: 1.55, danger: 1.4, family: 'sunken', yield: { fishing: 1.7 }, moonfish: 0.06, t2: { wraithfin: 0.5 }, x: 0.09, y: 0.55, desc: 'Still, grey water where the fish are half there. Nets come up cold.', landmark: 'The Drowned Choir' },
+    bones:  { name: 'The Bone Shoals', ring: 3, cost: { charts: 11 }, req: { cartographer: 3 }, minExplore: 7, dist: 1.75, danger: 2.1, family: 'pirate', yield: { treasure: 1.9 }, chest: 1.8, monsters: 0.15, t2: { salvage: 0.4 }, x: 0.73, y: 0.95, desc: 'Reefs of giant bones. Something died here long before the Unseen.', landmark: 'The Ribcage Arch' },
   };
   const REGION_ORDER = Object.keys(REGIONS);
   // Small finds that don't take up room in the hold.
@@ -620,15 +625,19 @@ const TOF = (() => {
     schooner:   { name: 'Treasure Schooner',   role: 'treasure', tier: 3, blurb: 'Built to find pearls and relics.', speed: 5, hull: 50, combat: 2, cargo: 90, fishing: 2, exploration: 5, magic: 1, cost: { coins: 600, charts: 1, planks: 30, rope: 15 }, aff: { treasure: 2.0 } },
     brigantine: { name: 'Brigantine',          role: 'combat', tier: 3, blurb: 'Balanced fighter and explorer.', speed: 5, hull: 80, combat: 6, cargo: 100, fishing: 3, exploration: 4, magic: 0, cost: { coins: 900, charts: 2, planks: 40, rope: 20, iron: 10 }, aff: { combat: 1.2, exploration: 1.2 } },
     ketch:      { name: 'Survey Ketch',        role: 'exploration', tier: 3, blurb: 'A two-masted survey boat: charts new waters and digs up what lies in them.', speed: 5, hull: 65, combat: 2, cargo: 110, fishing: 3, exploration: 8, magic: 2, cost: { coins: 750, charts: 2, planks: 35, rope: 20 }, aff: { exploration: 1.2 } },
-    galleon:    { name: 'War Galleon',         role: 'combat', tier: 4, blurb: 'Heavy guns and a thick hull.', speed: 2, hull: 160, combat: 14, cargo: 150, fishing: 1, exploration: 1, magic: 0, cost: { coins: 2000, relics: 2, planks: 80, rope: 30, iron: 40 } },
+    galleon:    { name: 'War Galleon',         role: 'combat', tier: 4, blurb: 'Heavy guns and a thick hull.', speed: 2, hull: 160, combat: 16, cargo: 150, fishing: 1, exploration: 1, magic: 0, cost: { coins: 1800, relics: 2, planks: 80, rope: 30, iron: 40 } },
     xebec:      { name: 'Corsair Xebec',       role: 'combat', tier: 4, blurb: 'A swift raider with lateen sails. Fights, scouts and loots, without the galleon’s bulk.', speed: 7, hull: 100, combat: 9, cargo: 110, fishing: 2, exploration: 6, magic: 1, cost: { coins: 1600, relics: 1, planks: 60, rope: 30, iron: 25 }, aff: { combat: 1.1, exploration: 1.1, treasure: 1.2 } },
     caravel:    { name: 'Exploration Caravel', role: 'exploration', tier: 4, blurb: 'Long-distance discovery.', speed: 6, hull: 70, combat: 2, cargo: 90, fishing: 2, exploration: 10, magic: 1, cost: { coins: 1200, charts: 4, planks: 50, rope: 30 }, aff: { exploration: 1.5 } },
-    barge:      { name: 'Salvage Barge',       role: 'treasure', tier: 3, blurb: 'Wreck recovery. Shrugs off reef damage.', speed: 1, hull: 120, combat: 0, cargo: 260, fishing: 1, exploration: 3, magic: 0, cost: { coins: 700, pearls: 3, planks: 50, iron: 20 }, aff: { treasure: 1.8 }, dmg: 0.5 },
+    barge:      { name: 'Salvage Barge',       role: 'treasure', tier: 3, blurb: 'Wreck recovery. Shrugs off reef damage.', speed: 1, hull: 120, combat: 0, cargo: 260, fishing: 1, exploration: 5, magic: 1, cost: { coins: 650, pearls: 3, planks: 50, iron: 20 }, aff: { treasure: 1.8 }, dmg: 0.5 },
     frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, postKraken: true, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 60, rope: 30, iron: 30 }, aff: { treasure: 1.25 } },
     // 1.4: top-tier specialists
-    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 24, exploration: 3, magic: 2, cost: { coins: 4000, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
+    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 30, exploration: 3, magic: 2, cost: { coins: 3600, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
     clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 90, rope: 60, iron: 30 }, aff: { exploration: 1.4 } },
     // 1.8: built only from the blueprint salvaged out of the Unseen's carcass. Strong at everything, best at nothing.
+    // 1.8: two hulls the far seas made possible, built from worked ghost-touched goods once the Unseen is dead.
+    // ghostbane: always fights ghosts and monsters as if carrying a warding charm. spectral: finds tier-2 goods on any trip.
+    wraithGalleon: { name: 'Wraith Galleon',   role: 'combat', tier: 5, postKraken: true, ghostbane: true, blurb: 'A warship of pale, humming timber. The hardest-hitting hull afloat, and ghosts and sea monsters meet her as if she carried a charm.', speed: 4, hull: 180, combat: 16, cargo: 180, fishing: 2, exploration: 5, magic: 10, cost: { coins: 4500, relics: 3, wraithPlanks: 50, phantomRope: 25, soulmetal: 40 }, aff: { combat: 1.15 }, dmg: 0.85 },
+    wraithlight: { name: 'Wraithlight Ketch',  role: 'exploration', tier: 5, postKraken: true, spectral: true, blurb: 'Lanterns that burn without oil. Every trip, anywhere, she brings back ghost-touched goods as well.', speed: 7, hull: 100, combat: 4, cargo: 160, fishing: 6, exploration: 11, magic: 9, cost: { coins: 4800, pearls: 6, wraithPlanks: 35, phantomRope: 30, soulmetal: 15 }, aff: { exploration: 1.1 } },
     krakenwake: { name: 'Krakenwake',          role: 'combat', tier: 5, blueprint: 'krakenBlueprint', abyssal: true, blurb: 'A hull grown around the Unseen’s ribs. Strong at everything, and nothing in the portal’s dark will touch her: she brings back half as much again from it.', speed: 6, hull: 170, combat: 13, cargo: 300, fishing: 16, exploration: 10, magic: 8, cost: { coins: 6000, pearls: 8, relics: 4, wraithPlanks: 40, phantomRope: 20, soulmetal: 30 }, aff: { treasure: 1.2 }, dmg: 0.8 },
   };
   const CLASS_ORDER = Object.keys(SHIP_CLASSES);
@@ -672,7 +681,7 @@ const TOF = (() => {
   };
   const recipesOf = type => [BUILDINGS[type] && BUILDINGS[type].recipe, T2_RECIPES[type]].filter(Boolean);
   // Worked tier-2 goods sell at any shop; spirit rations are kept for the portal.
-  const REFINED2 = ['wraithPlanks', 'phantomRope', 'soulmetal'], REFINED2_PRICE = 40;
+  const REFINED2 = ['wraithPlanks', 'phantomRope', 'soulmetal'], REFINED2_PRICE = 20; // 1.8 balance: portal trips are quick and repeatable, so their goods sell modestly
   const BUILD_HOURS = [0.25, 1, 4];
   const MAX_BUILDERS = 2;
   const START_RESOURCES = { coins: 20, timber: 30 }; // the original stock, doubled in newGame()
@@ -687,7 +696,8 @@ const TOF = (() => {
   // levels: refining is a steady, time-limited income. Raw goods and food keep their level-scaled prices.
   const REFINED = ['planks', 'rope', 'iron'];
   const REFINED_PRICE = 12;
-  const TRADE = { buy: { timber: 4, hemp: 4, ironOre: 8 }, sell: { planks: REFINED_PRICE, rope: REFINED_PRICE, iron: REFINED_PRICE, food: 5 } };
+  const TRADE = { buy: { timber: 4, hemp: 4, ironOre: 5 }, // 1.8 balance: ore was 8, so smelting bought ore lost money
+  sell: { planks: REFINED_PRICE, rope: REFINED_PRICE, iron: REFINED_PRICE, food: 5 } };
   const START_BUILDINGS = [{ type: 'shipwright', gx: 13, gy: 7 }, { type: 'market', gx: 12, gy: 12 }];
 
   // ---------- decorations ----------
@@ -955,7 +965,7 @@ const TOF = (() => {
     if (relic && rng() < KRAKEN.relicChance) r.relic = relic;
     // spirit rations and the Krakenwake each bring back half as much again, and either keeps the dark off her hull
     const mag = (1 + st.magic * 0.06) * (mods && mods.rations ? 1.5 : 1) * (mods && mods.abyssal ? 1.5 : 1), safe = mods && (mods.rations || mods.abyssal);
-    for (const b of RAW_BASES) if (rng() < 0.7) r.items[T2[b]] = Math.max(1, Math.round((1 + Math.floor(rng() * 4)) * mag));
+    for (const b of RAW_BASES) if (rng() < 0.6) r.items[T2[b]] = Math.max(1, Math.round((1 + Math.floor(rng() * 3)) * mag)); // (1.8 balance: was 70%, 1-4)
     for (const b of ['planks', 'rope', 'iron', 'food']) if (rng() < 0.08) r.items[T2[b]] = 1;
     if (rng() < 0.25 && !safe) { const d = Math.max(1, Math.round(st.hull * (0.08 + rng() * 0.14) * st.dmg * r.dm)); r.damage += d; r.events.push({ type: 'storm', text: `Something in the dark between worlds raked her hull (-${d} hull).` }); }
     if (r.relic) r.events.push({ type: 'rare', text: `She came back through the portal with ${RELICS[r.relic].name}.` });
@@ -1398,7 +1408,7 @@ const TOF = (() => {
         const mine = P * (0.8 + rng() * 0.4);
         if (mine >= E) {
           r.wins++;
-          coins += (45 + E * 15) * Math.min(1, hours);
+          coins += (65 + E * 21) * Math.min(1, hours); // 1.8 balance: bounties up by about 40% (fighters earned the least of any hull)
           if (rng() < 0.08 * magicMult) relics++;
           dmg += E * 0.3 * rng();
         } else {
@@ -1483,7 +1493,7 @@ const TOF = (() => {
       let wins = 0;
       for (let i = 0; i < Math.max(1, Math.round(hours / 6)); i++) {
         const E = (9 + ring * 2) * (0.8 + rng() * 0.4);
-        const mine = (st.combat * 0.4 + st.magic * 1.6) * (M.charm ? 1.3 : 1) * (0.8 + rng() * 0.4);
+        const mine = (st.combat * 0.4 + st.magic * 1.6) * (M.charm || M.ghostbane ? 1.3 : 1) * (0.8 + rng() * 0.4);
         if (mine >= E) { wins++; put('salvage', 1 + Math.floor(rng() * 3)); }
         else { const d = Math.max(1, Math.round(st.hull * 0.2 * st.dmg * r.dm)); r.damage += d; r.events.push({ type: 'storm', text: `A ghost ship raked her with cold green fire (-${d} hull).` }); break; }
       }
@@ -1493,7 +1503,7 @@ const TOF = (() => {
     // sea monsters in the wildest waters
     if (Rg.monsters && rng() < Rg.monsters * Math.min(1.5, Math.max(0.3, hours / 8))) {
       const m = MONSTERS[Math.floor(rng() * MONSTERS.length)];
-      const mine = (st.combat + st.magic + st.hull / 20) * (M.charm ? 1.3 : 1) * (0.8 + rng() * 0.4);
+      const mine = (st.combat + st.magic + st.hull / 20) * (M.charm || M.ghostbane ? 1.3 : 1) * (0.8 + rng() * 0.4);
       const E = m.power * (0.85 + rng() * 0.3) + ring * 3;
       if (mine >= E) {
         put('essence', 2 + Math.floor(rng() * 3)); put('coins', 200 + Math.floor(rng() * 300));
@@ -1511,6 +1521,17 @@ const TOF = (() => {
     if (Rg.witch && rng() < 0.3) r.witch = true;
     if (rng() < 0.03 + ring * 0.04 + (Rg.kraken || 0)) r.lore = 'kraken';
     else if (rng() < 0.05) r.oddity = ODDITIES[Math.floor(rng() * ODDITIES.length)];
+    // 1.8: ghost-touched goods from the new far seas, and from the Wraithlight Ketch anywhere (a separate stream)
+    if (Rg.t2 || M.spectral) {
+      const g = mulberry32((seed ^ 0x6A057ED5) >>> 0), got = {};
+      for (let h = 0; h < hours; h++) {
+        const w = Math.min(1, hours - h);
+        for (const [k, p] of Object.entries(Rg.t2 || {})) if (g() < p * w) got[k] = (got[k] || 0) + 1 + Math.floor(g() * 3);
+        if (M.spectral && g() < 0.35 * w) { const k = T2[RAW_BASES[Math.floor(g() * RAW_BASES.length)]]; got[k] = (got[k] || 0) + 1 + Math.floor(g() * 3); }
+      }
+      for (const [k, n] of Object.entries(got)) put(k, n);
+      if (Object.keys(got).length) r.events.push({ type: 'rare', text: 'Ghost-touched goods came up with the haul, cold to the touch.' });
+    }
   }
 
   // Kept for Phase 1 callers and tests.
@@ -1595,6 +1616,7 @@ const TOF = (() => {
     if (!Rg) return 'Unknown waters.';
     if (revealed(state, id)) return null;
     if (Rg.postKraken && !krakenSlain(state)) return 'Its lair. No chart of it can be drawn while the Unseen lives.';
+    if (Rg.ring >= 3 && !krakenSlain(state)) return 'No captain will chart the far seas while the Unseen lives.'; // 1.8: the whole far ring waits for its death
     if (Rg.ring > 1 && !REGION_ORDER.some(k => REGIONS[k].ring === Rg.ring - 1 && revealed(state, k))) return 'Chart a nearer region first.';
     for (const [b, lvl] of Object.entries(Rg.req || {})) if (buildingLevel(state, b) < lvl) return lvl > 1 ? `Needs a level ${lvl} ${BUILDINGS[b].name}.` : `Needs a ${BUILDINGS[b].name}.`;
     return null;
@@ -1711,6 +1733,8 @@ const TOF = (() => {
       if (opts.rations) { state.resources.spiritRations--; exp.mods.rations = true; }
       if (SHIP_CLASSES[ship.cls].abyssal) exp.mods.abyssal = true;
     }
+    if (SHIP_CLASSES[ship.cls].spectral) exp.mods.spectral = true;
+    if (SHIP_CLASSES[ship.cls].ghostbane) exp.mods.ghostbane = true;
     state.expeditions.push(exp);
     ship.lastTrip = { type, hours, region };
     Stats.add(state, 'tripsStarted');
@@ -2523,7 +2547,7 @@ const TOF = (() => {
         seed: (Number(e.seed) >>> 0), dev: !!e.dev,
         stats: validStats(e.stats) ? snapshot({ ...e.stats, aff: { fishing: 1, treasure: 1, combat: 1, exploration: 1, ...e.stats.aff } }) : snapshot(shipStats(shipById[e.shipId])),
         mods: validMods(e.mods) ? { power: e.mods.power, yield: e.mods.yield, damage: e.mods.damage, region: REGIONS[e.mods.region] ? e.mods.region : 'home',
-          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}), ...(e.mods.rations ? { rations: true } : {}), ...(e.mods.abyssal ? { abyssal: true } : {}) } : { ...NO_MODS, region: 'home' },
+          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}), ...(e.mods.rations ? { rations: true } : {}), ...(e.mods.abyssal ? { abyssal: true } : {}), ...(e.mods.spectral ? { spectral: true } : {}), ...(e.mods.ghostbane ? { ghostbane: true } : {}) } : { ...NO_MODS, region: 'home' },
         supplies: !!e.supplies, region: REGIONS[e.region] ? e.region : 'home',
         ...(e.special === 'portal' || e.special === 'carcass' ? { special: e.special } : {}), ...(e.special === 'portal' && RELICS[e.relic] ? { relic: e.relic } : {}),
         ...(e.recalled ? { recalled: true } : {}), ...(Number.isFinite(e.cut) && e.cut > 0 && e.cut <= e.hours ? { cut: e.cut } : {}),
@@ -2948,8 +2972,8 @@ function runTofTests(TOF) {
   };
   const rich = () => { const s = town(veteran(T0)); for (const k of Object.keys(s.resources)) s.resources[k] = 400; s.resources.coins = 1e6; s.discovered = Object.keys(TOF.RESOURCES); return s; };
 
-  test('all 16 ship classes exist with complete stats', () => {
-    eq(TOF.CLASS_ORDER.length, 16, 'class count');
+  test('all 18 ship classes exist with complete stats', () => {
+    eq(TOF.CLASS_ORDER.length, 18, 'class count');
     for (const c of TOF.CLASS_ORDER) {
       const st = TOF.shipStats({ cls: c, upgrades: {} });
       for (const k of ['speed', 'hull', 'combat', 'cargo', 'fishing', 'exploration', 'magic']) ok(Number.isFinite(st[k]), `${c}.${k}`);
@@ -3373,6 +3397,7 @@ function runTofTests(TOF) {
     ok(/Cartographer/.test(TOF.revealRegion(s, 'whale').reason), 'needs cartographer');
     s.buildings.push({ id: 'b-c', type: 'cartographer', gx: 0, gy: 30, level: 1, pending: null, job: null });
     ok(TOF.revealRegion(s, 'whale').ok, 'whale');
+    ok(/far seas/.test(TOF.regionLock(s, 'ghost')), 'ghost sea waits for the kraken (1.8)'); s.kraken.deadAt = T0;
     ok(/Sea Witch/.test(TOF.regionLock(s, 'ghost')) || /Cartographer/.test(TOF.regionLock(s, 'ghost')), 'ghost sea gated');
     ok(!TOF.revealRegion(s, 'kelp').ok, 'no double charting');
   });
@@ -4106,14 +4131,14 @@ function runTofTests(TOF) {
     for (const c of ['frigate', 'leviathan', 'clipper']) eq(TOF.classLock(s, c), null, c + ' open after');
     for (const k of TOF.UPGRADE_KEYS) eq(TOF.upgradeGate(s, sh, k), null, k + ' open after'); eq(TOF.regionLock(s, 'deep'), null, 'deep open after'); eq(TOF.decorLock(s, 'goldChest'), null, 'chest open after');
   });
-  test('1.8: level 2 workshops work tier-2 goods; worked goods sell for 40; spirit rations and the Krakenwake guard portal trips', () => {
+  test('1.8: level 2 workshops work tier-2 goods; worked goods sell at a shop; spirit rations and the Krakenwake guard portal trips', () => {
     const s = rich(); const saw = s.buildings.find(b => b.type === 'sawmill') || (s.buildings.push({ id: 'b-sx', type: 'sawmill', gx: 0, gy: 40, level: 1, pending: null, job: null }), s.buildings[s.buildings.length - 1]);
     saw.level = 1; saw.job = null; s.resources.shimmerwood = 20; s.resources.wraithPlanks = 0;
     ok(/level 2/.test(TOF.queueJob(s, saw.id, 5, T0, 1).reason), 'needs level 2'); eq(TOF.batchLimit(s, saw, 1), 0, 'no batch at level 1');
     saw.level = 2; const r = TOF.queueJob(s, saw.id, 99, T0, 1); eq(r.qty, 10, '2 shimmerwood per plank'); eq(s.resources.shimmerwood, 0, 'inputs taken');
     TOF.settleProduction(s, T0 + 99 * H); eq(s.resources.wraithPlanks, 10, 'made'); ok(!saw.job, 'done');
     for (const [b, rc] of Object.entries(TOF.T2_RECIPES)) { ok(TOF.recipesOf(b).length === 2 && TOF.TIER2.includes(rc.out) && Object.keys(rc.in).every(k => TOF.TIER2.includes(k)), b); }
-    const c0 = s.resources.coins, sr = TOF.sellRefined(s, 'wraithPlanks', 4); eq(sr.coins, 4 * TOF.REFINED2_PRICE, 'sells for 40'); eq(s.resources.coins, c0 + 160, 'paid');
+    const c0 = s.resources.coins, sr = TOF.sellRefined(s, 'wraithPlanks', 4); eq(sr.coins, 4 * TOF.REFINED2_PRICE, 'sells at the tier-2 price'); eq(s.resources.coins, c0 + 4 * TOF.REFINED2_PRICE, 'paid');
     ok(!TOF.sellRefined(s, 'shimmerwood', 1).ok && !TOF.sellRefined(s, 'spiritRations', 1).ok, 'raw goods and rations are not sold');
     const st = memStorage(); saw.job = null; s.resources.shimmerwood = 6; TOF.queueJob(s, saw.id, 3, T0, 1); TOF.saveGame(st, s, T0); eq(TOF.loadGame(st, T0).state.buildings.find(b => b.id === saw.id).job.out, 'wraithPlanks', 'a tier-2 batch survives a reload');
     const k = TOF.SHIP_CLASSES.krakenwake; ok(k.abyssal && ['wraithPlanks', 'phantomRope', 'soulmetal'].every(x => k.cost[x] > 0), 'the Krakenwake is built from worked tier-2 goods');
@@ -4122,6 +4147,27 @@ function runTofTests(TOF) {
     ok(d0 > 0 && d1 === 0 && d2 === 0, 'no harm with rations or the Krakenwake'); ok(n1 > n0 * 1.3 && n2 > n1 * 1.3, 'more goods each');
     const { s: q, t } = risen(); q.resources.spiritRations = 1; const sh = q.ships[0];
     ok(TOF.dispatch(q, sh.id, 1, t, 3, 'fishing', { special: 'portal', rations: true }).ok, 'packed'); eq(q.resources.spiritRations, 0, 'one ration used'); ok(q.expeditions[0].mods.rations, 'recorded');
+  });
+  test('1.8: the far seas (and three new ones) open after the kraken; their trips bring ghost-touched goods', () => {
+    const s = rich(); s.resources.charts = 999; s.buildings.push({ id: 'b-c', type: 'cartographer', gx: 1, gy: 34, level: 3, pending: null, job: null }, { id: 'b-ws', type: 'seaWitch', gx: 5, gy: 34, level: 1, pending: null, job: null }); s.flags.witchFound = true;
+    s.regions = TOF.REGION_ORDER.filter(r => TOF.REGIONS[r].ring <= 2);
+    const far = TOF.REGION_ORDER.filter(r => TOF.REGIONS[r].ring === 3); ok(far.length === 6 && ['shimmer', 'wraith', 'bones'].every(r => far.includes(r)), 'six far seas');
+    for (const r of far) ok(TOF.regionLock(s, r), r + ' locked while it lives'); eq(TOF.regionLock(s, 'outer'), null, 'the Outer Reef (and the witch) stay open');
+    s.kraken.deadAt = T0; for (const r of far) { eq(TOF.regionLock(s, r), null, r + ' open after'); ok(TOF.revealRegion(s, r).ok, r + ' charted'); }
+    const st = TOF.shipStats({ cls: 'clipper', upgrades: {} }), got = r => { let n = 0; for (let i = 1; i < 60; i++) { const x = TOF.rollExpedition(st, 'exploration', 4, i * 77, { power: 1, yield: 1, damage: 1, region: r }); n += TOF.TIER2.reduce((a, k) => a + (x.items[k] || 0), 0); } return n; };
+    ok(got('shimmer') > 100 && got('home') === 0, 'the Shimmering Isles give shimmerwood and ghostflax; home waters none');
+    const a = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp' }), b = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp', spectral: true });
+    for (const k of Object.keys(a.items)) eq(b.items[k], a.items[k], k + ' unchanged by the ketch'); // its finds come on top
+  });
+  test('1.8: two post-kraken hulls built from worked tier-2 goods, each with its own gift', () => {
+    const s = rich(); s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }); s.discovered = Object.keys(TOF.RESOURCES);
+    for (const c of ['wraithGalleon', 'wraithlight']) { const C = TOF.SHIP_CLASSES[c]; ok(C.postKraken && TOF.REFINED2.some(k => C.cost[k]), c + ' needs tier-2 goods'); ok(/Unseen is dead/.test(TOF.classLock(s, c)), c + ' locked'); }
+    s.kraken.deadAt = T0; ok(TOF.buildShip(s, 'wraithGalleon').ok && TOF.buildShip(s, 'wraithlight').ok, 'both built');
+    const g = s.ships.find(x => x.cls === 'wraithGalleon'), w = s.ships.find(x => x.cls === 'wraithlight');
+    const rg = TOF.dispatch(s, g.id, 4, T0, 5, 'combat'), rw = TOF.dispatch(s, w.id, 4, T0, 6, 'exploration'); ok(rg.exp.mods.ghostbane && rw.exp.mods.spectral, 'their gifts sail with them');
+    const st = memStorage(); TOF.saveGame(st, s, T0); const back = TOF.loadGame(st, T0).state; ok(back.expeditions.some(e => e.mods.spectral) && back.expeditions.some(e => e.mods.ghostbane), 'and survive a reload');
+    let n = 0; const ws = TOF.shipStats(w); for (let i = 1; i < 60; i++) { const x = TOF.rollExpedition(ws, 'fishing', 4, i * 13, { power: 1, yield: 1, damage: 1, region: 'home', spectral: true }); n += TOF.TIER2.reduce((a, k) => a + (x.items[k] || 0), 0); }
+    ok(n > 40, 'the ketch finds ghost-touched goods anywhere: ' + n);
   });
   test('1.8: six relics of sin, one per sin, each with its own text', () => {
     eq(TOF.RELIC_ORDER.length, 6, 'six'); const sins = new Set(TOF.RELIC_ORDER.map(k => TOF.RELICS[k].sin)); eq(sins.size, 6, 'six sins'); ok(!sins.has('Greed'), 'greed is the kraken');
@@ -4724,6 +4770,8 @@ const Art = (() => {
     galleon:    { L: 22, B: 8, hullH: 6, hull: ['#2a1712', '#4a2418', '#6b2e22'], rim: '#e0b44a', masts: [{ a: 12, h: 38, rig: 'square', w: 8, sails: 2 }, { a: 2, h: 48, rig: 'square', w: 10, sails: 3 }, { a: -11, h: 36, rig: 'lateen' }], castle: { from: -1, to: -0.5, h: 7 }, cannons: 5, flag: '#c8463c' },
     caravel:    { L: 17, B: 6, hull: ['#4a2e1a', '#6e4627', '#8a5a33'], rim: '#e8e2d5', masts: [{ a: 7, h: 34, rig: 'lateen' }, { a: -3, h: 39, rig: 'lateen' }], castle: { from: -1, to: -0.6, h: 4 }, cross: '#c8463c', flag: '#3f6fb0' },
     barge:      { L: 17, B: 8, shape: 'flat', hull: ['#3b3d40', '#55585c', '#6b6e72'], rim: '#a06c40', masts: [{ a: -6, h: 20, rig: 'none' }], crane: true, crates: 4, flag: '#e0b44a' },
+    wraithGalleon: { L: 22, B: 8, hullH: 6, hull: ['#1d3a3a', '#2c5a56', '#3f7a72'], rim: '#7fe0b0', sailC: ['#e6fbf2', '#c4ecdc', '#9ad0bc'], masts: [{ a: 11, h: 38, rig: 'square', w: 8, sails: 2 }, { a: 1, h: 48, rig: 'square', w: 10, sails: 3 }, { a: -10, h: 36, rig: 'square', w: 7, sails: 2 }], castle: { from: -1, to: -0.5, h: 7 }, cannons: 5, glow: true, flag: '#7fe0b0' },
+    wraithlight: { L: 16, B: 5, hull: ['#1f2a3a', '#2f4258', '#3f5a78'], rim: '#a8f060', sailC: ['#e8f4ff', '#c8dcf0', '#a0b8d8'], masts: [{ a: 4, h: 36, rig: 'gaff', boom: -11 }, { a: -6, h: 27, rig: 'gaff', boom: -7 }], jib: true, lanterns: true, glow: true, flag: '#a8f060' },
     krakenwake: { L: 22, B: 7.5, hullH: 6, hull: ['#2a0810', '#4a0c18', '#6e1424'], rim: '#f2d23c', masts: [{ a: 10, h: 40, rig: 'square', w: 8, sails: 2 }, { a: 0, h: 48, rig: 'square', w: 9, sails: 3 }, { a: -10, h: 36, rig: 'square', w: 7, sails: 2 }], sailC: ['#4a2440', '#3a1a32', '#2a1024'], castle: { from: -1, to: -0.55, h: 6 }, cannons: 4, flag: '#f2d23c', kraken: true },
     frigate:    { L: 20, B: 7, hull: ['#151c33', '#232c52', '#2f3a6e'], rim: '#9be3e8', masts: [{ a: 9, h: 40, rig: 'square', w: 8, sails: 2 }, { a: -2, h: 47, rig: 'square', w: 9, sails: 3 }, { a: -12, h: 34, rig: 'gaff', boom: -6 }], sailC: ['#c7b1f0', '#9a7fdc', '#7a5ec4'], glow: true, cannons: 4, flag: '#9be3e8' },
   };
@@ -4817,6 +4865,7 @@ const Art = (() => {
       p.ellipse(e[0], e[1], 4, 2.6, '#c0303a'); p.ellipse(e[0], e[1], 2.4, 1.8, '#f2d23c'); p.rect(e[0], e[1] - 1, 1, 3, '#1a0406');
       const f = pr(L * 1.02, 0, hullH + 2); p.ellipse(f[0], f[1], 2.6, 2.2, '#ff9a3c'); p.set(f[0] - 1, f[1] - 1, '#ffd27a'); p.rect(f[0], f[1] - 1, 1, 3, '#1a0406');
     }
+    if (o.lanterns) for (const a of [L * 0.85, 0, -L * 0.8]) { const q = pr(a, 0, hullH + 3); p.rect(q[0], q[1] - 4, 1, 4, '#3b3d40'); p.rect(q[0] - 1, q[1] - 7, 3, 3, '#a8f060'); p.set(q[0], q[1] - 6, '#d8ffb0'); } // green lanterns that burn without oil
     if (o.jib) {
       const fm = o.masts.reduce((x, y) => (y.a > x.a ? y : x));
       p.poly([pr(fm.a + 0.8, 0, fm.h - 2), pr(L * 0.95, 0, hullH + 2), pr(fm.a + 1.5, 0, hullH + 3)], (x, y) => (y % 4 === 0 ? sc[2] : sc[1]));
@@ -6366,6 +6415,9 @@ const Art = (() => {
     outer: [['......y......', '.....yyy.....', '......k......', '....rrrr.....', '..rrrrrrrr...', '.rrrrrrrrrr..', 'wwwwwwwwwwwww'], { y: '#ffe48a', k: '#3b3d40', r: '#6b6e70', w: '#9fdcf5' }],
     ghost: [['.....g.......', '....gG.......', '...gGG.g.....', '..gGGG.gG....', '.gGGGG.gGG...', '.....g.......', 'GGGGGGGGGGG..', '.GGGGGGGGG...', '..G.G.G.G....'], { g: '#7fe0b0', G: '#3fa878' }],
     temple: [['....sssss....', '..sssssssss..', '.sssssssssss.', '..k..k..k..k.', '..k..k..k..k.', '..k..k..k..k.', '.sssssssssss.', 'sssssssssssss'], { s: '#c4bfb3', k: '#8a857c' }],
+    shimmer: [['..w...w..w..', '..g..ggg.g..', '.ggg.ggggg..', '..g...g..g..', '..t...t..t..', 'sssssssssss.'], { g: '#7ae0c8', w: '#ffffff', t: '#3f6f68', s: '#c9b07a' }],
+    wraith: [['.....w.....', '...wwww....', '..w.ffff.f.', '.fffffff.ff', '..ffff..f..', '.bbbbbbbbbb', 'b.b.b.b.b.b'], { w: '#c8ffe8', f: '#7ae0c8', b: '#9fb4c0' }],
+    bones: [['.b.......b.', 'bb.......bb', 'b..b...b..b', 'b..bb.bb..b', '.b..bbb..b.', '..bbbbbbb..', 'sssssssssss'], { b: '#efe1c8', s: '#c9b07a' }],
     deep: [['...dddddd...', '.dd......dd.', 'd..dddddd..d', 'd.d......d.d', 'd.d.dddd.d.d', 'd.d.d..d.d.d', 'd.d..dd..d.d', 'd..d....d..d', '.dd.dddd.dd.', '...dd..dd...'], { d: '#3a2a6e' }],
   };
   const DECOR = {
@@ -9927,6 +9979,7 @@ const UI = (() => {
     if (Rg.ghosts) out.push('ghost ships (magic beats cannons)');
     if (Rg.monsters) out.push('sea monsters');
     if (Rg.curse) out.push('cursed wrecks');
+    if (Rg.t2) out.push('ghost-touched goods on any trip');
     return out;
   }
   function renderMap(state) {

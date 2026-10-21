@@ -95,9 +95,9 @@ When four have come true, a countdown starts in the water. The Unseen breaches *
 
 **Aftermath.** Clear the **North Reach** to roughly double your building land, with new roads and a new stretch of coast to the right of the field. Rebuild the lighthouse around one of the kraken's eyes: the tower keeps a crack where it broke, and its lantern, beam and night glow burn orange.
 
-**After the kraken.** The very top of the game now opens only once the Unseen is dead: the three tier-5 ships (Arcane Frigate, Leviathan Trawler, Star Clipper), level 3 of Stronger cannons, Reinforced hull and Magic lures, charting Leviathan Deep (its lair), the Chest of Gold and the Founder's Statue. Anything you already own stays yours.
+**After the kraken.** The very top of the game now opens only once the Unseen is dead: the tier-5 ships (Arcane Frigate, Leviathan Trawler, Star Clipper and the new hulls below), level 3 of Stronger cannons, Reinforced hull and Magic lures, charting the far seas, the Chest of Gold and the Founder's Statue. Anything you already own stays yours.
 
-**Higher-tier materials.** Tier-2 goods appear in Stores under "Tier 2: ghost-touched" with placeholder icons. Nothing uses them yet. Spectral salvage is now tier-2 iron ore.
+**Higher-tier materials.** Tier-2 (ghost-touched) goods come back from every portal trip, and from the new far seas. A **level 2** Sawmill, Ropemaker, Blacksmith or Fishmonger works them: 2 shimmerwood make wraithwood planks, 2 ghostflax make phantom rope, 2 spectral salvage make soulmetal, and 3 wraithfin make spirit rations. Wraithwood planks, phantom rope and soulmetal sell for 20 coins each at any shop and build the post-kraken ships. Pack **spirit rations** on a portal trip for half as much again and no hull damage. Every tier of every material, with its art, is in the Stores' **Materials codex**. Tiers 3 and 4 have no use yet.
 
 | Tier 1 | Tier 2 (ghost) | Tier 3 (darkness) | Tier 4 (slain gods) |
 |---|---|---|---|
@@ -113,6 +113,24 @@ When four have come true, a countdown starts in the water. The Unseen breaches *
 **Old saves.** Coins spent and goods gathered are estimated from your records. A kraken you already killed under the 1.7 rules stays dead: its carcass waits to be salvaged and the harbor goes straight to its aftermath.
 
 To see every stage now, turn on Developer mode in Options and use the "The Unseen" buttons.
+
+## Also new in 1.8: after the kraken
+
+- **The far seas wait for its death.** Ghost Sea, Drowned Temple and Leviathan Deep, and three new places, can only be charted once the Unseen is dead. The Outer Reef, and the Sea Witch found there, stay open.
+  - **The Shimmering Isles** (9 charts): exploration +60%, more timber and hemp, and shimmerwood and ghostflax on any trip.
+  - **Wraithwater** (9 charts): fishing +70%, moonfish, and wraithfin in the nets.
+  - **The Bone Shoals** (11 charts, a level 3 Cartographer): treasure +90%, chests nearly twice as often, sea monsters, and spectral salvage.
+- **Two new hulls**, built from worked tier-2 goods once the kraken is dead:
+  - **Wraith Galleon**, the hardest-hitting ship afloat, which always fights ghosts and sea monsters as if it carried a warding charm.
+  - **Wraithlight Ketch**, an explorer whose lanterns find ghost-touched goods on every trip, anywhere.
+- **The Krakenwake** is built from wraithwood planks, phantom rope and soulmetal, and has its own art: dark sails with a painted eye, the Unseen's arms round its hull, and a living eye at the bow. Through the portal it brings back half as much again, and the dark never touches its hull.
+- **Economy balance:**
+  - Pirate bounties are up about 40%; fighting ships earned the least of any hull.
+  - The War Galleon has 16 combat (was 14) and costs 1,800 coins (was 2,000).
+  - The Leviathan Trawler fishes at 30 (was 24) and costs 3,600 coins (was 4,000).
+  - The Salvage Barge has 5 exploration (was 3) and 1 magic, and costs 650 coins.
+  - Iron ore at the Trading Post costs 5 coins (was 8), so smelting bought ore no longer loses money.
+  - Portal trips bring a little less, since they are quick and repeatable.
 
 ## What's new in 1.7: The Unseen (replaced by 1.8)
 
