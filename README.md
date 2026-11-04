@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.9.0.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.9.1.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,19 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.9.1
+
+- **Keys turn up more often.** Sunken keys from fishing and lost keys from exploring drop about 60% more often per hour at sea, and each pirate crew beaten now drops a pirate key 45% of the time (was 30%).
+- **Chests pay a little more.** Every size gives about 25% more coins and 20% more goods, and trophies are slightly likelier:
+
+  | Chest | Coins | Goods |
+  |---|---|---|
+  | Small | 50–150 (was 40–120) | ×1.2 (was ×1) |
+  | Medium | 190–500 (was 150–400) | ×2.4 (was ×2) |
+  | Large | 625–1,750 (was 500–1,400) | ×4.2 (was ×3.5) |
+
+  Pirate chests still pay 30% more coin on top.
 
 ## What's new in 1.9: The Ghost Tide
 

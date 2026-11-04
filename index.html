@@ -473,7 +473,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.9.0';
+  const GAME_VERSION = '1.9.1';
   const SAVE_VERSION = 7;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -534,10 +534,13 @@ const TOF = (() => {
   const CHESTS = {};
   for (const f of FAMILIES) for (const z of SIZES) CHESTS[`chest_${f}_${z}`] = { family: f, size: z, name: `${z[0].toUpperCase() + z.slice(1)} ${f === 'lost' ? 'lost chest' : FAMILY_NAME[f] + ' chest'}` };
   const KEY_OF = { sunken: 'sunkenKey', pirate: 'pirateKey', lost: 'lostKey' };
+  // chance of a key per hour at sea (fishing, exploring) or per pirate crew beaten (1.9.1: were 0.025, 0.3 and 0.03)
+  const KEY_RATE = { sunken: 0.04, pirate: 0.45, lost: 0.048 };
   const CHEST_SIZES = {
-    small: { keys: 1, coins: [40, 120], rolls: 1, mult: 1, trophy: 0.004 },
-    medium: { keys: 2, coins: [150, 400], rolls: 2, mult: 2, trophy: 0.03 },
-    large: { keys: 3, coins: [500, 1400], rolls: 3, mult: 3.5, trophy: 0.14 },
+    // 1.9.1: about a quarter more coin and a fifth more goods in every size
+    small: { keys: 1, coins: [50, 150], rolls: 1, mult: 1.2, trophy: 0.005 },
+    medium: { keys: 2, coins: [190, 500], rolls: 2, mult: 2.4, trophy: 0.035 },
+    large: { keys: 3, coins: [625, 1750], rolls: 3, mult: 4.2, trophy: 0.16 },
   };
   const CHEST_LOOT = {
     sunken: [['pearls', 1, 3], ['rareFish', 1, 2], ['moonfish', 1, 2], ['shellfish', 5, 15], ['relics', 1, 1]],
@@ -1516,10 +1519,10 @@ const TOF = (() => {
     const put = (k, n) => { if (n > 0) r.items[k] = (r.items[k] || 0) + n; };
     if (Rg.raw) for (const k of ['timber', 'hemp']) if (r.items[k]) r.items[k] = Math.round(r.items[k] * Rg.raw);
     if (Rg.ore && r.items.ironOre) r.items.ironOre = Math.round(r.items.ironOre * Rg.ore);
-    // keys: each family's key comes from a different kind of trip
-    if (type === 'fishing') for (let h = 0; h < hours; h++) if (rng() < 0.025 * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('sunkenKey', 1);
-    if (type === 'combat') for (let i = 0; i < r.wins; i++) if (rng() < 0.3) put('pirateKey', 1);
-    if (type === 'exploration') for (let h = 0; h < hours; h++) if (rng() < 0.03 * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('lostKey', 1);
+    // keys: each family's key comes from a different kind of trip (1.9.1: all about 60% more often)
+    if (type === 'fishing') for (let h = 0; h < hours; h++) if (rng() < KEY_RATE.sunken * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('sunkenKey', 1);
+    if (type === 'combat') for (let i = 0; i < r.wins; i++) if (rng() < KEY_RATE.pirate) put('pirateKey', 1);
+    if (type === 'exploration') for (let h = 0; h < hours; h++) if (rng() < KEY_RATE.lost * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('lostKey', 1);
     // chests: only treasure trips find them
     if (type === 'treasure') {
       const p = 0.05 * (1 + 0.4 * ring) * (Rg.chest || 1) * (M.chestMult || 1);
@@ -2821,7 +2824,7 @@ const TOF = (() => {
     getBuilding, buildingOfType, buildingLevel, buildersBusy, storageCap, sellPrice, tradePrice, buildCost, buildHours, footprint,
     buildLock, placeCheck, placeBuilding, upgradeBlock, upgradeBuilding, recipeSpeed, maxBatch, queueJob, cancelJob,
     settleProduction, settleBuildings, settle, trade, rumorFor, tripMods, foodFor, upgradeGate, repairPlanks,
-    NON_CARGO, FAMILIES, SIZES, CHESTS, KEY_OF, CHEST_SIZES, TROPHIES, MONSTERS, KRAKEN_HINTS, REGIONS, REGION_ORDER,
+    NON_CARGO, FAMILIES, SIZES, CHESTS, KEY_OF, KEY_RATE, CHEST_SIZES, TROPHIES, MONSTERS, KRAKEN_HINTS, REGIONS, REGION_ORDER,
     regionLock, revealRegion, regionSailBlock, openChest, craftCharm, cleanse, trophyBonus, tripReport,
     newGame, getShip, shipStats, typePower, durationMult, shipStatus, expeditionForShip,
     classLock, buildShip, renameShip, addShip,
@@ -3493,6 +3496,13 @@ function runTofTests(TOF) {
     ok(chests > 50, 'treasure finds chests: ' + chests); eq(notTreasure, 0, 'other trips never do');
   });
 
+  test('1.9.1: keys turn up more often and chests pay a little more', () => {
+    const st = TOF.shipStats({ cls: 'brigantine', upgrades: { cannons: 3 } }), m = { region: 'home' };
+    ok(avg(st, 'fishing', 12, m, 'sunkenKey') > 0.35, 'sunken keys: ' + avg(st, 'fishing', 12, m, 'sunkenKey'));
+    ok(avg(st, 'exploration', 12, m, 'lostKey') > 0.42, 'lost keys: ' + avg(st, 'exploration', 12, m, 'lostKey'));
+    eq(TOF.KEY_RATE.pirate, 0.45, 'pirate keys per crew');
+    eq(TOF.CHEST_SIZES.large.coins[0], 625, 'large chests pay more'); ok(TOF.CHEST_SIZES.small.mult > 1, 'small chests hold more goods');
+  });
   test('all nine chests exist, large ones are rarer', () => {
     eq(Object.keys(TOF.CHESTS).length, 9, 'nine');
     const st = TOF.shipStats({ cls: 'schooner', upgrades: {} });
