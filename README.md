@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.8.0.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.9.0.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,28 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.9: The Ghost Tide
+
+**The portal is only for the relics.** Ships sail through it to search for the Ancient Relics of Sin and nothing else (no more "spoils only" trips). You no longer pick one relic per ship: every trip searches for whichever relics are still missing, about 35% of trips come back with one, and you can send as many ships at once as you like. In the Unseen panel, **Send all free ships** sends every ship that can sail through the portal in one tap. Portal trips still bring back a few ghost-touched goods.
+
+**The portal fades.** Once all six relics are out of the dark, the portal swells, folds in on itself and is gone. Ships still inside come home safely, just without a relic.
+
+**The Ghost Tide.** From then on, tier-2 goods are the heart of the economy. Every ordinary trip brings about 60% of its timber, hemp, iron ore and fish home ghost-touched, two tier-1 goods becoming one tier-2, with the other 40% as everyday goods. Now and then a trip also brings back something already worked (wraithwood planks, phantom rope, soulmetal or spirit rations). Coins, charts, pearls and the rest are unchanged. Trip previews list the ghost-touched share.
+
+| Trip | Tier 1 it brings | Tier 2 it brings |
+|---|---|---|
+| Fishing | Fish, shellfish | Wraithfin |
+| Exploration | Timber, hemp | Shimmerwood, ghostflax |
+| Treasure and pirate hunting | Iron ore | Spectral salvage |
+
+- **The Sea Witch trades** 3 of any everyday material for 1 of its ghost-touched form (timber for shimmerwood, planks for wraithwood planks, fish for wraithfin, and so on), once the Ghost Tide is in.
+- **Wraithfin sells** at the Fish Market for 5 coins (the bulk sale includes it), or a level 2 Fishmonger salts it into spirit rations.
+- **Spirit rations pack on any trip**, as many as preserved food would take: +35% haul and half the hull damage.
+
+**The carcass sinks.** When the last of its 12 loads has been salvaged, the Unseen's body starts to go under. Over 24 hours it dims into a dark shape below the water and then disappears; the Unseen panel counts down the time left. Older saves with a carcass already stripped start sinking the first time they open.
+
+**Developer mode** adds **Strip the carcass** and **Carcass 80% sunk** to the Unseen tools.
 
 ## What's new in 1.8: The Unseen
 
