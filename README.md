@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.9.1.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.9.2.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,18 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.9.2
+
+The three tier-5 ships that open after the kraken are now built mostly from worked ghost-touched goods, like the Wraith Galleon, Wraithlight Ketch and Krakenwake already were. Each still needs some everyday goods. Coins and the other costs are unchanged.
+
+| Ship | Planks, rope, iron (was) | Planks, rope, iron (now) | Wraithwood planks, phantom rope, soulmetal (new) |
+|---|---|---|---|
+| Arcane Frigate | 60, 30, 30 | 20, 10, 10 | 25, 15, 15 |
+| Leviathan Trawler | 100, 60, 50 | 30, 20, 15 | 40, 25, 20 |
+| Star Clipper | 90, 60, 30 | 25, 20, 10 | 35, 30, 10 |
+
+Ships you already own are kept.
 
 ## What's new in 1.9.1
 

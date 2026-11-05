@@ -473,7 +473,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.9.1';
+  const GAME_VERSION = '1.9.2';
   const SAVE_VERSION = 7;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -633,10 +633,10 @@ const TOF = (() => {
     xebec:      { name: 'Corsair Xebec',       role: 'combat', tier: 4, blurb: 'A swift raider with lateen sails. Fights, scouts and loots, without the galleon’s bulk.', speed: 7, hull: 100, combat: 9, cargo: 110, fishing: 2, exploration: 6, magic: 1, cost: { coins: 1600, relics: 1, planks: 60, rope: 30, iron: 25 }, aff: { combat: 1.1, exploration: 1.1, treasure: 1.2 } },
     caravel:    { name: 'Exploration Caravel', role: 'exploration', tier: 4, blurb: 'Long-distance discovery.', speed: 6, hull: 70, combat: 2, cargo: 90, fishing: 2, exploration: 10, magic: 1, cost: { coins: 1200, charts: 4, planks: 50, rope: 30 }, aff: { exploration: 1.5 } },
     barge:      { name: 'Salvage Barge',       role: 'treasure', tier: 3, blurb: 'Wreck recovery. Shrugs off reef damage.', speed: 1, hull: 120, combat: 0, cargo: 260, fishing: 1, exploration: 5, magic: 1, cost: { coins: 650, pearls: 3, planks: 50, iron: 20 }, aff: { treasure: 1.8 }, dmg: 0.5 },
-    frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, postKraken: true, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 60, rope: 30, iron: 30 }, aff: { treasure: 1.25 } },
+    frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, postKraken: true, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 20, rope: 10, iron: 10, wraithPlanks: 25, phantomRope: 15, soulmetal: 15 }, aff: { treasure: 1.25 } },
     // 1.4: top-tier specialists
-    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 30, exploration: 3, magic: 2, cost: { coins: 3600, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
-    clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 90, rope: 60, iron: 30 }, aff: { exploration: 1.4 } },
+    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 30, exploration: 3, magic: 2, cost: { coins: 3600, shellfish: 40, rareFish: 6, planks: 30, rope: 20, iron: 15, wraithPlanks: 40, phantomRope: 25, soulmetal: 20 }, aff: { fishing: 1.15 } },
+    clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 25, rope: 20, iron: 10, wraithPlanks: 35, phantomRope: 30, soulmetal: 10 }, aff: { exploration: 1.4 } },
     // 1.8: built only from the blueprint salvaged out of the Unseen's carcass. Strong at everything, best at nothing.
     // 1.8: two hulls the far seas made possible, built from worked ghost-touched goods once the Unseen is dead.
     // ghostbane: always fights ghosts and monsters as if carrying a warding charm. spectral: finds tier-2 goods on any trip.
@@ -4236,6 +4236,16 @@ function runTofTests(TOF) {
     ok(got('shimmer') > 100 && got('home') === 0, 'the Shimmering Isles give shimmerwood and ghostflax; home waters none');
     const a = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp' }), b = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp', spectral: true });
     for (const k of Object.keys(a.items)) eq(b.items[k], a.items[k], k + ' unchanged by the ketch'); // its finds come on top
+  });
+  test('1.9.2: every post-kraken hull is built mostly from worked tier-2 goods', () => {
+    for (const [c, C] of Object.entries(TOF.SHIP_CLASSES)) {
+      if (!C.postKraken && !C.blueprint) continue;
+      const t2 = TOF.REFINED2.reduce((a, k) => a + (C.cost[k] || 0), 0), t1 = TOF.REFINED.reduce((a, k) => a + (C.cost[k] || 0), 0);
+      ok(TOF.REFINED2.every(k => C.cost[k] > 0), c + ' needs all three worked tier-2 goods'); ok(t2 > t1, `${c}: more tier 2 (${t2}) than tier 1 (${t1})`);
+    }
+    const s = rich(); s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }); s.kraken.deadAt = T0;
+    for (const k of TOF.REFINED2) s.resources[k] = 0; ok(!TOF.buildShip(s, 'frigate').ok, 'no frigate without them');
+    for (const k of TOF.REFINED2) s.resources[k] = 100; ok(TOF.buildShip(s, 'frigate').ok, 'built with them');
   });
   test('1.8: two post-kraken hulls built from worked tier-2 goods, each with its own gift', () => {
     const s = rich(); s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }); s.discovered = Object.keys(TOF.RESOURCES);
