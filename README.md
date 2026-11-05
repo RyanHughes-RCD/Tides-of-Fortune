@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.9.2.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.9.3.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,18 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.9.3
+
+Level 3 of the three upgrades that open after the kraken now takes ghost-touched goods. Levels 1 and 2 are unchanged, and coins still scale with the hull's tier.
+
+| Level 3 upgrade | Before | Now |
+|---|---|---|
+| Stronger cannons | 700 coins, 1 relic, 25 iron | 700 coins, 1 relic, 10 iron, 10 soulmetal |
+| Reinforced hull | 600 coins, 30 planks, 15 iron | 600 coins, 10 planks, 5 iron, 12 wraithwood planks, 6 soulmetal |
+| Magic lures | 400 coins, 3 rare catch, 2 pearls, 4 essence | 400 coins, 2 rare catch, 2 pearls, 4 essence, 8 wraithfin, 4 phantom rope |
+
+Upgrades already fitted are kept.
 
 ## What's new in 1.9.2
 

@@ -473,7 +473,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.9.2';
+  const GAME_VERSION = '1.9.3';
   const SAVE_VERSION = 7;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -652,10 +652,10 @@ const TOF = (() => {
   const UPGRADES = {
     cargoHold:      { name: 'Larger cargo hold', effect: '+50% cargo per level', maxLevel: 3, gate: 'sawmill', costs: [{ coins: 53 }, { coins: 160, planks: 10 }, { coins: 400, rareFish: 1, planks: 25 }] },
     sails:          { name: 'Faster sails',      effect: '+1 speed per level, so trips end sooner', maxLevel: 3, gate: 'ropemaker', costs: [{ coins: 80 }, { coins: 200, rope: 10 }, { coins: 500, rope: 25 }] },
-    cannons:        { name: 'Stronger cannons',  effect: '+3 combat per level', maxLevel: 3, gate: 'weaponsmith', costs: [{ coins: 120 }, { coins: 300, iron: 10 }, { coins: 700, relics: 1, iron: 25 }] },
+    cannons:        { name: 'Stronger cannons',  effect: '+3 combat per level', maxLevel: 3, gate: 'weaponsmith', costs: [{ coins: 120 }, { coins: 300, iron: 10 }, { coins: 700, relics: 1, iron: 10, soulmetal: 10 }] }, // 1.9.2: level 3 (after the kraken) takes tier-2 goods
     scoutTower:     { name: 'Scouting tower',    effect: '+2 exploration per level', maxLevel: 3, gate: 'cartographer', costs: [{ coins: 100 }, { coins: 250, planks: 10 }, { coins: 600, charts: 1, planks: 20 }] },
-    magicLures:     { name: 'Magic lures',       effect: '+2 fishing and +1 magic per level', maxLevel: 3, gate: 'seaWitch', costs: [{ coins: 50, rareFish: 1 }, { coins: 150, rareFish: 2, essence: 2 }, { coins: 400, rareFish: 3, pearls: 2, essence: 4 }] },
-    reinforcedHull: { name: 'Reinforced hull',   effect: '+30% hull per level', maxLevel: 3, gate: 'blacksmith', costs: [{ coins: 100 }, { coins: 250, planks: 15, iron: 5 }, { coins: 600, planks: 30, iron: 15 }] },
+    magicLures:     { name: 'Magic lures',       effect: '+2 fishing and +1 magic per level', maxLevel: 3, gate: 'seaWitch', costs: [{ coins: 50, rareFish: 1 }, { coins: 150, rareFish: 2, essence: 2 }, { coins: 400, rareFish: 2, pearls: 2, essence: 4, wraithfin: 8, phantomRope: 4 }] },
+    reinforcedHull: { name: 'Reinforced hull',   effect: '+30% hull per level', maxLevel: 3, gate: 'blacksmith', costs: [{ coins: 100 }, { coins: 250, planks: 15, iron: 5 }, { coins: 600, planks: 10, iron: 5, wraithPlanks: 12, soulmetal: 6 }] },
   };
 
   // ---------- village buildings ----------
@@ -4236,6 +4236,16 @@ function runTofTests(TOF) {
     ok(got('shimmer') > 100 && got('home') === 0, 'the Shimmering Isles give shimmerwood and ghostflax; home waters none');
     const a = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp' }), b = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp', spectral: true });
     for (const k of Object.keys(a.items)) eq(b.items[k], a.items[k], k + ' unchanged by the ketch'); // its finds come on top
+  });
+  test('1.9.3: the post-kraken level 3 upgrades take tier-2 goods', () => {
+    for (const k of TOF.POST_KRAKEN_UPGRADES) {
+      const c3 = TOF.UPGRADES[k].costs[2]; ok(Object.keys(c3).some(x => TOF.TIER2.includes(x)), k + ' level 3 needs tier-2 goods');
+      ok(!Object.keys(TOF.UPGRADES[k].costs[1]).some(x => TOF.TIER2.includes(x)), k + ' level 2 does not');
+    }
+    const s = rich(); s.kraken.deadAt = T0; s.buildings.push({ id: 'b-wp', type: 'weaponsmith', gx: 1, gy: 30, level: 1, pending: null, job: null });
+    const sh = s.ships[0]; sh.upgrades.cannons = 2; s.resources.soulmetal = 0;
+    ok(!TOF.buyUpgrade(s, sh.id, 'cannons').ok, 'no soulmetal, no level 3'); s.resources.soulmetal = 10;
+    const r = TOF.buyUpgrade(s, sh.id, 'cannons'); ok(r.ok, r.reason); eq(s.resources.soulmetal, 0, 'soulmetal spent'); eq(sh.upgrades.cannons, 3, 'level 3');
   });
   test('1.9.2: every post-kraken hull is built mostly from worked tier-2 goods', () => {
     for (const [c, C] of Object.entries(TOF.SHIP_CLASSES)) {
