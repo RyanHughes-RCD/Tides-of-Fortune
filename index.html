@@ -473,7 +473,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.8.0';
+  const GAME_VERSION = '1.9.3';
   const SAVE_VERSION = 7;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -509,7 +509,7 @@ const TOF = (() => {
   };
   // 1.8: higher tiers of every raw and processed material. Tier 1 is today's goods; tier 2 is ghost-touched,
   // tier 3 is steeped in darkness, tier 4 is carved from the bodies of slain gods. Only tier 2 exists as
-  // stock so far (it comes back through the Unseen's portal); tiers 3 and 4 are names waiting for a use.
+  // stock so far (the Unseen's portal, then from 1.9 the Ghost Tide on every trip); tiers 3 and 4 are names waiting for a use.
   // Spectral salvage, already won from ghost ships, is tier 2's iron ore. No recipe uses any of them yet.
   const MATERIAL_TIERS = [
     { tier: 1, theme: 'Everyday', items: { timber: 'Timber', hemp: 'Hemp', ironOre: 'Iron ore', fish: 'Fish', planks: 'Planks', rope: 'Rope', iron: 'Iron', food: 'Preserved food' } },
@@ -526,6 +526,7 @@ const TOF = (() => {
   const T3 = { timber: 'gloamwood', hemp: 'nightshade', ironOre: 'umbralOre', fish: 'blindfish', planks: 'gloamPlanks', rope: 'shadowcord', iron: 'voidsteel', food: 'blackRations' };
   const T4 = { timber: 'godbone', hemp: 'divineSinew', ironOre: 'clottedIchor', fish: 'godflesh', planks: 'ossuaryPlanks', rope: 'sinewcord', iron: 'ichorsteel', food: 'ambrosialJerky' };
   for (const b of MATERIAL_BASES) if (!RESOURCES[T2[b]]) RESOURCES[T2[b]] = { name: MATERIAL_TIERS[1].items[b], price: 0 };
+  RESOURCES.wraithfin.price = 5; // 1.9: the Ghost Tide's catch sells at the Fish Market (2 fish for each one: a little better than fish)
   // ======================= Phase 4: the wider sea =======================
   const FAMILIES = ['sunken', 'pirate', 'lost'];
   const SIZES = ['small', 'medium', 'large'];
@@ -533,10 +534,13 @@ const TOF = (() => {
   const CHESTS = {};
   for (const f of FAMILIES) for (const z of SIZES) CHESTS[`chest_${f}_${z}`] = { family: f, size: z, name: `${z[0].toUpperCase() + z.slice(1)} ${f === 'lost' ? 'lost chest' : FAMILY_NAME[f] + ' chest'}` };
   const KEY_OF = { sunken: 'sunkenKey', pirate: 'pirateKey', lost: 'lostKey' };
+  // chance of a key per hour at sea (fishing, exploring) or per pirate crew beaten (1.9.1: were 0.025, 0.3 and 0.03)
+  const KEY_RATE = { sunken: 0.04, pirate: 0.45, lost: 0.048 };
   const CHEST_SIZES = {
-    small: { keys: 1, coins: [40, 120], rolls: 1, mult: 1, trophy: 0.004 },
-    medium: { keys: 2, coins: [150, 400], rolls: 2, mult: 2, trophy: 0.03 },
-    large: { keys: 3, coins: [500, 1400], rolls: 3, mult: 3.5, trophy: 0.14 },
+    // 1.9.1: about a quarter more coin and a fifth more goods in every size
+    small: { keys: 1, coins: [50, 150], rolls: 1, mult: 1.2, trophy: 0.005 },
+    medium: { keys: 2, coins: [190, 500], rolls: 2, mult: 2.4, trophy: 0.035 },
+    large: { keys: 3, coins: [625, 1750], rolls: 3, mult: 4.2, trophy: 0.16 },
   };
   const CHEST_LOOT = {
     sunken: [['pearls', 1, 3], ['rareFish', 1, 2], ['moonfish', 1, 2], ['shellfish', 5, 15], ['relics', 1, 1]],
@@ -603,7 +607,7 @@ const TOF = (() => {
   for (const [id, c] of Object.entries(CHESTS)) RESOURCES[id] = { name: c.name, price: 0 };
   // Bulk goods count against the warehouse limit. Coins and rare finds never do.
   const BULK = ['fish', 'shellfish', 'timber', 'hemp', 'ironOre', 'planks', 'rope', 'iron', 'food'];
-  const SELLABLE = ['fish', 'shellfish', 'rareFish', 'pearls', 'relics'];
+  const SELLABLE = ['fish', 'shellfish', 'rareFish', 'pearls', 'relics', 'wraithfin'];
   const ALWAYS_SHOWN = ['coins', 'fish', 'shellfish', 'rareFish', 'timber'];
 
   const TYPES = {
@@ -629,10 +633,10 @@ const TOF = (() => {
     xebec:      { name: 'Corsair Xebec',       role: 'combat', tier: 4, blurb: 'A swift raider with lateen sails. Fights, scouts and loots, without the galleon’s bulk.', speed: 7, hull: 100, combat: 9, cargo: 110, fishing: 2, exploration: 6, magic: 1, cost: { coins: 1600, relics: 1, planks: 60, rope: 30, iron: 25 }, aff: { combat: 1.1, exploration: 1.1, treasure: 1.2 } },
     caravel:    { name: 'Exploration Caravel', role: 'exploration', tier: 4, blurb: 'Long-distance discovery.', speed: 6, hull: 70, combat: 2, cargo: 90, fishing: 2, exploration: 10, magic: 1, cost: { coins: 1200, charts: 4, planks: 50, rope: 30 }, aff: { exploration: 1.5 } },
     barge:      { name: 'Salvage Barge',       role: 'treasure', tier: 3, blurb: 'Wreck recovery. Shrugs off reef damage.', speed: 1, hull: 120, combat: 0, cargo: 260, fishing: 1, exploration: 5, magic: 1, cost: { coins: 650, pearls: 3, planks: 50, iron: 20 }, aff: { treasure: 1.8 }, dmg: 0.5 },
-    frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, postKraken: true, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 60, rope: 30, iron: 30 }, aff: { treasure: 1.25 } },
+    frigate:    { name: 'Arcane Frigate',      role: 'treasure', tier: 5, postKraken: true, blurb: 'Strange sails. Rare finds on every voyage.', speed: 5, hull: 90, combat: 8, cargo: 120, fishing: 4, exploration: 7, magic: 10, cost: { coins: 3000, rareFish: 5, relics: 2, planks: 20, rope: 10, iron: 10, wraithPlanks: 25, phantomRope: 15, soulmetal: 15 }, aff: { treasure: 1.25 } },
     // 1.4: top-tier specialists
-    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 30, exploration: 3, magic: 2, cost: { coins: 3600, shellfish: 40, rareFish: 6, planks: 100, rope: 60, iron: 50 }, aff: { fishing: 1.15 } },
-    clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 90, rope: 60, iron: 30 }, aff: { exploration: 1.4 } },
+    leviathan:  { name: 'Leviathan Trawler',   role: 'fishing', tier: 5, postKraken: true, blurb: 'A floating fish factory. Enormous hauls and a hold to match.', speed: 3, hull: 150, combat: 2, cargo: 420, fishing: 30, exploration: 3, magic: 2, cost: { coins: 3600, shellfish: 40, rareFish: 6, planks: 30, rope: 20, iron: 15, wraithPlanks: 40, phantomRope: 25, soulmetal: 20 }, aff: { fishing: 1.15 } },
+    clipper:    { name: 'Star Clipper',        role: 'exploration', tier: 5, postKraken: true, blurb: 'The fastest hull afloat. Charts the far reaches in no time.', speed: 8, hull: 90, combat: 3, cargo: 130, fishing: 2, exploration: 15, magic: 3, cost: { coins: 4200, charts: 10, relics: 3, planks: 25, rope: 20, iron: 10, wraithPlanks: 35, phantomRope: 30, soulmetal: 10 }, aff: { exploration: 1.4 } },
     // 1.8: built only from the blueprint salvaged out of the Unseen's carcass. Strong at everything, best at nothing.
     // 1.8: two hulls the far seas made possible, built from worked ghost-touched goods once the Unseen is dead.
     // ghostbane: always fights ghosts and monsters as if carrying a warding charm. spectral: finds tier-2 goods on any trip.
@@ -648,10 +652,10 @@ const TOF = (() => {
   const UPGRADES = {
     cargoHold:      { name: 'Larger cargo hold', effect: '+50% cargo per level', maxLevel: 3, gate: 'sawmill', costs: [{ coins: 53 }, { coins: 160, planks: 10 }, { coins: 400, rareFish: 1, planks: 25 }] },
     sails:          { name: 'Faster sails',      effect: '+1 speed per level, so trips end sooner', maxLevel: 3, gate: 'ropemaker', costs: [{ coins: 80 }, { coins: 200, rope: 10 }, { coins: 500, rope: 25 }] },
-    cannons:        { name: 'Stronger cannons',  effect: '+3 combat per level', maxLevel: 3, gate: 'weaponsmith', costs: [{ coins: 120 }, { coins: 300, iron: 10 }, { coins: 700, relics: 1, iron: 25 }] },
+    cannons:        { name: 'Stronger cannons',  effect: '+3 combat per level', maxLevel: 3, gate: 'weaponsmith', costs: [{ coins: 120 }, { coins: 300, iron: 10 }, { coins: 700, relics: 1, iron: 10, soulmetal: 10 }] }, // 1.9.2: level 3 (after the kraken) takes tier-2 goods
     scoutTower:     { name: 'Scouting tower',    effect: '+2 exploration per level', maxLevel: 3, gate: 'cartographer', costs: [{ coins: 100 }, { coins: 250, planks: 10 }, { coins: 600, charts: 1, planks: 20 }] },
-    magicLures:     { name: 'Magic lures',       effect: '+2 fishing and +1 magic per level', maxLevel: 3, gate: 'seaWitch', costs: [{ coins: 50, rareFish: 1 }, { coins: 150, rareFish: 2, essence: 2 }, { coins: 400, rareFish: 3, pearls: 2, essence: 4 }] },
-    reinforcedHull: { name: 'Reinforced hull',   effect: '+30% hull per level', maxLevel: 3, gate: 'blacksmith', costs: [{ coins: 100 }, { coins: 250, planks: 15, iron: 5 }, { coins: 600, planks: 30, iron: 15 }] },
+    magicLures:     { name: 'Magic lures',       effect: '+2 fishing and +1 magic per level', maxLevel: 3, gate: 'seaWitch', costs: [{ coins: 50, rareFish: 1 }, { coins: 150, rareFish: 2, essence: 2 }, { coins: 400, rareFish: 2, pearls: 2, essence: 4, wraithfin: 8, phantomRope: 4 }] },
+    reinforcedHull: { name: 'Reinforced hull',   effect: '+30% hull per level', maxLevel: 3, gate: 'blacksmith', costs: [{ coins: 100 }, { coins: 250, planks: 15, iron: 5 }, { coins: 600, planks: 10, iron: 5, wraithPlanks: 12, soulmetal: 6 }] },
   };
 
   // ---------- village buildings ----------
@@ -838,7 +842,12 @@ const TOF = (() => {
   // recallHour (1.7.8): hours into the rising when every ship at sea turns for home (rushHours of sailing to get there);
   // from then until it dies the harbor is shut to every trip but the portal's
   const KRAKEN = { eyes: 6, omensNeeded: 4, countdownHours: 72, riseHours: 10, recallHour: 8, rushHours: 0.25, painMs: 3200, deathMs: 10000, flyMs: 1400,
-    relicChance: 0.35, portalHours: 0.25, carcassHours: 1, carcassLoads: 12 };
+    relicChance: 0.35, portalHours: 0.25, carcassHours: 1, carcassLoads: 12, sinkHours: 24 };
+  // 1.9: the Ghost Tide. Once all six relics are out of the portal it fades, and from then on every ordinary
+  // trip brings part of its raw haul home ghost-touched: `share` of each tier-1 raw good, `rate` tier-1 to one
+  // tier-2, plus now and then (`worked`, chance per hour) a worked tier-2 good. The witch trades tier 1 for
+  // tier 2 at WITCH_RATE to one, a convenience for surplus, always dearer than the sea.
+  const GHOST_TIDE = { share: 0.6, rate: 2, worked: 0.04 }, WITCH_RATE = 3;
   const OMENS = [
     { id: 'witch', text: 'The water harbors darkness…', met: s => buildingLevel(s, 'seaWitch') >= 1 },
     { id: 'spent', text: 'You are prey…', met: s => Stats.get(s, 'coinsSpent') >= 10000 },
@@ -869,7 +878,10 @@ const TOF = (() => {
     drops: [{ decor: 'krakenLantern', p: 0.3 }, { decor: 'krakenPlush', p: 0.18 }, { decor: 'krakenBones', p: 0.12, unique: true }, { decor: 'krakenBlueprint', p: 0.1, unique: true }],
   };
   const emptyKraken = () => ({ omens: [], omensShown: [], triggeredAt: null, unit: null, breachAt: null, breachSeen: false, portalSeen: false,
-    lighthouseDown: false, recalled: false, relics: {}, hits: Array(KRAKEN.eyes).fill(0), deadAt: null, deathSeen: false, slainBy: null, hauled: 0, misses: {}, drops: {}, shown: [] });
+    lighthouseDown: false, recalled: false, relics: {}, hits: Array(KRAKEN.eyes).fill(0), deadAt: null, deathSeen: false, slainBy: null, hauled: 0, misses: {}, drops: {}, shown: [],
+    strippedAt: null, tideSeen: false });
+  // 1.9: the Ghost Tide begins once every relic has come out of the portal (or the Unseen is dead, however it died).
+  const ghostTide = state => { const k = state.kraken; return !!k && (Number.isFinite(k.deadAt) || RELIC_ORDER.every(id => (k.relics || {})[id])); };
   // Where the story stands at `now`. phase: none | countdown | rising | emerged | dead.
   function krakenView(state, now) {
     const k = state.kraken || emptyKraken(), U = k.unit || HOUR_MS, on = Number.isFinite(k.breachAt);
@@ -883,8 +895,12 @@ const TOF = (() => {
     else if (now < k.breachAt) v.phase = 'rising';
     else v.phase = 'emerged';
     v.msToBreach = on ? k.breachAt - now : null;
-    v.portal = on && now >= k.breachAt;
-    v.carcass = v.phase === 'dead' && now >= k.deadAt + KRAKEN.deathMs;
+    v.tide = ghostTide(state);
+    v.portal = on && now >= k.breachAt && !v.tide; // 1.9: it fades once the last relic is out
+    // 1.9: stripped bare, the carcass sinks over a day (in the unit the story started with) and is gone
+    v.sink = Number.isFinite(k.strippedAt) ? Math.max(0, Math.min(1, (now - k.strippedAt) / (KRAKEN.sinkHours * U))) : 0;
+    v.sunk = v.sink >= 1;
+    v.carcass = v.phase === 'dead' && now >= k.deadAt + KRAKEN.deathMs && !v.sunk;
     return v;
   }
   // Called from settle(): omens come true, the countdown starts, the lighthouse falls at the breach (watched or
@@ -912,6 +928,7 @@ const TOF = (() => {
       if (startShift(state, 'unseen', k.breachAt, k.unit || HOUR_MS)) changed = true;
     }
     if (Number.isFinite(k.deadAt) && now >= k.deadAt && endShift(state, 'unseen', k.deadAt)) changed = true;
+    if (Number.isFinite(k.deadAt) && (k.hauled || 0) >= KRAKEN.carcassLoads && !Number.isFinite(k.strippedAt)) { k.strippedAt = now; changed = true; } // (older saves: it starts sinking now)
     if (settleWorld(state, now)) changed = true;
     return changed ? { omens: fresh } : false;
   }
@@ -942,13 +959,9 @@ const TOF = (() => {
   function carcassLeft(state) { return Math.max(0, KRAKEN.carcassLoads - (state.kraken.hauled || 0) - state.expeditions.filter(e => e.special === 'carcass').length); }
   function specialBlock(state, special, relic, now) {
     const v = krakenView(state, now);
+    // 1.9: the portal is only for the relics. Any ship may seek them, as many at once as you like; it closes once all six are out.
     if (special === 'portal') {
-      if (!v.portal) return 'There is no portal.';
-      if (relic) {
-        if (!RELICS[relic]) return 'No such relic.';
-        if (v.phase !== 'emerged' || state.kraken.slainBy) return 'The relics no longer matter. The portal still gives up its spoils.';
-        if (relicState(state, relic)) return `${RELICS[relic].name} is already found.`;
-      }
+      if (!v.portal) return v.tide && v.triggered ? 'The portal has closed. All six relics are out of the dark.' : 'There is no portal.';
       return null;
     }
     if (special === 'carcass') {
@@ -958,19 +971,51 @@ const TOF = (() => {
     }
     return 'Unknown destination.';
   }
-  // A 15-minute trip through the portal: ghost-touched (tier-2) goods every time, about a 35% chance of the
-  // relic she was sent for, and the dark between worlds can rake her hull.
-  function rollPortal(st, seed, mods, relic) {
+  // A 15-minute search through the portal: about a 35% chance of bringing back one of the relics still missing
+  // (which one is settled when she is collected, since other ships may have found some meanwhile), a few
+  // ghost-touched (tier-2) goods, and the dark between worlds can rake her hull.
+  function rollPortal(st, seed, mods) {
     const rng = mulberry32((seed ^ 0x9071A1E5) >>> 0), r = newResult({ ...NO_MODS, ...(mods || {}), yield: 1, coins: 1 });
-    if (relic && rng() < KRAKEN.relicChance) r.relic = relic;
+    r.relicHit = rng() < KRAKEN.relicChance; r.relicPick = rng();
     // spirit rations and the Krakenwake each bring back half as much again, and either keeps the dark off her hull
     const mag = (1 + st.magic * 0.06) * (mods && mods.rations ? 1.5 : 1) * (mods && mods.abyssal ? 1.5 : 1), safe = mods && (mods.rations || mods.abyssal);
     for (const b of RAW_BASES) if (rng() < 0.6) r.items[T2[b]] = Math.max(1, Math.round((1 + Math.floor(rng() * 3)) * mag)); // (1.8 balance: was 70%, 1-4)
     for (const b of ['planks', 'rope', 'iron', 'food']) if (rng() < 0.08) r.items[T2[b]] = 1;
     if (rng() < 0.25 && !safe) { const d = Math.max(1, Math.round(st.hull * (0.08 + rng() * 0.14) * st.dmg * r.dm)); r.damage += d; r.events.push({ type: 'storm', text: `Something in the dark between worlds raked her hull (-${d} hull).` }); }
-    if (r.relic) r.events.push({ type: 'rare', text: `She came back through the portal with ${RELICS[r.relic].name}.` });
-    else if (relic) r.events.push({ type: 'storm', text: `No sign of ${RELICS[relic].name} this time. The crew will not say what they saw instead.` });
     return r;
+  }
+  // 1.9: settle which relic a portal trip found, if any, against what is still missing now
+  function resolveRelic(state, exp, r) {
+    const left = relicsLeft(state);
+    if (!r.relicHit) { if (left.length) r.events.push({ type: 'storm', text: 'No sign of the relics this time. The crew will not say what they saw instead.' }); return; }
+    const pool = exp.relic && left.includes(exp.relic) ? [exp.relic] : left; // (a trip from an older save still seeks its own)
+    if (!pool.length) { r.events.push({ type: 'rare', text: 'She found a relic in the dark, but all six are already in your hands.' }); return; }
+    r.relic = pool[Math.min(pool.length - 1, Math.floor(r.relicPick * pool.length))];
+    state.kraken.relics[r.relic] = 'found';
+    r.events.push({ type: 'rare', text: `She came back through the portal with ${RELICS[r.relic].name}.` });
+  }
+  // 1.9: every free ship that can sail goes through the portal at once
+  function sendAllToPortal(state, now, opts = {}) {
+    const sent = [], why = specialBlock(state, 'portal', null, now);
+    if (why) return { ok: false, reason: why, sent };
+    let seed = opts.seed;
+    for (const ship of state.ships) {
+      const rations = !!opts.rations && state.resources.spiritRations > 0;
+      const r = dispatch(state, ship.id, KRAKEN.portalHours, now, seed === undefined ? undefined : seed++, 'exploration', { special: 'portal', rations });
+      if (r.ok) sent.push(r.exp);
+    }
+    return sent.length ? { ok: true, sent } : { ok: false, reason: 'No ship is free to sail right now.', sent };
+  }
+  // 1.9: the Sea Witch trades everyday goods for ghost-touched ones once the Ghost Tide has come in
+  function witchTrade(state, base, qty) {
+    if (!MATERIAL_BASES.includes(base)) return { ok: false, reason: 'She will not touch that.' };
+    if (buildingLevel(state, 'seaWitch') < 1) return { ok: false, reason: 'Only the Sea Witch can do this.' };
+    if (!ghostTide(state)) return { ok: false, reason: 'Not while the portal is open, she says.' };
+    const out = T2[base], n = Math.min(Math.max(0, Math.floor(qty)), Math.floor((state.resources[base] || 0) / WITCH_RATE));
+    if (n < 1) return { ok: false, reason: `She wants ${WITCH_RATE} ${RESOURCES[base].name.toLowerCase()} for each ${RESOURCES[out].name.toLowerCase()}.` };
+    state.resources[base] -= n * WITCH_RATE; state.resources[out] += n;
+    if (!state.discovered.includes(out)) state.discovered.push(out);
+    return { ok: true, got: n, out, spent: n * WITCH_RATE, base };
   }
   function rollCarcass(st, seed, mods) {
     const rng = mulberry32((seed ^ 0xCA5CA55E) >>> 0), r = newResult({ ...NO_MODS, ...(mods || {}), yield: 1, coins: 1 });
@@ -1279,7 +1324,7 @@ const TOF = (() => {
     if (SHIP_CLASSES[cls].blueprint && !hasFound(state, SHIP_CLASSES[cls].blueprint)) return 'Needs the Krakenwake Blueprint, salvaged from the Unseen’s carcass.';
     if (buildingLevel(state, 'dockyard') < dockNeed) return dockNeed === 1 ? 'Build a Dockyard first.' : `Needs a level ${dockNeed} Dockyard.`;
     if (need.length) {
-      const how = { ...Object.fromEntries(REFINED2.map(k => [k, 'sail through the Unseen’s portal and work its goods at a level 2 workshop'])), charts: 'explore to find sea charts', pearls: 'hunt treasure to find pearls', relics: 'hunt treasure or pirates to find relics', rareFish: 'fish to land a rare catch', shellfish: 'go fishing for shellfish', planks: 'build a Sawmill for planks', rope: 'build a Ropemaker for rope', iron: 'build a Blacksmith for iron', timber: 'explore for timber', hemp: 'explore for hemp', ironOre: 'hunt treasure or pirates for iron ore' };
+      const how = { ...Object.fromEntries(REFINED2.map(k => [k, 'bring home ghost-touched goods and work them at a level 2 workshop'])), charts: 'explore to find sea charts', pearls: 'hunt treasure to find pearls', relics: 'hunt treasure or pirates to find relics', rareFish: 'fish to land a rare catch', shellfish: 'go fishing for shellfish', planks: 'build a Sawmill for planks', rope: 'build a Ropemaker for rope', iron: 'build a Blacksmith for iron', timber: 'explore for timber', hemp: 'explore for hemp', ironOre: 'hunt treasure or pirates for iron ore' };
       return 'First ' + need.map(k => how[k] || k).join(', then ') + '.';
     }
     return null;
@@ -1320,10 +1365,10 @@ const TOF = (() => {
     iron: 'A Blacksmith smelts iron ore. Ore comes from treasure or pirate hunting.',
     food: 'Harvest the field, or a Fishmonger salts fish.',
     moonfish: 'Fishing in the Kelp Forest, the Whale Road and farther waters.', essence: 'The Sea Witch brews it from moonfish.',
-    salvage: 'Beating ghost ships in the Ghost Sea, or trips through the Unseen’s portal.',
-    shimmerwood: 'Trips through the Unseen’s portal.', ghostflax: 'Trips through the Unseen’s portal.', wraithfin: 'Trips through the Unseen’s portal.',
-    wraithPlanks: 'A level 2 Sawmill saws shimmerwood, or the portal now and then.', phantomRope: 'A level 2 Ropemaker twists ghostflax, or the portal now and then.',
-    soulmetal: 'A level 2 Blacksmith smelts spectral salvage, or the portal now and then.', spiritRations: 'A level 2 Fishmonger salts wraithfin, or the portal now and then.',
+    salvage: 'Treasure and pirate hunting once the Ghost Tide is in, ghost ships in the Ghost Sea, or the Sea Witch.',
+    shimmerwood: 'Exploring once the Ghost Tide is in, the Unseen’s portal, or the Sea Witch.', ghostflax: 'Exploring once the Ghost Tide is in, the Unseen’s portal, or the Sea Witch.', wraithfin: 'Fishing once the Ghost Tide is in, the Unseen’s portal, or the Sea Witch.',
+    wraithPlanks: 'A level 2 Sawmill saws shimmerwood, or any trip now and then.', phantomRope: 'A level 2 Ropemaker twists ghostflax, or any trip now and then.',
+    soulmetal: 'A level 2 Blacksmith smelts spectral salvage, or any trip now and then.', spiritRations: 'A level 2 Fishmonger salts wraithfin, or any trip now and then.',
   };
   const BEGINNER_TRIPS = 10;
 
@@ -1474,10 +1519,10 @@ const TOF = (() => {
     const put = (k, n) => { if (n > 0) r.items[k] = (r.items[k] || 0) + n; };
     if (Rg.raw) for (const k of ['timber', 'hemp']) if (r.items[k]) r.items[k] = Math.round(r.items[k] * Rg.raw);
     if (Rg.ore && r.items.ironOre) r.items.ironOre = Math.round(r.items.ironOre * Rg.ore);
-    // keys: each family's key comes from a different kind of trip
-    if (type === 'fishing') for (let h = 0; h < hours; h++) if (rng() < 0.025 * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('sunkenKey', 1);
-    if (type === 'combat') for (let i = 0; i < r.wins; i++) if (rng() < 0.3) put('pirateKey', 1);
-    if (type === 'exploration') for (let h = 0; h < hours; h++) if (rng() < 0.03 * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('lostKey', 1);
+    // keys: each family's key comes from a different kind of trip (1.9.1: all about 60% more often)
+    if (type === 'fishing') for (let h = 0; h < hours; h++) if (rng() < KEY_RATE.sunken * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('sunkenKey', 1);
+    if (type === 'combat') for (let i = 0; i < r.wins; i++) if (rng() < KEY_RATE.pirate) put('pirateKey', 1);
+    if (type === 'exploration') for (let h = 0; h < hours; h++) if (rng() < KEY_RATE.lost * (1 + 0.5 * ring) * Math.min(1, hours - h)) put('lostKey', 1);
     // chests: only treasure trips find them
     if (type === 'treasure') {
       const p = 0.05 * (1 + 0.4 * ring) * (Rg.chest || 1) * (M.chestMult || 1);
@@ -1532,6 +1577,19 @@ const TOF = (() => {
       for (const [k, n] of Object.entries(got)) put(k, n);
       if (Object.keys(got).length) r.events.push({ type: 'rare', text: 'Ghost-touched goods came up with the haul, cold to the touch.' });
     }
+    // 1.9: the Ghost Tide. Part of every raw haul comes up ghost-touched, and now and then something already worked
+    if (M.ghostTide) {
+      const g = mulberry32((seed ^ 0x7105E2A7) >>> 0); let any = false;
+      for (const b of RAW_BASES) {
+        const n = r.items[b] || 0; if (n < GHOST_TIDE.rate) continue;
+        const t2 = Math.min(Math.floor(n / GHOST_TIDE.rate), Math.round(n * Math.min(0.9, GHOST_TIDE.share + (g() - 0.5) * 0.2) / GHOST_TIDE.rate));
+        if (t2 < 1) continue;
+        r.items[b] = n - t2 * GHOST_TIDE.rate; if (!r.items[b]) delete r.items[b];
+        put(T2[b], t2); any = true;
+      }
+      for (let h = 0; h < hours; h++) for (const b of ['planks', 'rope', 'iron', 'food']) if (g() < GHOST_TIDE.worked * Math.min(1, hours - h)) { put(T2[b], 1); any = true; }
+      if (any) r.events.push({ type: 'rare', text: 'The Ghost Tide: much of the haul came up pale and cold, ghost-touched.' });
+    }
   }
 
   // Kept for Phase 1 callers and tests.
@@ -1583,10 +1641,12 @@ const TOF = (() => {
   }
 
   function foodFor(hours) { return Math.ceil(hours / 4); }
+  // 1.9: spirit rations on an ordinary trip: as many as preserved food would take, for a bigger haul and a safer hull
+  const RATIONS = { yield: 1.35, damage: 0.5 };
 
   // Village bonuses applied to a trip at the moment it sails.
   const hasTrophy = (state, k) => !!(state.trophies && state.trophies[k] > 0);
-  function tripMods(state, type, now, supplies, region = 'home', charm = false) {
+  function tripMods(state, type, now, supplies, region = 'home', charm = false, rations = false) {
     const rumor = rumorFor(state, now);
     const Rg = REGIONS[region] || REGIONS.home;
     const dec = decorBonus(state);
@@ -1595,13 +1655,16 @@ const TOF = (() => {
     if (type === 'exploration') power *= (1 + 0.15 * buildingLevel(state, 'cartographer')) * (hasTrophy(state, 'goldenCompass') ? 1.1 : 1);
     let yld = rumor && rumor.type === type ? rumor.bonus : 1;
     if (supplies) yld *= 1.2;
+    if (rations) yld *= RATIONS.yield; // 1.9: spirit rations pack on any trip
     yld *= (Rg.yield && (Rg.yield[type] || Rg.yield.all)) || 1;
     if ((state.landmarks || []).includes(region)) yld *= 1.2;
     if (type === 'fishing' && hasTrophy(state, 'sirenPearl')) yld *= 1.1;
     yld *= 1 + (dec.yield[type] || 0);
-    let damage = (supplies ? 0.7 : 1) * Rg.danger * (charm ? 0.5 : 1) * (hasTrophy(state, 'krakenScale') ? 0.9 : 1) * (1 - dec.damage);
+    let damage = (supplies ? 0.7 : 1) * (rations ? RATIONS.damage : 1) * Rg.danger * (charm ? 0.5 : 1) * (hasTrophy(state, 'krakenScale') ? 0.9 : 1) * (1 - dec.damage);
     const m = { power: round3(power), yield: round3(yld), damage: round3(damage), region: REGIONS[region] ? region : 'home' };
     if (charm) m.charm = true;
+    if (rations) m.rations = true;
+    if (ghostTide(state)) m.ghostTide = true; // fixed at sailing, like everything else here
     const chestMult = (hasTrophy(state, 'drownedCrown') ? 1.25 : 1) * (1 + dec.chest);
     if (chestMult !== 1) m.chestMult = round3(chestMult);
     if (dec.coins) m.coins = round3(1 + dec.coins);
@@ -1694,9 +1757,9 @@ const TOF = (() => {
     const ship = getShip(state, shipId);
     if (!ship) return { ok: false, reason: 'No such ship.' };
     // 1.8: the portal (15 minutes, a relic to seek) and the carcass (1-hour salvage runs) take fixed trips
-    const special = opts.special || null, relic = special === 'portal' && opts.relic ? opts.relic : null;
+    const special = opts.special || null;
     if (special) {
-      const why = specialBlock(state, special, relic, now);
+      const why = specialBlock(state, special, null, now);
       if (why) return { ok: false, reason: why };
       if (special === 'portal' && opts.rations && state.resources.spiritRations < 1) return { ok: false, reason: 'You have no spirit rations.' };
       hours = special === 'portal' ? KRAKEN.portalHours : KRAKEN.carcassHours; type = 'exploration'; opts = { supplies: opts.supplies, charm: opts.charm, rations: special === 'portal' && !!opts.rations };
@@ -1708,11 +1771,13 @@ const TOF = (() => {
     const region = opts.region || 'home';
     const rb = regionSailBlock(state, ship, region);
     if (rb) return { ok: false, reason: rb };
-    const supplies = !!opts.supplies, charm = !!opts.charm;
+    const supplies = !!opts.supplies, charm = !!opts.charm, rations = !special && !!opts.rations;
     if (supplies && state.resources.food < foodFor(hours)) return { ok: false, reason: `Supplies for this trip need ${foodFor(hours)} preserved food.` };
+    if (rations && (state.resources.spiritRations || 0) < foodFor(hours)) return { ok: false, reason: `This trip needs ${foodFor(hours)} spirit ration${foodFor(hours) > 1 ? 's' : ''}.` };
     if (charm && state.resources.charm < 1) return { ok: false, reason: 'You have no warding charm.' };
     if (supplies) state.resources.food -= foodFor(hours);
     if (charm) state.resources.charm--;
+    if (rations) state.resources.spiritRations -= foodFor(hours);
     const st = shipStats(ship);
     const tripLen = REGIONS[region].dist * (hasTrophy(state, 'starChart') ? 0.9 : 1) * (1 - decorBonus(state).trip);
     const started = Stats.get(state, 'tripsStarted');
@@ -1725,11 +1790,11 @@ const TOF = (() => {
       seed: (seed === undefined ? Math.floor(Math.random() * 4294967296) : seed) >>> 0,
       dev: !!state.settings.devMode,
       stats: snapshot(st),
-      mods: (() => { const m = tripMods(state, type, now, supplies, region, charm); if (beginner) { m.yield = round3(m.yield * 2); m.beginner = true; } return m; })(),
+      mods: (() => { const m = tripMods(state, type, now, supplies, region, charm, rations); if (beginner) { m.yield = round3(m.yield * 2); m.beginner = true; } return m; })(),
       supplies, region,
     };
     if (special) {
-      exp.special = special; if (relic) exp.relic = relic;
+      exp.special = special; delete exp.mods.ghostTide;
       if (opts.rations) { state.resources.spiritRations--; exp.mods.rations = true; }
       if (SHIP_CLASSES[ship.cls].abyssal) exp.mods.abyssal = true;
     }
@@ -1759,7 +1824,7 @@ const TOF = (() => {
     if (!exp) return { ok: false, reason: state.claimed.includes(expId) ? 'Already collected.' : 'No such expedition.' };
     if (now < exp.endAt) return { ok: false, reason: 'Still at sea.' };
     const ship = getShip(state, exp.shipId);
-    const result = exp.special === 'portal' ? rollPortal(exp.stats, exp.seed, exp.mods, exp.relic)
+    const result = exp.special === 'portal' ? rollPortal(exp.stats, exp.seed, exp.mods)
       : exp.special === 'carcass' ? rollCarcass(exp.stats, exp.seed, exp.mods) : rollExpedition(exp.stats, exp.type, exp.cut || exp.hours, exp.seed, exp.mods);
     // Remove first, then credit: a second call can never find it again.
     state.expeditions = state.expeditions.filter(e => e.id !== expId);
@@ -1788,8 +1853,11 @@ const TOF = (() => {
     addItems(state, result.items);
     noteGathered(state, result.items);
     // 1.8: what came back from the portal or the carcass
-    if (result.relic) { if (!relicState(state, result.relic)) state.kraken.relics[result.relic] = 'found'; else { result.events.push({ type: 'rare', text: 'She found it again, but you already have it.' }); result.relic = null; } }
-    if (exp.special === 'carcass') result.drops = carcassDrops(state, result.dropRoll || []);
+    if (exp.special === 'portal') resolveRelic(state, exp, result);
+    if (exp.special === 'carcass') {
+      result.drops = carcassDrops(state, result.dropRoll || []);
+      if (state.kraken.hauled >= KRAKEN.carcassLoads && !Number.isFinite(state.kraken.strippedAt)) { state.kraken.strippedAt = now; result.stripped = true; } // 1.9: stripped bare, it starts to sink
+    }
     // curses, discoveries, legends
     if (ship.curse) { ship.curse.trips--; if (ship.curse.trips <= 0) { ship.curse = null; result.events.push({ type: 'win', text: 'The curse on her has worn off.' }); } }
     if (result.curse) ship.curse = { trips: 3 };
@@ -1832,6 +1900,7 @@ const TOF = (() => {
     if (r.oddity) lines.push({ kind: 'odd', text: r.oddity });
     if (r.relic) lines.push({ kind: 'kraken', text: `Brought ${RELICS[r.relic].name} back through the portal.` });
     for (const d of r.drops || []) lines.push({ kind: 'trophy', text: `Salvaged a ${DECOR[d].name} from the carcass.` });
+    if (r.stripped) lines.push({ kind: 'kraken', text: 'That was the last of it. Stripped bare, the carcass has begun to sink.' });
     if (exp.mods && exp.mods.beginner) lines.push({ kind: 'find', text: 'Beginner’s tide: this haul was doubled.' });
     return lines;
   }
@@ -1890,7 +1959,7 @@ const TOF = (() => {
   // Bulk sale of the everyday catch. Rare catch, pearls and relics feed upgrades, so they are kept.
   function sellAll(state) {
     let coins = 0, sold = 0;
-    for (const r of ['fish', 'shellfish']) {
+    for (const r of ['fish', 'shellfish', 'wraithfin']) {
       if (state.resources[r] > 0) { const s = sell(state, r, state.resources[r]); coins += s.coins; sold += s.sold; }
     }
     return { ok: sold > 0, coins, sold, reason: sold ? '' : 'Nothing to sell.' };
@@ -2547,7 +2616,7 @@ const TOF = (() => {
         seed: (Number(e.seed) >>> 0), dev: !!e.dev,
         stats: validStats(e.stats) ? snapshot({ ...e.stats, aff: { fishing: 1, treasure: 1, combat: 1, exploration: 1, ...e.stats.aff } }) : snapshot(shipStats(shipById[e.shipId])),
         mods: validMods(e.mods) ? { power: e.mods.power, yield: e.mods.yield, damage: e.mods.damage, region: REGIONS[e.mods.region] ? e.mods.region : 'home',
-          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}), ...(e.mods.rations ? { rations: true } : {}), ...(e.mods.abyssal ? { abyssal: true } : {}), ...(e.mods.spectral ? { spectral: true } : {}), ...(e.mods.ghostbane ? { ghostbane: true } : {}) } : { ...NO_MODS, region: 'home' },
+          ...(e.mods.charm ? { charm: true } : {}), ...(e.mods.beginner ? { beginner: true } : {}), ...(Number.isFinite(e.mods.chestMult) ? { chestMult: e.mods.chestMult } : {}), ...(Number.isFinite(e.mods.coins) && e.mods.coins > 0 && e.mods.coins < 2 ? { coins: e.mods.coins } : {}), ...(Number.isFinite(e.mods.candy) && e.mods.candy >= 1 && e.mods.candy <= 1 + HALLOWEEN.candyCap ? { candy: e.mods.candy } : {}), ...(e.mods.rations ? { rations: true } : {}), ...(e.mods.abyssal ? { abyssal: true } : {}), ...(e.mods.spectral ? { spectral: true } : {}), ...(e.mods.ghostbane ? { ghostbane: true } : {}), ...(e.mods.ghostTide ? { ghostTide: true } : {}) } : { ...NO_MODS, region: 'home' },
         supplies: !!e.supplies, region: REGIONS[e.region] ? e.region : 'home',
         ...(e.special === 'portal' || e.special === 'carcass' ? { special: e.special } : {}), ...(e.special === 'portal' && RELICS[e.relic] ? { relic: e.relic } : {}),
         ...(e.recalled ? { recalled: true } : {}), ...(Number.isFinite(e.cut) && e.cut > 0 && e.cut <= e.hours ? { cut: e.cut } : {}),
@@ -2627,6 +2696,8 @@ const TOF = (() => {
       K.deadAt = ok(rk.deadAt) && K.hits.every(Boolean) && K.breachAt !== null ? rk.deadAt : null;
       if (K.deadAt === null) K.slainBy = null; else if (!K.slainBy) K.slainBy = 'relics';
       K.hauled = clampInt(rk.hauled, 0, KRAKEN.carcassLoads);
+      K.strippedAt = K.deadAt !== null && K.hauled >= KRAKEN.carcassLoads && ok(rk.strippedAt) && rk.strippedAt >= K.deadAt ? rk.strippedAt : null; // 1.9
+      K.tideSeen = !!rk.tideSeen;
       for (const d of CARCASS.drops) { K.drops[d.decor] = clampInt(rk.drops && rk.drops[d.decor], 0, 999); K.misses[d.decor] = clampInt(rk.misses && rk.misses[d.decor], 0, 99); if (!K.drops[d.decor]) delete K.drops[d.decor]; if (!K.misses[d.decor]) delete K.misses[d.decor]; }
       K.shown = ids(rk.shown, RELIC_ORDER);
       const rw = raw.world || {}, W = s.world = emptyWorld();
@@ -2753,7 +2824,7 @@ const TOF = (() => {
     getBuilding, buildingOfType, buildingLevel, buildersBusy, storageCap, sellPrice, tradePrice, buildCost, buildHours, footprint,
     buildLock, placeCheck, placeBuilding, upgradeBlock, upgradeBuilding, recipeSpeed, maxBatch, queueJob, cancelJob,
     settleProduction, settleBuildings, settle, trade, rumorFor, tripMods, foodFor, upgradeGate, repairPlanks,
-    NON_CARGO, FAMILIES, SIZES, CHESTS, KEY_OF, CHEST_SIZES, TROPHIES, MONSTERS, KRAKEN_HINTS, REGIONS, REGION_ORDER,
+    NON_CARGO, FAMILIES, SIZES, CHESTS, KEY_OF, KEY_RATE, CHEST_SIZES, TROPHIES, MONSTERS, KRAKEN_HINTS, REGIONS, REGION_ORDER,
     regionLock, revealRegion, regionSailBlock, openChest, craftCharm, cleanse, trophyBonus, tripReport,
     newGame, getShip, shipStats, typePower, durationMult, shipStatus, expeditionForShip,
     classLock, buildShip, renameShip, addShip,
@@ -2762,8 +2833,8 @@ const TOF = (() => {
     migrate, sanitize, loadGame, saveGame, resetSave, mulberry32, exportSave, importSave,
     SOURCES, BEGINNER_TRIPS, Stats, STAT_DEFS, earnCoins, noteBalance, moveBuilding, cropState, harvest, CROP_HOURS, CROP_YIELD, START_RESOURCES,
     HALLOWEEN, CAULDRON, GHOST_TRADES, HW_DECOR, RARITY, REFINED, REFINED_PRICE, halloweenActive, candyMult, brew, brewSeen, popGhost, settleGhostShip, ghostTrade, KRAKEN, krakenView, settleKraken, krakenLockdown, emptyKraken,
-    OMENS, RELICS, RELIC_ORDER, CARCASS, giveRelic, relicState, relicsLeft, carcassLeft, specialBlock, rollPortal, rollCarcass, hasFound, WON_DECOR, STASHED,
-    MATERIAL_TIERS, MATERIAL_BASES, T2, TIER2, T3, T4, T2_RECIPES, recipesOf, REFINED2, REFINED2_PRICE, refinedPrice, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
+    OMENS, RELICS, RELIC_ORDER, CARCASS, giveRelic, relicState, relicsLeft, carcassLeft, specialBlock, rollPortal, resolveRelic, sendAllToPortal, witchTrade, ghostTide, GHOST_TIDE, WITCH_RATE, RATIONS, rollCarcass, hasFound, WON_DECOR, STASHED,
+    MATERIAL_TIERS, MATERIAL_BASES, RAW_BASES, T2, TIER2, T3, T4, T2_RECIPES, recipesOf, REFINED2, REFINED2_PRICE, refinedPrice, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
     EXPANSION, LIGHTHOUSE_REPAIR, POST_KRAKEN_UPGRADES, expandVillage, repairLighthouse, buildMinY, krakenSlain, spendCoins, noteGathered, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     DECOR_COPIES, repaintDecor,
     GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
@@ -3425,6 +3496,13 @@ function runTofTests(TOF) {
     ok(chests > 50, 'treasure finds chests: ' + chests); eq(notTreasure, 0, 'other trips never do');
   });
 
+  test('1.9.1: keys turn up more often and chests pay a little more', () => {
+    const st = TOF.shipStats({ cls: 'brigantine', upgrades: { cannons: 3 } }), m = { region: 'home' };
+    ok(avg(st, 'fishing', 12, m, 'sunkenKey') > 0.35, 'sunken keys: ' + avg(st, 'fishing', 12, m, 'sunkenKey'));
+    ok(avg(st, 'exploration', 12, m, 'lostKey') > 0.42, 'lost keys: ' + avg(st, 'exploration', 12, m, 'lostKey'));
+    eq(TOF.KEY_RATE.pirate, 0.45, 'pirate keys per crew');
+    eq(TOF.CHEST_SIZES.large.coins[0], 625, 'large chests pay more'); ok(TOF.CHEST_SIZES.small.mult > 1, 'small chests hold more goods');
+  });
   test('all nine chests exist, large ones are rarer', () => {
     eq(Object.keys(TOF.CHESTS).length, 9, 'nine');
     const st = TOF.shipStats({ cls: 'schooner', upgrades: {} });
@@ -4145,7 +4223,7 @@ function runTofTests(TOF) {
     const st0 = { speed: 5, hull: 100, combat: 5, cargo: 100, fishing: 5, exploration: 5, magic: 0, aff: {}, dmg: 1 }, sum = m => { let n = 0, d = 0; for (let i = 1; i < 300; i++) { const x = TOF.rollPortal(st0, i * 31, m); n += TOF.TIER2.reduce((a, q) => a + (x.items[q] || 0), 0); d += x.damage; } return [n, d]; };
     const [n0, d0] = sum({}), [n1, d1] = sum({ rations: true }), [n2, d2] = sum({ abyssal: true, rations: true });
     ok(d0 > 0 && d1 === 0 && d2 === 0, 'no harm with rations or the Krakenwake'); ok(n1 > n0 * 1.3 && n2 > n1 * 1.3, 'more goods each');
-    const { s: q, t } = risen(); q.resources.spiritRations = 1; const sh = q.ships[0];
+    const { s: q, t } = risen(); delete q.kraken.relics.lust; q.resources.spiritRations = 1; const sh = q.ships[0];
     ok(TOF.dispatch(q, sh.id, 1, t, 3, 'fishing', { special: 'portal', rations: true }).ok, 'packed'); eq(q.resources.spiritRations, 0, 'one ration used'); ok(q.expeditions[0].mods.rations, 'recorded');
   });
   test('1.8: the far seas (and three new ones) open after the kraken; their trips bring ghost-touched goods', () => {
@@ -4158,6 +4236,26 @@ function runTofTests(TOF) {
     ok(got('shimmer') > 100 && got('home') === 0, 'the Shimmering Isles give shimmerwood and ghostflax; home waters none');
     const a = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp' }), b = TOF.rollExpedition(st, 'exploration', 4, 99, { power: 1, yield: 1, damage: 1, region: 'kelp', spectral: true });
     for (const k of Object.keys(a.items)) eq(b.items[k], a.items[k], k + ' unchanged by the ketch'); // its finds come on top
+  });
+  test('1.9.3: the post-kraken level 3 upgrades take tier-2 goods', () => {
+    for (const k of TOF.POST_KRAKEN_UPGRADES) {
+      const c3 = TOF.UPGRADES[k].costs[2]; ok(Object.keys(c3).some(x => TOF.TIER2.includes(x)), k + ' level 3 needs tier-2 goods');
+      ok(!Object.keys(TOF.UPGRADES[k].costs[1]).some(x => TOF.TIER2.includes(x)), k + ' level 2 does not');
+    }
+    const s = rich(); s.kraken.deadAt = T0; s.buildings.push({ id: 'b-wp', type: 'weaponsmith', gx: 1, gy: 30, level: 1, pending: null, job: null });
+    const sh = s.ships[0]; sh.upgrades.cannons = 2; s.resources.soulmetal = 0;
+    ok(!TOF.buyUpgrade(s, sh.id, 'cannons').ok, 'no soulmetal, no level 3'); s.resources.soulmetal = 10;
+    const r = TOF.buyUpgrade(s, sh.id, 'cannons'); ok(r.ok, r.reason); eq(s.resources.soulmetal, 0, 'soulmetal spent'); eq(sh.upgrades.cannons, 3, 'level 3');
+  });
+  test('1.9.2: every post-kraken hull is built mostly from worked tier-2 goods', () => {
+    for (const [c, C] of Object.entries(TOF.SHIP_CLASSES)) {
+      if (!C.postKraken && !C.blueprint) continue;
+      const t2 = TOF.REFINED2.reduce((a, k) => a + (C.cost[k] || 0), 0), t1 = TOF.REFINED.reduce((a, k) => a + (C.cost[k] || 0), 0);
+      ok(TOF.REFINED2.every(k => C.cost[k] > 0), c + ' needs all three worked tier-2 goods'); ok(t2 > t1, `${c}: more tier 2 (${t2}) than tier 1 (${t1})`);
+    }
+    const s = rich(); s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }); s.kraken.deadAt = T0;
+    for (const k of TOF.REFINED2) s.resources[k] = 0; ok(!TOF.buildShip(s, 'frigate').ok, 'no frigate without them');
+    for (const k of TOF.REFINED2) s.resources[k] = 100; ok(TOF.buildShip(s, 'frigate').ok, 'built with them');
   });
   test('1.8: two post-kraken hulls built from worked tier-2 goods, each with its own gift', () => {
     const s = rich(); s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }); s.discovered = Object.keys(TOF.RESOURCES);
@@ -4173,21 +4271,73 @@ function runTofTests(TOF) {
     eq(TOF.RELIC_ORDER.length, 6, 'six'); const sins = new Set(TOF.RELIC_ORDER.map(k => TOF.RELICS[k].sin)); eq(sins.size, 6, 'six sins'); ok(!sins.has('Greed'), 'greed is the kraken');
     for (const k of TOF.RELIC_ORDER) { const R = TOF.RELICS[k]; ok(R.name && R.text.length > 60 && R.hint, k); }
   });
-  test('1.8: portal trips last 15 minutes, seek one relic about 35% of the time and bring tier-2 goods', () => {
+  test('1.9: portal trips last 15 minutes, find one of the missing relics about 35% of the time and bring tier-2 goods', () => {
     const { s, t } = risen(); s.kraken.relics = {}; s.resources.coins = 1e5;
     const sh = s.ships[0]; let found = 0, t2 = 0; const N = 400;
-    ok(!TOF.dispatch(veteran(T0), 'ship-1', 1, T0, 1, 'fishing', { special: 'portal', relic: 'pride' }).ok, 'no portal before the breach');
+    ok(!TOF.dispatch(veteran(T0), 'ship-1', 1, T0, 1, 'fishing', { special: 'portal' }).ok, 'no portal before the breach');
     for (let i = 0; i < N; i++) {
-      const r = TOF.dispatch(s, sh.id, 24, t, i * 7919 + 1, 'fishing', { special: 'portal', relic: 'pride' }); ok(r.ok, r.reason || 'sailed');
-      eq(r.exp.endAt - r.exp.startAt, 0.25 * H, '15 minutes whatever was asked');
+      const r = TOF.dispatch(s, sh.id, 24, t, i * 7919 + 1, 'fishing', { special: 'portal' }); ok(r.ok, r.reason || 'sailed');
+      eq(r.exp.endAt - r.exp.startAt, 0.25 * H, '15 minutes whatever was asked'); ok(!r.exp.relic, 'no one relic is chosen');
       const c = TOF.claim(s, r.exp.id, t + H); sh.hp = TOF.shipStats(sh).hull;
-      if (c.result.relic) found++; if (TOF.TIER2.some(k => c.result.items[k])) t2++;
-      if (TOF.relicState(s, 'pride')) delete s.kraken.relics.pride;
+      if (c.result.relic) { found++; ok(TOF.relicState(s, c.result.relic) === 'found', 'recorded'); } if (TOF.TIER2.some(k => c.result.items[k])) t2++;
+      s.kraken.relics = {};
     }
     ok(found / N > 0.29 && found / N < 0.41, 'about 35%: ' + found / N); ok(t2 / N > 0.95, 'tier-2 goods nearly always');
-    let r; for (let i = 0; i < 60 && !TOF.relicState(s, 'wrath'); i++) { r = TOF.dispatch(s, sh.id, 0.25, t, i, 'fishing', { special: 'portal', relic: 'wrath' }); TOF.claim(s, r.exp.id, t + H); sh.hp = TOF.shipStats(sh).hull; }
-    eq(TOF.relicState(s, 'wrath'), 'found', 'recorded'); ok(/already found/.test(TOF.dispatch(s, sh.id, 0.25, t, 1, 'fishing', { special: 'portal', relic: 'wrath' }).reason), 'not sought twice');
     for (const k of TOF.TIER2) { ok(TOF.RESOURCES[k] && !TOF.BULK.includes(k), k + ' stored, no limit'); }
+  });
+  test('1.9: any number of ships seek the relics at once; send them all; the portal fades with the last relic', () => {
+    const { s, t } = risen(); s.kraken.relics = {}; s.resources.coins = 1e6;
+    for (let i = 0; i < 4; i++) TOF.addShip(s, 'sloop');
+    const r = TOF.sendAllToPortal(s, t, { seed: 11 }); ok(r.ok && r.sent.length === s.ships.length, 'every free ship sails: ' + r.sent.length);
+    ok(!TOF.sendAllToPortal(s, t).ok, 'none left to send');
+    for (const e of r.sent.slice()) TOF.claim(s, e.id, t + H);
+    // keep sending until all six are out; a relic is never found twice
+    let u = t + H, guard = 0;
+    while (TOF.relicsLeft(s).length && guard++ < 200) { for (const sh of s.ships) sh.hp = TOF.shipStats(sh).hull; const q = TOF.sendAllToPortal(s, u, { seed: guard * 101 }); ok(q.ok, q.reason || 'sent'); for (const e of q.sent) TOF.claim(s, e.id, u + H); u += H; }
+    eq(TOF.relicsLeft(s).length, 0, 'all six found'); ok(TOF.RELIC_ORDER.every(id => TOF.relicState(s, id) === 'found'), 'each once');
+    const v = TOF.krakenView(s, u); ok(!v.portal && v.tide, 'the portal has faded and the Ghost Tide is in'); ok(/closed/.test(TOF.specialBlock(s, 'portal', null, u)), 'no more portal trips');
+    ok(TOF.krakenLockdown(s, u), 'the harbor stays shut until the witch has used them');
+    // a ship still in the dark when the last relic came out comes home empty-handed, but safe
+    const { s: s2, t: t2 } = risen(); s2.kraken.relics = {}; TOF.addShip(s2, 'sloop'); const both = TOF.sendAllToPortal(s2, t2, { seed: 3 }).sent;
+    for (const id of TOF.RELIC_ORDER) s2.kraken.relics[id] = 'found';
+    const c = TOF.claim(s2, both[1].id, t2 + H); ok(c.ok && !c.result.relic, 'nothing more to find');
+  });
+  test('1.9: once stripped bare the carcass sinks over a day and is gone', () => {
+    const { s, t } = risen(); s.resources.coins = 1e6; let u = slay(s, t) + TOF.KRAKEN.deathMs + 1000;
+    TOF.settleKraken(s, u); for (let i = 0; i < 3; i++) TOF.addShip(s, 'sloop');
+    let last = null;
+    for (let i = 0; i < 12; i++) { const sh = s.ships[i % s.ships.length]; sh.hp = TOF.shipStats(sh).hull; const r = TOF.dispatch(s, sh.id, 1, u, i + 1, 'fishing', { special: 'carcass' }); ok(r.ok, r.reason || 'out'); last = TOF.claim(s, r.exp.id, u + H); u += H; }
+    ok(last.result.report.some(l => /begun to sink/.test(l.text)), 'the last load says so'); const at = s.kraken.strippedAt; ok(at > 0, 'stripped');
+    const v0 = TOF.krakenView(s, at + 12 * H); ok(v0.carcass && Math.abs(v0.sink - 0.5) < 0.01, 'half sunk after 12 hours');
+    const v1 = TOF.krakenView(s, at + 24 * H); ok(v1.sunk && !v1.carcass, 'gone after 24');
+    const st = memStorage(); TOF.saveGame(st, s, u); eq(TOF.loadGame(st, u).state.kraken.strippedAt, at, 'survives a reload');
+    const old = JSON.parse(JSON.stringify(s)); old.kraken.strippedAt = null; TOF.settleKraken(old, u + 5); eq(old.kraken.strippedAt, u + 5, 'an older save starts sinking when opened');
+  });
+  test('1.9: the Ghost Tide brings tier-2 goods home from every trip, alongside some tier-1', () => {
+    const s = rich(); const st = TOF.shipStats({ cls: 'brigantine', upgrades: {} });
+    const sum = (type, tide) => { const tot = {}; for (let i = 1; i < 120; i++) { const x = TOF.rollExpedition(st, type, 4, i * 31, { power: 1, yield: 1, damage: 1, region: 'home', ...(tide ? { ghostTide: true } : {}) }); for (const [k, n] of Object.entries(x.items)) tot[k] = (tot[k] || 0) + n; } return tot; };
+    for (const [type, b] of [['fishing', 'fish'], ['exploration', 'timber'], ['treasure', 'ironOre'], ['combat', 'ironOre']]) {
+      const a = sum(type, false), g = sum(type, true), k2 = TOF.T2[b];
+      ok(!a[k2] && g[k2] > 0, `${type}: ${k2} under the tide`); ok(g[b] > 0 && g[b] < a[b] * 0.65, `${type}: less ${b} (${g[b]} of ${a[b]})`);
+      ok(Math.abs(g[b] + g[k2] * TOF.GHOST_TIDE.rate - a[b]) <= a[b] * 0.02 + 2, `${type}: nothing lost in the change`);
+      eq(g.coins || 0, a.coins || 0, `${type}: coins untouched`);
+    }
+    ok(!TOF.tripMods(s, 'fishing', T0, false).ghostTide, 'not before'); s.kraken.deadAt = T0; ok(TOF.tripMods(s, 'fishing', T0, false).ghostTide, 'on after the kraken');
+    const r = TOF.dispatch(s, s.ships[0].id, 4, T0, 9, 'fishing'); ok(r.exp.mods.ghostTide, 'fixed when she sails');
+    const sv = memStorage(); TOF.saveGame(sv, s, T0); ok(TOF.loadGame(sv, T0).state.expeditions[0].mods.ghostTide, 'and kept on reload');
+    const q = rich(); for (const id of TOF.RELIC_ORDER) q.kraken.relics[id] = 'found'; ok(TOF.ghostTide(q), 'it starts the moment the last relic is out');
+    s.resources.wraithfin = 10; const c0 = s.resources.coins; ok(TOF.sell(s, 'wraithfin', 10).ok && s.resources.coins > c0, 'wraithfin sells at the market');
+  });
+  test('1.9: the witch trades tier 1 for tier 2; spirit rations pack on any trip', () => {
+    const s = rich(); s.buildings.push({ id: 'b-ws', type: 'seaWitch', gx: 5, gy: 34, level: 1, pending: null, job: null }); s.resources.timber = 100; s.resources.planks = 10; s.resources.shimmerwood = 0; s.resources.wraithPlanks = 0;
+    ok(/portal/.test(TOF.witchTrade(s, 'timber', 5).reason), 'not before the tide'); s.kraken.deadAt = T0;
+    const r = TOF.witchTrade(s, 'timber', 5); ok(r.ok && r.got === 5, 'five'); eq(s.resources.timber, 100 - 5 * TOF.WITCH_RATE, 'paid'); eq(s.resources.shimmerwood, 5, 'got');
+    const all = TOF.witchTrade(s, 'planks', 999); eq(all.got, 3, 'as many as you can pay for'); eq(s.resources.planks, 1, 'the rest kept'); eq(s.resources.wraithPlanks, 3, 'worked for worked');
+    ok(!TOF.witchTrade(s, 'planks', 1).ok, 'not enough'); ok(!TOF.witchTrade(s, 'coins', 1).ok, 'only materials');
+    const q = rich(); q.kraken.deadAt = T0; ok(/Sea Witch/.test(TOF.witchTrade(q, 'timber', 1).reason), 'needs her hut');
+    s.resources.spiritRations = 1; ok(/spirit ration/.test(TOF.dispatch(s, s.ships[0].id, 8, T0, 1, 'fishing', { rations: true }).reason), '8 hours need 2');
+    s.resources.spiritRations = 2; const d = TOF.dispatch(s, s.ships[0].id, 8, T0, 1, 'fishing', { rations: true }); ok(d.ok, d.reason); eq(s.resources.spiritRations, 0, 'packed');
+    const plain = TOF.tripMods(s, 'fishing', T0, false); ok(Math.abs(d.exp.mods.yield / plain.yield - TOF.RATIONS.yield) < 0.01 && d.exp.mods.damage < plain.damage, 'bigger haul, safer hull');
   });
   test('1.8: each relic given puts out its eye after its flight; the sixth kills the Unseen', () => {
     const { s, t } = risen();
@@ -8077,7 +8227,8 @@ const World = (() => {
           P.eyes.forEach(E => { E.state = 'gone'; E.glow = 0; });
           P.wail = tau > 1.2 && tau < 4.8 ? 1 : 0;
           P.mood = 0.85;
-        } else { P.corpse = true; P.head.sink = 70; P.head.dy = Math.round(Math.sin(te * 0.4) * 1.5); for (const A of P.arms) A.limp = 1; P.mood = Math.max(0, 0.85 - (tau - 10) / 3600 / 6 * 0.65); P.wisps = 18; P.pool = Math.max(0.35, 0.88 - (tau - 10) / 3600 / 6); }
+        } else if (view.sunk) { P.show = false; P.head = null; return P; // 1.9: the sea has taken it
+        } else { P.corpse = true; P.sink = view.sink || 0; P.head.sink = 70; P.head.dy = Math.round(Math.sin(te * 0.4) * 1.5); for (const A of P.arms) A.limp = 1; P.mood = Math.max(0, 0.85 - (tau - 10) / 3600 / 6 * 0.65); P.wisps = Math.round(18 * (1 - P.sink)); P.pool = Math.max(0.35, 0.88 - (tau - 10) / 3600 / 6) * (1 - P.sink * 0.8); }
       }
       return P;
     }
@@ -8134,7 +8285,7 @@ const World = (() => {
       if (P.head && P.head.under) P.eyes.forEach((E, e) => { if (!E.alpha) return; const fr = K.frames[0], [ex, ey, er] = fr.eyes[e], sx = at.x + (ex - fr.ax) + P.head.dx, sy = at.y + (ey - fr.ay) + P.head.sink + P.head.dy; const s = K.eyeSpr[e][E.state]; ctx.globalAlpha = 0.55 * E.alpha; ctx.drawImage(s.canvas, Math.round(sx - s.ax), Math.round(sy - s.ay)); ctx.globalAlpha = 1; glow(ctx, sx, sy, er * 3, 0.35 * E.glow, '255,200,70'); });
       // ripples: slow wide rings round the body, faster ones where arms cut the surface
       const te = P.te;
-      for (let k = 0; k < 4; k++) { const u = (te * (P.cine ? 0.6 : 0.18) + k / 4) % 1, R = 70 + u * 220; ringAt(ctx, at.x, at.y + 4, R, (1 - u) * 0.35 * (P.head && !P.head.under ? 1 : P.under)); }
+      for (let k = 0; k < 4; k++) { const u = (te * (P.cine ? 0.6 : 0.18) + k / 4) % 1, R = 70 + u * 220; ringAt(ctx, at.x, at.y + 4, R, (1 - u) * 0.35 * (P.head && !P.head.under ? 1 : P.under) * (1 - (P.sink || 0))); }
       for (const c of P._cross) for (let k = 0; k < 2; k++) { const u = (te * 0.9 + k / 2 + c[2] * 0.03) % 1; ringAt(ctx, c[0], c[1], c[2] * 1.6 + u * 40, (1 - u) * 0.5); }
       if (P.cine !== null && P.cine > 2 && P.cine < 4.6) { const u = (P.cine - 2) / 2.6; for (let k = 0; k < 3; k++) ringAt(ctx, at.x, at.y + 4, 40 + u * 260 - k * 26, 0.8 * (1 - u)); } // the swell
       if (P.countdown !== null) drawCountdown(ctx, P.countdown); // 1.8: still shimmering through the rising hours
@@ -8251,7 +8402,9 @@ const World = (() => {
       if (!st.mix) for (const [x, y, r] of foams) { const f = foamOf(r).back; ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
       const above = (f, y0, extra) => { const h = Math.min(f.h, Math.round(st.y + extra - y0)); if (h > 0) ctx.drawImage(f.canvas, 0, 0, f.w, h, Math.round(st.x - f.ax), Math.round(y0), f.w, h); };
       if (st.mix < 1) { ctx.globalAlpha = 1 - st.mix; above(fr, top - fr.ay, 1); }
-      if (st.mix > 0) { const L_ = st.alt; ctx.globalAlpha = st.mix; above(L_, st.y - L_.ay + 3, 40); }
+      if (st.mix > 0) { const L_ = st.alt, sk = P.sink || 0; // (sinking with the body: dimming into a dark shape, then gone)
+        if (sk > 0) { const T_ = tinted(L_); ctx.globalAlpha = st.mix * Math.min(1, sk * 3) * (1 - sk) * 0.8; const y0 = st.y - L_.ay + 3 + Math.round(sk * 8), h = Math.min(L_.h, Math.round(st.y + 40 - y0)); if (h > 0) ctx.drawImage(T_.canvas, 0, 0, L_.w, h, Math.round(st.x - L_.ax), y0, L_.w, h); }
+        ctx.globalAlpha = st.mix * (1 - Math.pow(sk, 1.5)); above(L_, st.y - L_.ay + 3 + Math.round(sk * 3), 40); }
       ctx.globalAlpha = 1;
       const B = ARMS[i].base; if (B && st.mix < 1) { ctx.globalAlpha = 1 - st.mix; ctx.drawImage(B.canvas, Math.round(cx0 - B.ax), Math.round(st.y + 1)); ctx.globalAlpha = 1; } // the stump, always under the surface
       if (!st.mix) for (const [x, y, r] of foams) { const F = foamOf(r); for (const f of [F.sunk, F.front]) ctx.drawImage(f.canvas, Math.round(x - f.ax), Math.round(y - f.ay)); }
@@ -8260,8 +8413,11 @@ const World = (() => {
       const Hd = P.head; if (!K || !Hd || Hd.under || Hd.sink >= 200) return;
       if (P.corpse || (P.dead && Hd.sink > 30)) { // lying in the water: drawn whole, settling as it keels over
         const D = K.dead, k = P.corpse ? 1 : Math.min(1, (Hd.sink - 30) / 40), fb = K.foamFor(60, Math.floor(P.te * 1.5) % 2);
-        ctx.globalAlpha = k; ctx.drawImage(fb.back.canvas, Math.round(at.x - fb.back.ax), Math.round(at.y - fb.back.ay));
-        ctx.drawImage(D.canvas, Math.round(at.x - D.ax), Math.round(at.y - D.ay + Hd.dy)); ctx.globalAlpha = 1; // (no front lip: it would cut across the floating body)
+        // 1.9: stripped bare, it goes under over a day: the flesh dims into a dark shape below the water, then that fades too
+        const sk = P.sink || 0, bx = Math.round(at.x - D.ax), by = Math.round(at.y - D.ay + Hd.dy);
+        if (sk > 0) { const T_ = tinted(D); ctx.globalAlpha = k * Math.min(1, sk * 3) * (1 - sk) * 0.8; ctx.drawImage(T_.canvas, bx, by + Math.round(sk * 10)); }
+        ctx.globalAlpha = k * (1 - sk); ctx.drawImage(fb.back.canvas, Math.round(at.x - fb.back.ax), Math.round(at.y - fb.back.ay));
+        ctx.globalAlpha = k * (1 - Math.pow(sk, 1.5)); ctx.drawImage(D.canvas, bx, by + Math.round(sk * 4)); ctx.globalAlpha = 1; // (no front lip: it would cut across the floating body)
         P._eyeAt = []; if (k >= 1) return;
       }
       const f = K.frames[Math.max(0, Math.min(K.SPLIT, Math.round(Hd.split * K.SPLIT)))];
@@ -8504,7 +8660,14 @@ const World = (() => {
       if (t >= 7.2) { portalCine = null; witchCastObj.hidden = true; krHooks.portalEnd(); }
       return;
     }
-    portalObj.hidden = !(v && v.portal && st.kraken.portalSeen); portalObj.open = 1;
+    // 1.9: once the last relic is out it swells for a moment, then folds in on itself and is gone
+    if (v && v.portal && st.kraken.portalSeen) { portalObj.hidden = false; portalObj.open = 1; portalObj.closing = null; }
+    else if (!portalObj.hidden) {
+      if (!portalObj.closing) { portalObj.closing = Date.now(); if (typeof Sound !== 'undefined') Sound.play('portal'); }
+      const t = (Date.now() - portalObj.closing) / 1000, ease = q => (q <= 0 ? 0 : q >= 1 ? 1 : q * q * (3 - 2 * q));
+      portalObj.open = t < 0.6 ? 1 + 0.12 * ease(t / 0.6) : 1.12 * (1 - ease((t - 0.6) / 2.4));
+      if (t >= 3) { portalObj.hidden = true; portalObj.closing = null; KZ.burst(portalObj.x, portalObj.y, 40, 70, ['#c79bff', '#8fb4ff', '#ffffff'], 0.8); }
+    }
     witchCastObj.hidden = true;
     witchDockObj.hidden = !(v && v.phase === 'emerged' && st.kraken.portalSeen && !KZ.cine);
   }
@@ -9044,7 +9207,7 @@ const World = (() => {
     cam.x = p.x; cam.y = p.y - 20; clampCam();
   }
 
-  return { kraken: { dbg: KZ.dbg, setHooks: h => { krHooks = { ...krHooks, ...h }; KZ.hooks = { start: () => krHooks.start(), end: () => krHooks.end() }; }, get pose() { return krP; }, get cine() { return KZ.cine; }, ready: () => KZ.ready(), at: () => KZ.at, ARMS: KZ.ARMS, forceBuild: () => { KZ.ensure(); KZ.step(1e9); }, focus: () => { const a = KZ.at; cam.x = a.x + 40; cam.y = a.y - 110; clampCam(); }, struck: v => { krStruck = v; }, get portalCine() { return portalCine; }, focusPortal: () => { if (portalObj) { cam.x = portalObj.x; cam.y = portalObj.y - 20; clampCam(); } }, focusWitch: () => { if (witchDockObj) { cam.x = witchDockObj.x + 40; cam.y = witchDockObj.y - 40; clampCam(); } } }, rebuildLand, focusReach, get shift() { return ws; }, syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, _bats: bats, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
+  return { kraken: { dbg: KZ.dbg, setHooks: h => { krHooks = { ...krHooks, ...h }; KZ.hooks = { start: () => krHooks.start(), end: () => krHooks.end() }; }, get pose() { return krP; }, get cine() { return KZ.cine; }, ready: () => KZ.ready(), at: () => KZ.at, ARMS: KZ.ARMS, forceBuild: () => { KZ.ensure(); KZ.step(1e9); }, focus: () => { const a = KZ.at; cam.x = a.x + 40; cam.y = a.y - 110; clampCam(); }, struck: v => { krStruck = v; }, get portalCine() { return portalCine; }, get portalShowing() { return !!(portalObj && !portalObj.hidden); }, focusPortal: () => { if (portalObj) { cam.x = portalObj.x; cam.y = portalObj.y - 20; clampCam(); } }, focusWitch: () => { if (witchDockObj) { cam.x = witchDockObj.x + 40; cam.y = witchDockObj.y - 40; clampCam(); } } }, rebuildLand, focusReach, get shift() { return ws; }, syncGhostShip, focusCauldron, focusGhostShip, _ghosts: ghosts, _bats: bats, get eventOn() { return eventOn; }, syncDecor, focusDecor, init, update, render, syncShips, syncBuildings, syncDocks, get sky() { return sky; }, DOCKS, focusShip, focusBuilding, resize, tapAt, toWorld, cam, terrainCheck,
     startPlacing, movePlacing, stopPlacing, _villagers: () => villagers, _roads: () => roadTiles, isWalkable: (gx, gy) => walkable(gx, gy), setLowPower: v => { lowPower = !!v; }, _debug: { setTime: t => { time = t; }, exitPath: i => exitPath(i), islet: () => tileCenter(ISLET.gx, ISLET.gy) }, get placing() { return placing; }, isoTop, _ships: ships, _objects: () => objects, _bObjs: bObjs };
 })();
 
@@ -9120,6 +9283,7 @@ const App = (() => {
       else if (cmd === 'give') { ensureUp(); const id = TOF.RELIC_ORDER.find(x => k.relics[x] !== 'given'); if (id) { k.relics[id] = 'found'; const last = Math.max(0, ...k.hits); if (t < last + Kc.painMs) k.hits = k.hits.map(h => (h > t - Kc.painMs ? t - Kc.painMs - 1 : h)); TOF.giveRelic(state, id, t); } }
       else if (cmd === 'kill') { ensureUp(); k.hits = k.hits.map(h => h || t - 5000); for (const id of TOF.RELIC_ORDER) k.relics[id] = 'given'; k.shown = TOF.RELIC_ORDER.slice(); k.deadAt = t; k.slainBy = 'relics'; k.deathSeen = false; }
       else if (cmd === 'corpse') { ensureUp(); k.hits = k.hits.map(() => t - 60000); for (const id of TOF.RELIC_ORDER) k.relics[id] = 'given'; k.shown = TOF.RELIC_ORDER.slice(); k.deadAt = t - 20000; k.slainBy = 'relics'; k.deathSeen = false; }
+      else if (cmd === 'strip' || cmd === 'sink') { if (!Number.isFinite(k.deadAt)) { ensureUp(); k.hits = k.hits.map(() => t - 60000); for (const id of TOF.RELIC_ORDER) k.relics[id] = 'given'; k.shown = TOF.RELIC_ORDER.slice(); k.deadAt = t - 20000; k.slainBy = 'relics'; k.deathSeen = true; } k.hauled = Kc.carcassLoads; k.strippedAt = cmd === 'sink' ? t - 0.8 * Kc.sinkHours * (k.unit || U) : t; } // 1.9
       else if (cmd === 'settle') { if (!Number.isFinite(k.deadAt)) { ensureUp(); k.hits = k.hits.map(() => t - 60000); for (const id of TOF.RELIC_ORDER) k.relics[id] = 'given'; k.shown = TOF.RELIC_ORDER.slice(); k.deadAt = t - 20000; k.slainBy = 'relics'; k.deathSeen = true; } TOF.settleKraken(state, t); const w = state.world; if (w.id) { w.endedAt = Math.min(w.endedAt || t, t - TOF.WORLD_SHIFTS[w.id].settleHours * (w.unit || U) - 1); } }
       TOF.settleKraken(state, t); commit('kraken');
     },
@@ -9146,6 +9310,9 @@ const App = (() => {
     revealRegion(id) { return done(TOF.revealRegion(state, id), 'region'); },
     openChest(id) { return done(TOF.openChest(state, id), 'chest'); },
     craftCharm() { return done(TOF.craftCharm(state), 'charm'); },
+    sendAllToPortal() { const r = TOF.sendAllToPortal(state, now()); if (r.ok) commit('dispatched', r); return r; },
+    witchTrade(base, qty) { return done(TOF.witchTrade(state, base, qty), 'witchtrade'); },
+    tideSeen() { state.kraken.tideSeen = true; commit('kraken'); },
     cleanse(shipId) { return done(TOF.cleanse(state, shipId), 'cleanse'); },
     repair(shipId) { return done(TOF.repair(state, shipId, now()), 'repaired'); },
     rename(shipId, name) { return done(TOF.renameShip(state, shipId, name)); },
@@ -9212,7 +9379,7 @@ const UI = (() => {
   const planFor = ship => {
     const p = (ui.plan[ship.id] = ui.plan[ship.id] || { region: 'home', ...ship.lastTrip });
     if (ui.pendingRegion) { p.region = ui.pendingRegion; p.special = null; }
-    if (ui.pendingSpecial) { p.special = ui.pendingSpecial.special; p.relic = ui.pendingSpecial.relic; p.spoils = !ui.pendingSpecial.relic && ui.pendingSpecial.special === 'portal'; }
+    if (ui.pendingSpecial) p.special = ui.pendingSpecial.special;
     if (!TOF.REGIONS[p.region] || !App.state.regions.includes(p.region)) p.region = 'home';
     return p;
   };
@@ -9378,9 +9545,13 @@ const UI = (() => {
     for (const k of ['sunkenKey', 'pirateKey', 'lostKey', 'moonfish', 'salvage']) if ((est.chance[k] || 0) > 0.01) finds.push(`${resName(k)} on <b>${pct(est.chance[k])}</b>`);
     if ((est.chance.candy || 0) > 0.005) finds.unshift(`candy on <b>${pct(est.chance.candy)}</b> (about ${num(est.avg.candy || 0)})`);
     const extra = finds.length ? `<p class="estimate risk">Rare finds: ${finds.join(', ')} of trips.</p>` : '';
-    return `<p class="estimate">${line}</p>${extra}<p class="estimate risk">${risk}</p>`;
+    // 1.9: the Ghost Tide's share of the haul (raw goods; the worked ones only turn up now and then)
+    const ghost = list(TOF.RAW_BASES.map(k => TOF.T2[k])), worked = ['planks', 'rope', 'iron', 'food'].some(k => (est.chance[TOF.T2[k]] || 0) > 0.02);
+    return `<p class="estimate">${line}</p>${ghost ? `<p class="estimate">Ghost-touched: ${ghost}${worked ? ', and now and then something already worked' : ''}.</p>` : ''}${extra}<p class="estimate risk">${risk}</p>`;
   }
 
+  // 1.9: the ships that could go through the portal right now
+  const portalReady = (state, now) => TOF.specialBlock(state, 'portal', null, now) ? [] : state.ships.filter(s => !TOF.sailBlock(state, s, 'exploration', now, 'portal'));
   // 1.8: the ordinary waters plus, while they exist, the portal and the carcass
   function specialChoices(state, now) {
     const out = [];
@@ -9395,26 +9566,24 @@ const UI = (() => {
     }).join('')}${specialChoices(state, now).map(c => `<button class="chip region unseen" role="radio" aria-checked="${plan.special === c.id}" data-act="special" data-ship="${ship.id}" data-sp="${c.id}">${c.name}</button>`).join('')}</div>`;
   }
   function specialPlan(state, now, ship, plan) {
-    const k = state.kraken, alive = TOF.krakenView(state, now).phase === 'emerged' && !k.slainBy;
     let html = whereChips(state, ship, plan, now);
     if (plan.special === 'portal') {
-      const left = alive ? TOF.relicsLeft(state) : [];
-      if (plan.relic && !left.includes(plan.relic)) plan.relic = null;
-      if (plan.relic === undefined || (plan.relic === null && left.length && !plan.spoils)) plan.relic = left[0] || null;
-      html += `<p class="desc type-desc">A 15-minute trip into the dark between worlds. Every trip brings back ghost-touched (tier 2) goods; the portal can rake a hull.</p>`;
-      if (left.length) html += `<p class="label">Seek</p><div class="chips relics">${left.map(id => `<button class="chip relic" role="radio" aria-checked="${plan.relic === id}" data-act="seek" data-ship="${ship.id}" data-relic="${id}">${icon('relic_' + id, 'tiny')} ${esc(TOF.RELICS[id].name)}<small>${TOF.RELICS[id].sin}</small></button>`).join('')}<button class="chip" role="radio" aria-checked="${!plan.relic}" data-act="seek" data-ship="${ship.id}" data-relic="">Spoils only</button></div>`;
+      const left = TOF.relicsLeft(state), out = state.expeditions.filter(e => e.special === 'portal').length;
+      html += `<p class="desc type-desc">A 15-minute search through the dark between worlds for the relics still missing: <b>${left.length}</b> of 6${out ? `, with ${out} ship${out > 1 ? 's' : ''} already looking` : ''}. Send as many ships as you like. She also brings back a few ghost-touched (tier 2) goods; the portal can rake a hull.</p>`;
+      if (left.length) html += `<div class="chips relics">${left.map(id => `<span class="chip relic">${icon('relic_' + id, 'tiny')} ${esc(TOF.RELICS[id].name)}<small>${TOF.RELICS[id].sin}</small></span>`).join('')}</div>`;
       const rat = state.resources.spiritRations || 0; if (!rat) plan.rations = false;
       if (rat || state.discovered.includes('spiritRations')) html += `<label class="supplies ${rat ? '' : 'off'}"><input type="checkbox" data-act="rations" data-ship="${ship.id}" ${plan.rations ? 'checked' : ''} ${rat ? '' : 'disabled'}>
         <span class="track"><span class="knob"></span></span><span>${icon('spiritRations', 'tiny')} <b>Pack spirit rations</b> (1, you have ${rat})<br><small>Half as much again, and the dark won’t touch her hull.</small></span></label>`;
       if (TOF.SHIP_CLASSES[ship.cls].abyssal) html += `<p class="tide">${icon('relics', 'tiny')} <b>Krakenwake:</b> half as much again from the portal, and its dark never touches her.</p>`;
-      html += `<p class="estimate">${plan.relic ? `About a <b>${Math.round(TOF.KRAKEN.relicChance * 100)}%</b> chance she comes back with ${esc(TOF.RELICS[plan.relic].name)}. ` : ''}Shimmerwood, ghostflax, spectral salvage and wraithfin on most trips; now and then something already worked.</p><p class="estimate risk">Hull damage on about 25% of trips.</p>`;
+      html += `<p class="estimate">About a <b>${Math.round(TOF.KRAKEN.relicChance * 100)}%</b> chance she comes back with one of the missing relics. Shimmerwood, ghostflax, spectral salvage and wraithfin on most trips.</p><p class="estimate risk">Hull damage on about 25% of trips. The portal closes once all six relics are out.</p>`;
     } else {
       html += `<p class="desc type-desc">A 1-hour salvage run on the Unseen’s carcass. <b>${TOF.carcassLeft(state)}</b> of ${TOF.KRAKEN.carcassLoads} loads left.</p>
         <p class="estimate">Coins, relics, pearls, spectral salvage and the odd rare catch every run. Its spoils turn up by chance: kraken-eye lanterns, a plush, its skeleton, and a ship’s blueprint.</p>`;
     }
-    const block = TOF.sailBlock(state, ship, 'exploration', now, plan.special) || TOF.specialBlock(state, plan.special, plan.special === 'portal' ? plan.relic : null, now);
+    const block = TOF.sailBlock(state, ship, 'exploration', now, plan.special) || TOF.specialBlock(state, plan.special, null, now);
     const ms = (plan.special === 'portal' ? TOF.KRAKEN.portalHours : TOF.KRAKEN.carcassHours) * TOF.hourMs(state);
     html += block ? `<p class="warn">${esc(block)}</p>` : `<button class="btn primary" data-act="sail" data-ship="${ship.id}">${plan.special === 'portal' ? 'Sail into the portal' : 'Send her to the carcass'}, back in ${span(ms)}</button>`;
+    if (plan.special === 'portal') { const free = portalReady(state, now).length; if (free > 1) html += `<button class="btn" data-act="portalall">Send all ${free} free ships to seek the relics</button>`; }
     return html;
   }
   function renderShipDetail(state, now, ship) {
@@ -9458,7 +9627,11 @@ const UI = (() => {
       const chm = !!ui.charm[ship.id];
       if (charms || state.discovered.includes('charm')) html += `<label class="supplies ${charms ? '' : 'off'}"><input type="checkbox" data-act="charm" data-ship="${ship.id}" ${chm ? 'checked' : ''} ${charms ? '' : 'disabled'}>
         <span class="track"><span class="knob"></span></span><span>${icon('charm', 'tiny')} <b>Carry a warding charm</b> (you have ${charms})<br><small>Half the hull damage, no curses, +30% against ghosts and monsters.</small></span></label>`;
-      const est = TOF.estimate(ship, plan.type, plan.hours, TOF.tripMods(state, plan.type, now, sup, plan.region, chm));
+      // 1.9: spirit rations pack on any trip
+      const rat = state.resources.spiritRations || 0, haveRat = rat >= need; if (!haveRat) plan.rations = false;
+      if (rat || state.discovered.includes('spiritRations')) html += `<label class="supplies ${haveRat ? '' : 'off'}"><input type="checkbox" data-act="rations" data-ship="${ship.id}" ${plan.rations ? 'checked' : ''} ${haveRat ? '' : 'disabled'}>
+        <span class="track"><span class="knob"></span></span><span>${icon('spiritRations', 'tiny')} <b>Pack spirit rations</b> (${need}, you have ${rat})<br><small>+${Math.round((TOF.RATIONS.yield - 1) * 100)}% haul and half the hull damage. A level 2 Fishmonger salts wraithfin into them.</small></span></label>`;
+      const est = TOF.estimate(ship, plan.type, plan.hours, TOF.tripMods(state, plan.type, now, sup, plan.region, chm, !!plan.rations));
       est.durationMult *= TOF.REGIONS[plan.region].dist * (TOF.trophyBonus(state, 'starChart') ? 0.9 : 1);
       html += estimateText(est, plan.type);
       if (est.overflowChance > 0.3) html += `<p class="warn">The hold (${est.capacity}) fills up on ${pct(est.overflowChance)} of these trips. Try a shorter trip or a bigger hold.</p>`;
@@ -9470,7 +9643,7 @@ const UI = (() => {
       }
     } else if (status === 'away') {
       html += `<div class="progress"><i data-bar="${exp.id}"></i></div>
-        <p class="eta">${exp.special ? `${icon(exp.special === 'portal' ? 'relics' : 'crate', 'tiny')} ${exp.special === 'portal' ? `Through the portal${exp.relic ? `, seeking ${esc(TOF.RELICS[exp.relic].name)}` : ''}` : 'Salvaging the Unseen’s carcass'}` : `${icon(TYPE_ICON[exp.type], 'tiny')} ${durLong(exp.hours)} ${TOF.TYPES[exp.type].name.toLowerCase()} trip in ${esc(TOF.REGIONS[exp.region || 'home'].name)}`}. Back in <b data-timer="${exp.id}"></b>${exp.dev ? ' (developer trip)' : `, around ${clock(exp.endAt)}`}.</p>
+        <p class="eta">${exp.special ? `${icon(exp.special === 'portal' ? 'relics' : 'crate', 'tiny')} ${exp.special === 'portal' ? 'Through the portal, seeking the relics' : 'Salvaging the Unseen’s carcass'}` : `${icon(TYPE_ICON[exp.type], 'tiny')} ${durLong(exp.hours)} ${TOF.TYPES[exp.type].name.toLowerCase()} trip in ${esc(TOF.REGIONS[exp.region || 'home'].name)}`}. Back in <b data-timer="${exp.id}"></b>${exp.dev ? ' (developer trip)' : `, around ${clock(exp.endAt)}`}.</p>
         ${state.settings.devMode ? `<button class="btn dev" data-act="finish">Finish all trips now (developer)</button>` : ''}`;
     } else {
       html += `<button class="btn primary glow" data-act="claim" data-exp="${exp.id}">Collect the haul</button>`;
@@ -9495,7 +9668,7 @@ const UI = (() => {
         const full = bulk && n >= cap;
         const refined = TOF.REFINED.includes(r) || TOF.REFINED2.includes(r), act = refined ? 'sellref' : 'sell';
         const btns = sellable || refined ? `<div class="m-btns"><button class="btn small" data-act="${act}" data-res="${r}" data-q="10" ${n ? '' : 'disabled'}>Sell 10</button><button class="btn small" data-act="${act}" data-res="${r}" data-q="${n}" ${n ? '' : 'disabled'}>Sell all${refined && n ? ` (${n * TOF.refinedPrice(r)})` : ''}</button></div>` : '';
-        const t2use = { shimmerwood: 'A level 2 Sawmill saws it.', ghostflax: 'A level 2 Ropemaker twists it.', salvage: 'A level 2 Blacksmith smelts it.', wraithfin: 'A level 2 Fishmonger salts it.', wraithPlanks: `${TOF.REFINED2_PRICE} coins each at any shop.`, phantomRope: `${TOF.REFINED2_PRICE} coins each at any shop.`, soulmetal: `${TOF.REFINED2_PRICE} coins each at any shop.`, spiritRations: 'Pack them for portal trips.' };
+        const t2use = { shimmerwood: 'A level 2 Sawmill saws it.', ghostflax: 'A level 2 Ropemaker twists it.', salvage: 'A level 2 Blacksmith smelts it.', wraithfin: `${TOF.sellPrice(state, 'wraithfin')} coins each, or a level 2 Fishmonger salts it.`, wraithPlanks: `${TOF.REFINED2_PRICE} coins each at any shop.`, phantomRope: `${TOF.REFINED2_PRICE} coins each at any shop.`, soulmetal: `${TOF.REFINED2_PRICE} coins each at any shop.`, spiritRations: 'Pack them on any trip for a bigger haul and a safer hull.' };
         const sub = TOF.TIER2.includes(r) ? `Tier-2 ${{ timber: 'timber', hemp: 'hemp', ironOre: 'iron ore', fish: 'fish', planks: 'planks', rope: 'rope', iron: 'iron', food: 'food' }[TOF.MATERIAL_BASES[TOF.TIER2.indexOf(r)]]}. ${t2use[r]}` : sellable ? `${TOF.sellPrice(state, r)} coins each` : refined ? `${TOF.REFINED_PRICE} coins each at any shop` : TOF.TRADE.sell[r] ? 'Trading Post buys' : TOF.TRADE.buy[r] ? 'Trading Post sells' : 'Not for sale';
         return `<div class="mrow">${icon(r, 'mid')}<div class="m-info"><b>${TOF.RESOURCES[r].name} <span class="amt ${full ? 'full' : ''}">${n}${bulk ? `<small>/${cap}</small>` : ''}</span></b><span>${sub}</span></div>${btns}</div>`;
       }).join('') + `</div>`;
@@ -9517,8 +9690,8 @@ const UI = (() => {
     }
     const tro = Object.keys(TOF.TROPHIES).filter(k => state.trophies[k]);
     if (tro.length) html += `<h3 class="group">Trophies</h3><div class="card">` + tro.map(k => `<div class="mrow">${icon(k, 'mid')}<div class="m-info"><b>${TOF.TROPHIES[k].name}${state.trophies[k] > 1 ? ` <span class="amt">×${state.trophies[k]}</span>` : ''}</b><span>${TOF.TROPHIES[k].bonus}</span></div></div>`).join('') + `</div>`;
-    const total = ['fish', 'shellfish'].reduce((a, r) => a + state.resources[r] * TOF.sellPrice(state, r), 0);
-    html += `<button class="btn primary" data-act="sellall" ${total ? '' : 'disabled'}>Sell fish and shellfish for ${total} coins</button>
+    const total = ['fish', 'shellfish', 'wraithfin'].reduce((a, r) => a + state.resources[r] * TOF.sellPrice(state, r), 0);
+    html += `<button class="btn primary" data-act="sellall" ${total ? '' : 'disabled'}>Sell ${state.resources.wraithfin ? 'fish, wraithfin' : 'fish'} and shellfish for ${total} coins</button>
       <p class="note">Fish Market level ${mkt}${mkt > 1 ? `: prices +${Math.round((mkt - 1) * 15)}%` : ''}. The bulk sale skips rare catch, pearls and relics; upgrades need them.</p>`;
     return html;
   }
@@ -9662,21 +9835,28 @@ const UI = (() => {
     }
     if (v.phase === 'emerged') {
       const given = TOF.RELIC_ORDER.filter(id => TOF.relicState(state, id) === 'given').length;
+      const left = TOF.relicsLeft(state).length, out = state.expeditions.filter(e => e.special === 'portal').length, free = portalReady(state, now).length;
       html += `<article class="card unseen-card"><h3>The six Ancient Relics of Sin</h3>
-        <p class="desc">The Sea Witch has opened a way beneath the waves. Send ships through the portal, one relic sought per 15-minute trip. Bring each relic to her at the docks: every one she is given puts out one of its eyes. <b>${6 - given}</b> eyes still watch you.</p>
-        ${k.portalSeen ? '<div class="btn-row"><button class="btn small" data-act="goportal">Show me the portal</button><button class="btn small" data-act="gowitch">Show me the witch</button></div>' : ''}</article>`;
+        ${v.portal ? `<p class="desc">The Sea Witch has opened a way beneath the waves. Send ships through the portal to search for the relics: as many as you like, 15 minutes a trip, and about a third come back with one. Bring each relic to her at the docks: every one she is given puts out one of its eyes. <b>${6 - given}</b> eyes still watch you.</p>
+        <p class="desc"><b>${left}</b> relic${left === 1 ? '' : 's'} still in the dark${out ? `. ${out} ship${out > 1 ? 's are' : ' is'} searching now` : ''}.</p>
+        <div class="btn-row"><button class="btn primary" data-act="portalall" ${free ? '' : 'disabled'}>${free ? `Send all ${free} free ship${free > 1 ? 's' : ''}` : 'No ship is free'}</button><button class="btn" data-act="seekrelic" ${free ? '' : 'disabled'}>Pick one ship</button></div>`
+          : `<p class="desc">All six relics are out of the dark, and the portal has faded. Give them to the Sea Witch at the docks: every one she is given puts out one of its eyes. <b>${6 - given}</b> eyes still watch you.</p>`}
+        ${k.portalSeen ? `<div class="btn-row">${v.portal ? '<button class="btn small" data-act="goportal">Show me the portal</button>' : ''}<button class="btn small" data-act="gowitch">Show me the witch</button></div>` : ''}</article>`;
       html += `<div class="card">` + TOF.RELIC_ORDER.map(id => {
-        const R = TOF.RELICS[id], st = TOF.relicState(state, id), seeking = state.expeditions.some(e => e.special === 'portal' && e.relic === id);
+        const R = TOF.RELICS[id], st = TOF.relicState(state, id);
         const btn = st === 'given' ? '<span class="ok-text">Used</span>' : st === 'found'
           ? `<button class="btn small primary" data-act="giverelic" data-relic="${id}">Give it to the witch</button>`
-          : `<button class="btn small" data-act="seekrelic" data-relic="${id}">${seeking ? 'A ship is seeking it' : 'Seek it'}</button>`;
+          : '<span class="note">Not found yet</span>';
         return `<div class="mrow relic-row ${st || ''}">${icon('relic_' + id, 'mid')}<div class="m-info"><b>${esc(R.name)}</b><span>${R.sin}. ${st ? esc(R.hint) : 'Somewhere through the portal.'}</span></div><div class="m-btns">${btn}</div></div>`;
       }).join('') + `</div>`;
     }
     if (v.phase === 'dead') {
       const left = TOF.carcassLeft(state), out = state.expeditions.filter(e => e.special === 'carcass').length;
-      html += `<article class="card unseen-card"><h3>${v.carcass ? 'The carcass' : 'It is dying'}</h3>
-        <p class="desc">${k.slainBy === 'harpoons' ? 'The Unseen died to harpoons long ago. ' : ''}${v.carcass ? `Its body floats in the harbor. <b>${left}</b> of ${TOF.KRAKEN.carcassLoads} loads left to salvage${out ? ` (${out} ship${out > 1 ? 's' : ''} out there now)` : ''}.` : 'Stay back until it stops moving.'}</p>
+      const sinkLeft = Number.isFinite(k.strippedAt) ? Math.max(0, k.strippedAt + TOF.KRAKEN.sinkHours * (k.unit || TOF.HOUR_MS) - now) : 0;
+      html += `<article class="card unseen-card"><h3>${v.sunk ? 'The sea has taken it' : v.carcass ? 'The carcass' : 'It is dying'}</h3>
+        <p class="desc">${k.slainBy === 'harpoons' ? 'The Unseen died to harpoons long ago. ' : ''}${v.sunk ? 'Stripped to the bone, the Unseen’s body sank into the deep. Only a stain on the water marks where it lay.'
+          : v.carcass ? (Number.isFinite(k.strippedAt) ? `Stripped bare, the body is sinking. It will be gone in <b>${dhm(sinkLeft)}</b>.` : `Its body floats in the harbor. <b>${left}</b> of ${TOF.KRAKEN.carcassLoads} loads left to salvage${out ? ` (${out} ship${out > 1 ? 's' : ''} out there now)` : ''}. Once it is stripped bare it will sink within a day.`)
+          : 'Stay back until it stops moving.'}</p>
         ${v.carcass && left ? `<button class="btn primary" data-act="gocarcass">Send a ship to salvage it</button>` : ''}</article>`;
       const spoils = TOF.CARCASS.drops.map(d => ({ d: d.decor, n: (k.drops || {})[d.decor] || 0 }));
       html += `<h3 class="group">Spoils of the Unseen</h3><div class="card">${spoils.map(({ d, n }) => `<div class="mrow">${n ? `<img class="px mid" src="${Art.decorURL(d)}" alt="">` : icon('crate', 'mid')}<div class="m-info"><b>${n ? esc(TOF.DECOR[d].name) : 'Not found yet'}</b><span>${n ? `${esc(TOF.DECOR[d].effect)} Found ${n}.` : 'Still somewhere inside it.'}</span></div></div>`).join('')}</div>
@@ -9689,8 +9869,8 @@ const UI = (() => {
         if (k.lighthouseDown) html += `<article class="card build"><header class="ship-head">${icon('sun', 'mid')}<div><h3>The lighthouse</h3><p>Rebuild it around one of the Unseen’s eyes. It will burn orange, and the break will always show.</p></div></header>
           ${state.flags.lighthouseFixed ? '<p class="ok-text">Rebuilt.</p>' : `<p class="cost">Cost: ${costText(state, lr)}</p><button class="btn ${TOF.canAfford(state, lr) ? 'primary' : ''}" data-act="fixlight" ${TOF.canAfford(state, lr) ? '' : 'disabled'}>${TOF.canAfford(state, lr) ? 'Rebuild the lighthouse' : `Need ${missingText(state, lr)}`}</button>`}</article>`;
       }
-      if (v.portal) html += `<article class="card"><h3>The portal</h3><p class="desc">It never closed. Ships can still sail through it for ghost-touched goods.</p><button class="btn small" data-act="seekrelic" data-relic="">Send a ship through</button></article>`;
     }
+    if (v.tide) html += `<article class="card ghostwork"><h3>${icon('shimmerwood', 'tiny')} The Ghost Tide</h3><p class="desc">With the portal gone, its ghost-touched goods have seeped into every sea. ${v.phase === 'dead' ? 'Every' : 'Once the harbor opens again, every'} ordinary trip brings back much of its timber, hemp, ore and fish as tier 2 goods, with some everyday goods alongside. The Sea Witch trades ${TOF.WITCH_RATE} everyday goods for one ghost-touched.</p></article>`;
     if (w.id || w.phase === 'after') html += `<p class="note">${esc(w.name || TOF.WORLD_SHIFTS.unseen.after)}${w.phase === 'during' ? ': the harbor darkens while it lives.' : w.phase === 'settling' ? ': the harbor is slowly settling.' : '.'}</p>`;
     return html;
   }
@@ -9723,8 +9903,20 @@ const UI = (() => {
     $('#modalOk').textContent = 'Later'; $('#modalOk').classList.remove('primary');
     $('#modal').hidden = false;
   }
-  function planSpecial(special, relic) {
-    ui.pendingSpecial = { special, relic: relic || null };
+  // 1.9: the portal fades with the last relic, and the Ghost Tide comes in: said once, the first time it is true
+  function checkTide() {
+    const st = App.state; if (!st || st.kraken.tideSeen || !TOF.ghostTide(st) || !Number.isFinite(st.kraken.breachAt)) return;
+    if (!$('#modal').hidden || omenQ.busy || document.body.classList.contains('cinematic') || World.kraken.portalShowing) return; // (let it finish fading first)
+    if (TOF.krakenView(st, App.now()).phase === 'dead' && !st.kraken.deathSeen) return; // the death comes first
+    App.tideSeen();
+    $('#modalBody').innerHTML = `<h2>The portal closes</h2><p class="sub">The last relic is out of the dark, and the way between worlds folds shut behind it.</p>
+      <p class="desc">What lived on the other side has leaked into every sea. From now on, much of the timber, hemp, ore and fish your ships bring home comes back <b>ghost-touched</b> (tier 2), with some everyday goods alongside. Work it at level 2 workshops, sell wraithfin at the Fish Market, and pack spirit rations on any trip.</p>
+      <p class="desc">The Sea Witch will trade ${TOF.WITCH_RATE} of any everyday material for 1 ghost-touched.</p>`;
+    $('#modalOk').textContent = 'Close'; $('#modalOk').classList.remove('primary');
+    $('#modal').hidden = false;
+  }
+  function planSpecial(special) {
+    ui.pendingSpecial = { special };
     const st = App.state, idle = st.ships.find(s => TOF.shipStatus(st, s.id, App.now()) === 'idle' && !TOF.sailBlock(st, s, 'exploration', App.now()));
     openPanel('fleet', idle ? { ship: idle.id } : {});
     toast(idle ? `Pick a ship for ${special === 'portal' ? 'the portal' : 'the carcass'}.` : 'No ship is free to sail right now.');
@@ -9871,6 +10063,14 @@ const UI = (() => {
         html += `<article class="card"><h3>${icon('charm', 'mid')} Warding charms</h3><p class="desc">A charm halves hull damage on one trip, wards off curses, and gives +30% against ghosts and monsters. Costs 2 enchanted essence and 1 relic. You have ${state.resources.charm}.</p>
           <button class="btn ${TOF.canAfford(state, { essence: 2, relics: 1 }) ? 'primary' : ''}" data-act="charmcraft" ${TOF.canAfford(state, { essence: 2, relics: 1 }) ? '' : 'disabled'}>Make a charm</button>
           ${cursed.length ? `<h3 style="margin-top:12px">Cursed ships</h3>${cursed.map(x => `<div class="mrow"><span class="fl-img">${shipImg(x.cls)}</span><div class="m-info"><b>${esc(x.name)}</b><span>${x.curse.trips} trip${x.curse.trips > 1 ? 's' : ''} left</span></div><div class="m-btns"><button class="btn small" data-act="cleanse" data-ship="${x.id}" ${state.resources.essence ? '' : 'disabled'}>Lift (1 essence)</button></div></div>`).join('')}` : ''}</article>`;
+        // 1.9: the Ghost Tide trade
+        if (TOF.ghostTide(state)) {
+          const R = TOF.WITCH_RATE, bases = TOF.MATERIAL_BASES.filter(m => state.discovered.includes(m));
+          html += `<article class="card ghostwork"><h3>${icon('shimmerwood', 'mid')} Ghost-touched trade</h3><p class="desc">“Give me ${R} of anything ordinary and I will give you 1 of it touched by the dark,” she says. Raw goods for raw, worked goods for worked.</p>` +
+            bases.map(m => { const out = TOF.T2[m], have = state.resources[m] || 0, can = Math.floor(have / R);
+              return `<div class="mrow">${icon(out, 'mid')}<div class="m-info"><b>${esc(TOF.RESOURCES[out].name)}</b><span>${R} ${resName(m)} each. You have ${have}.</span></div>
+                <div class="m-btns"><button class="btn small" data-act="witchtrade" data-res="${m}" data-q="10" ${can >= 10 ? '' : 'disabled'}>10</button><button class="btn small" data-act="witchtrade" data-res="${m}" data-q="${can}" ${can ? '' : 'disabled'}>All${can ? ` ${can}` : ''}</button></div></div>`; }).join('') + `</article>`;
+        }
       }
       if (b.type === 'tavern') {
         const rm = TOF.rumorFor(state, now);
@@ -10113,7 +10313,7 @@ const UI = (() => {
           <p class="note">${(() => { const v = TOF.krakenView(state, Date.now()), w = TOF.worldShift(state, Date.now()); return `Now: <b>${v.phase}</b>, ${state.kraken.omens.length} omens${v.phase === 'rising' ? `, hour ${v.hours.toFixed(1)} of 10` : ''}${v.phase === 'emerged' ? `, ${v.eyesLeft} eyes left` : ''}${v.phase === 'dead' ? `, ${TOF.carcassLeft(state)} loads left` : ''}. World: <b>${w.phase}</b>${w.id ? ` (${Math.round(w.k * 100)}%)` : ''}.`; })()}</p>
           <div class="btn-grid">
             ${TOF.OMENS.map(o => `<button class="btn dev" data-act="kdbg" data-c="omen:${o.id}">Omen: ${esc(o.text.slice(0, 18))}…</button>`).join('')}
-            ${[['countdown', 'Start countdown'], ['h0', 'Hour 0: wisps'], ['h4', 'Hour 4'], ['h6', 'Hour 6: empty town'], ['h8.2', 'Hour 8: eyes'], ['breach', 'Play the breach'], ['portal', 'Play the portal'], ['emerged', 'Risen (skip both)'], ['relics', 'Find every relic'], ['give', 'Give next relic'], ['kill', 'Kill it'], ['corpse', 'Floating corpse'], ['settle', 'Settle the world'], ['reset', 'Reset the Unseen']].map(([c, l]) => `<button class="btn dev" data-act="kdbg" data-c="${c}">${l}</button>`).join('')}
+            ${[['countdown', 'Start countdown'], ['h0', 'Hour 0: wisps'], ['h4', 'Hour 4'], ['h6', 'Hour 6: empty town'], ['h8.2', 'Hour 8: eyes'], ['breach', 'Play the breach'], ['portal', 'Play the portal'], ['emerged', 'Risen (skip both)'], ['relics', 'Find every relic'], ['give', 'Give next relic'], ['kill', 'Kill it'], ['corpse', 'Floating corpse'], ['strip', 'Strip the carcass'], ['sink', 'Carcass 80% sunk'], ['settle', 'Settle the world'], ['reset', 'Reset the Unseen']].map(([c, l]) => `<button class="btn dev" data-act="kdbg" data-c="${c}">${l}</button>`).join('')}
             <button class="btn dev" data-act="kpause">${World.kraken.dbg.paused ? 'Resume kraken animation' : 'Pause kraken animation'}</button>
             <button class="btn dev" data-act="krig">${World.kraken.dbg.rig ? 'Hide' : 'Show'} arm and eye labels</button>
           </div>${tests}` : ''}
@@ -10143,10 +10343,15 @@ const UI = (() => {
       case 'type': planFor(ship).type = b.dataset.type; refreshPanel(); break;
       case 'hours': planFor(ship).hours = +b.dataset.h; refreshPanel(); break;
       case 'region': planFor(ship).region = b.dataset.r; planFor(ship).special = null; ui.pendingRegion = null; ui.pendingSpecial = null; refreshPanel(); break;
-      case 'special': { const p = planFor(ship); p.special = b.dataset.sp; p.relic = undefined; p.spoils = false; ui.pendingSpecial = null; refreshPanel(); break; }
-      case 'seek': { ui.pendingSpecial = null; const p = planFor(ship); p.relic = b.dataset.relic || null; p.spoils = !b.dataset.relic; refreshPanel(); break; }
+      case 'special': { const p = planFor(ship); p.special = b.dataset.sp; ui.pendingSpecial = null; refreshPanel(); break; }
+      case 'portalall': {
+        const r = App.sendAllToPortal();
+        if (!r.ok) { toast(r.reason, 'bad'); break; }
+        Sound.play('sail'); toast(`${r.sent.length} ship${r.sent.length > 1 ? 's sail' : ' sails'} into the portal to seek the relics.`, 'good'); ui.pendingSpecial = null; ui.fleetShip = null; closePanel();
+        break;
+      }
       case 'sail': {
-        const p = planFor(ship), r = App.dispatch(id, p.hours, p.type, { supplies: !!ui.supplies[id], charm: !!ui.charm[id], region: p.region, ...(p.special ? { special: p.special, relic: p.relic || null, rations: !!p.rations } : {}) });
+        const p = planFor(ship), r = App.dispatch(id, p.hours, p.type, { supplies: !!ui.supplies[id], charm: !!ui.charm[id], region: p.region, rations: !!p.rations, ...(p.special ? { special: p.special } : {}) });
         if (r.ok) { ui.pendingRegion = null; ui.pendingSpecial = null; }
         if (!r.ok) toast(r.reason, 'bad');
         else { Sound.play('sail'); toast(p.special === 'portal' ? `${ship.name} sails into the portal.` : p.special === 'carcass' ? `${ship.name} sets out to cut into the carcass.` : `${ship.name} set out ${{ fishing: 'fishing', treasure: 'treasure hunting', combat: 'to hunt pirates', exploration: 'exploring' }[p.type]}.`); ui.fleetShip = null; closePanel(); World.focusShip(id); }
@@ -10167,6 +10372,7 @@ const UI = (() => {
       case 'goupgrade': openPanel('shipwright', { tab: 'upgrade', ship: id }); break;
       case 'chest': showChest(b.dataset.c); break;
       case 'charmcraft': { const r = App.craftCharm(); say(r, 'The witch hands you a warm, humming charm.'); break; }
+      case 'witchtrade': { const r = App.witchTrade(b.dataset.res, +b.dataset.q); say(r, r.ok ? `The witch breathes on ${r.spent} ${resName(r.base)}. ${r.got} ${resName(r.out)} come away cold.` : ''); break; }
       case 'cleanse': { const r = App.cleanse(id); say(r, `The curse on ${ship ? ship.name : 'her'} lifts like fog.`); break; }
       case 'mapsel': ui.mapSel = b.dataset.r; refreshPanel(); break;
       case 'reveal': { const r = App.revealRegion(b.dataset.r); say(r, `${TOF.REGIONS[b.dataset.r].name} is on the chart.`); break; }
@@ -10187,7 +10393,7 @@ const UI = (() => {
         toast(r.dead ? 'The witch lifts the last relic. The Unseen screams.' : `The witch lifts ${TOF.RELICS[r.relic].name} toward the Unseen…`, 'good');
         break;
       }
-      case 'seekrelic': planSpecial('portal', b.dataset.relic); break;
+      case 'seekrelic': planSpecial('portal'); break;
       case 'gocarcass': planSpecial('carcass'); break;
       case 'goportal': closePanel(); World.kraken.focusPortal(); break;
       case 'gowitch': closePanel(); World.kraken.focusWitch(); break;
@@ -10341,7 +10547,7 @@ const UI = (() => {
     if (info.bId) { openPanel('village', { building: info.bId }); return; }
     // 1.8: harpoons can't hurt it; everything about the Unseen opens its panel
     if (o.kind === 'krakenEye') { toast('Harpoons glance off it. Only the relics of sin can put out its eyes.'); openPanel('unseen'); return; }
-    if (o.kind === 'krakenBody' || o.kind === 'portal' || o.kind === 'witchDock') { if (o.kind === 'witchDock') toast('“Bring me what you find through the portal,” the witch says, not looking at you.'); openPanel('unseen'); return; }
+    if (o.kind === 'krakenBody' || o.kind === 'portal' || o.kind === 'witchDock') { if (o.kind === 'witchDock') toast(TOF.ghostTide(App.state) ? '“Give them to me,” the witch says. “All of them.”' : '“Bring me what you find through the portal,” the witch says, not looking at you.'); openPanel('unseen'); return; }
     if (info.unseen && !App.state.flags.lighthouseFixed && TOF.krakenSlain(App.state)) { openPanel('unseen'); return; }
     if (o.kind === 'ghost') {
       const r = App.popGhost(o.ghostId);
@@ -10443,7 +10649,7 @@ const UI = (() => {
   }
 
   const showBrewAgain = () => { const lb = App.state.halloween.lastBrew; if (lb && !lb.seen && $('#modal').hidden) { showBrew(lb); $('#modal').hidden = false; } };
-  return { showBrewAgain, init, refresh, tick, toast, onWorldTap, openPanel, renderVoyages, onPlaceChange, refreshPanel, renderSkyChip, nextOmen, checkDeath };
+  return { showBrewAgain, init, refresh, tick, toast, onWorldTap, openPanel, renderVoyages, onPlaceChange, refreshPanel, renderSkyChip, nextOmen, checkDeath, checkTide };
 })();
 
 // ============================================================
@@ -10462,7 +10668,7 @@ const UI = (() => {
   App.save();
   World.setLowPower(App.state.settings.batterySaver);
   PWA.init(show => { document.getElementById('updateBtn').hidden = !show; });
-  if (PWA.justUpdated()) setTimeout(() => UI.toast(`Updated to version ${TOF.GAME_VERSION}: The Unseen. Something is listening.`, 'good'), 600);
+  if (PWA.justUpdated()) setTimeout(() => UI.toast(`Updated to version ${TOF.GAME_VERSION}: the Ghost Tide.`, 'good'), 600);
   if (!PWA.sandboxed) document.addEventListener('pointerdown', function once() { document.removeEventListener('pointerdown', once); PWA.persist(); });
   World.syncBuildings(App.state);
   World.syncDecor(App.state);
@@ -10518,7 +10724,7 @@ const UI = (() => {
       } else if (UI.tick(now)) UI.renderVoyages();
       App.settle();
       UI.renderSkyChip();
-      UI.nextOmen(); UI.checkDeath();
+      UI.nextOmen(); UI.checkDeath(); UI.checkTide();
     }
     World.update(dt);
     frameFlip = !frameFlip;

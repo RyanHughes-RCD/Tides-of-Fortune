@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.8.0.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.9.3.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,65 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.9.3
+
+Level 3 of the three upgrades that open after the kraken now takes ghost-touched goods. Levels 1 and 2 are unchanged, and coins still scale with the hull's tier.
+
+| Level 3 upgrade | Before | Now |
+|---|---|---|
+| Stronger cannons | 700 coins, 1 relic, 25 iron | 700 coins, 1 relic, 10 iron, 10 soulmetal |
+| Reinforced hull | 600 coins, 30 planks, 15 iron | 600 coins, 10 planks, 5 iron, 12 wraithwood planks, 6 soulmetal |
+| Magic lures | 400 coins, 3 rare catch, 2 pearls, 4 essence | 400 coins, 2 rare catch, 2 pearls, 4 essence, 8 wraithfin, 4 phantom rope |
+
+Upgrades already fitted are kept.
+
+## What's new in 1.9.2
+
+The three tier-5 ships that open after the kraken are now built mostly from worked ghost-touched goods, like the Wraith Galleon, Wraithlight Ketch and Krakenwake already were. Each still needs some everyday goods. Coins and the other costs are unchanged.
+
+| Ship | Planks, rope, iron (was) | Planks, rope, iron (now) | Wraithwood planks, phantom rope, soulmetal (new) |
+|---|---|---|---|
+| Arcane Frigate | 60, 30, 30 | 20, 10, 10 | 25, 15, 15 |
+| Leviathan Trawler | 100, 60, 50 | 30, 20, 15 | 40, 25, 20 |
+| Star Clipper | 90, 60, 30 | 25, 20, 10 | 35, 30, 10 |
+
+Ships you already own are kept.
+
+## What's new in 1.9.1
+
+- **Keys turn up more often.** Sunken keys from fishing and lost keys from exploring drop about 60% more often per hour at sea, and each pirate crew beaten now drops a pirate key 45% of the time (was 30%).
+- **Chests pay a little more.** Every size gives about 25% more coins and 20% more goods, and trophies are slightly likelier:
+
+  | Chest | Coins | Goods |
+  |---|---|---|
+  | Small | 50–150 (was 40–120) | ×1.2 (was ×1) |
+  | Medium | 190–500 (was 150–400) | ×2.4 (was ×2) |
+  | Large | 625–1,750 (was 500–1,400) | ×4.2 (was ×3.5) |
+
+  Pirate chests still pay 30% more coin on top.
+
+## What's new in 1.9: The Ghost Tide
+
+**The portal is only for the relics.** Ships sail through it to search for the Ancient Relics of Sin and nothing else (no more "spoils only" trips). You no longer pick one relic per ship: every trip searches for whichever relics are still missing, about 35% of trips come back with one, and you can send as many ships at once as you like. In the Unseen panel, **Send all free ships** sends every ship that can sail through the portal in one tap. Portal trips still bring back a few ghost-touched goods.
+
+**The portal fades.** Once all six relics are out of the dark, the portal swells, folds in on itself and is gone. Ships still inside come home safely, just without a relic.
+
+**The Ghost Tide.** From then on, tier-2 goods are the heart of the economy. Every ordinary trip brings about 60% of its timber, hemp, iron ore and fish home ghost-touched, two tier-1 goods becoming one tier-2, with the other 40% as everyday goods. Now and then a trip also brings back something already worked (wraithwood planks, phantom rope, soulmetal or spirit rations). Coins, charts, pearls and the rest are unchanged. Trip previews list the ghost-touched share.
+
+| Trip | Tier 1 it brings | Tier 2 it brings |
+|---|---|---|
+| Fishing | Fish, shellfish | Wraithfin |
+| Exploration | Timber, hemp | Shimmerwood, ghostflax |
+| Treasure and pirate hunting | Iron ore | Spectral salvage |
+
+- **The Sea Witch trades** 3 of any everyday material for 1 of its ghost-touched form (timber for shimmerwood, planks for wraithwood planks, fish for wraithfin, and so on), once the Ghost Tide is in.
+- **Wraithfin sells** at the Fish Market for 5 coins (the bulk sale includes it), or a level 2 Fishmonger salts it into spirit rations.
+- **Spirit rations pack on any trip**, as many as preserved food would take: +35% haul and half the hull damage.
+
+**The carcass sinks.** When the last of its 12 loads has been salvaged, the Unseen's body starts to go under. Over 24 hours it dims into a dark shape below the water and then disappears; the Unseen panel counts down the time left. Older saves with a carcass already stripped start sinking the first time they open.
+
+**Developer mode** adds **Strip the carcass** and **Carcass 80% sunk** to the Unseen tools.
 
 ## What's new in 1.8: The Unseen
 
