@@ -473,7 +473,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.9.3';
+  const GAME_VERSION = '1.9.4';
   const SAVE_VERSION = 7;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -8677,7 +8677,11 @@ const World = (() => {
     const t = sk.tint.map((c, i) => Math.round(c + ([38, 26, 44][i] - c) * m * 0.88));
     return { ...sk, tint: t, lights: Math.max(sk.lights, Math.min(1, m * 1.15)), dark: Math.max(sk.dark, m) };
   }
-  function drawKraken(ctx) { // the creature itself, inside the depth-sorted world
+  function drawKraken(ctx) { // the creature itself, inside the depth-sorted world (the floating carcass is drawn earlier, under the jetties)
+    if (!krP || krP.corpse) return;
+    drawKrakenBody(ctx);
+  }
+  function drawKrakenBody(ctx) {
     if (!krP || !krP.show || KZ.dbg.skip.body) return;
     const order = KZ.ARMS.map((a, i) => i).sort((a, b) => KZ.ARMS[a].dy - KZ.ARMS[b].dy);
     for (const i of order) if (KZ.ARMS[i].dy < 0) KZ.drawArm(ctx, krP, i);
@@ -8711,6 +8715,9 @@ const World = (() => {
       ctx.drawImage(r.canvas, Math.round(o.x - r.ax), Math.round(o.y - r.ay + 1));
     }
     ctx.globalAlpha = 1;
+    // 1.9.4: what lies in the water (the red pool, shapes below the surface, and the floating carcass) goes under the jetties
+    if (krP) KZ.drawUnder(ctx, krP, krView);
+    if (krP && krP.corpse) drawKrakenBody(ctx);
     for (const L of dockLayers) if (L.active) ctx.drawImage(L.canvas, L.x, L.y);
     if (rings.length) {
       ctx.strokeStyle = '#d6efff'; ctx.lineWidth = 1;
@@ -8718,7 +8725,6 @@ const World = (() => {
       ctx.globalAlpha = 1;
     }
 
-    if (krP) KZ.drawUnder(ctx, krP, krView);
     // what part of the world is on screen, to skip off-screen scenery
     const view = { x0: cam.x - W / 2 / s - 40, x1: cam.x + W / 2 / s + 40, y0: cam.y - H / 2 / s - 10, y1: cam.y + H / 2 / s + 60 };
     const drawScenery = list => { for (const o of list) if (o.x > view.x0 && o.x < view.x1 && o.y > view.y0 && o.y < view.y1) { const t = TEX[o.tex]; ctx.drawImage(t.canvas, o.x - t.ax, o.y - t.ay); } };
