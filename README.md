@@ -1,6 +1,6 @@
 # Tides of Fortune: home-screen app
 
-**Version 1.9.3.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
+**Version 1.9.5.** These files are the whole game. Put them on GitHub Pages and anyone can open it in a browser, add it to their home screen, and play it offline.
 
 ## What's in this folder
 
@@ -63,6 +63,15 @@ Send them your link. They follow step 4 on their own phones. Each person gets th
 ## 7. Installing an update
 
 When you get a new version of the game, upload the new files to the same repository (they replace the old ones) and commit. The next time the app opens with a connection, a **New version ready: tap to restart** button appears near the top. Tap it; your save stays.
+
+## What's new in 1.9.5
+
+- **Remove a ship from the harbor** to make room for a better one. In **Fleet**, open a ship that is in harbor and tap **Remove from harbor**, then tap again to confirm. The Shipwright breaks her up and pays back a quarter of her coin cost; her upgrades go with her. Her berth is free for the next hull you build.
+- A ship at sea, or back with a haul still to collect, can't be removed, and the harbor always keeps at least one ship.
+
+## What's new in 1.9.4
+
+- The Unseen's floating carcass, and the red pool and shapes it leaves in the water, now lie under the jetties instead of covering them. Ships at the docks and the jetty posts stay on top.
 
 ## What's new in 1.9.3
 

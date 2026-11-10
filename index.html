@@ -473,7 +473,7 @@ img.px.ship-img.big { height: 52px; }
 const TOF = (() => {
   'use strict';
 
-  const GAME_VERSION = '1.9.3';
+  const GAME_VERSION = '1.9.5';
   const SAVE_VERSION = 7;
   const SAVE_KEY = 'tidesOfFortune.save';
   const BACKUP_KEY = 'tidesOfFortune.save.backup';
@@ -1315,7 +1315,7 @@ const TOF = (() => {
   }
 
   function classLock(state, cls) {
-    if (state.ships.length >= MAX_SHIPS) return 'The harbor has room for 10 ships.';
+    if (state.ships.length >= MAX_SHIPS) return 'The harbor has room for 10 ships. Remove one in the Fleet panel to make room.';
     const cost = SHIP_CLASSES[cls].cost;
     const need = Object.keys(cost).filter(k => k !== 'coins' && !state.discovered.includes(k));
     const tier = SHIP_CLASSES[cls].tier;
@@ -1330,6 +1330,24 @@ const TOF = (() => {
     return null;
   }
 
+  // 1.9.5: break a ship up at the Shipwright to free her berth for a better one. She must be home with nothing
+  // waiting to be collected, and the harbor always keeps at least one ship. The yard pays a quarter of her coin cost.
+  const SCRAP_REFUND = 0.25;
+  const scrapValue = ship => Math.round((SHIP_CLASSES[ship.cls].cost.coins || 0) * SCRAP_REFUND);
+  function scrapBlock(state, ship) {
+    if (!ship) return 'No such ship.';
+    if (state.ships.length <= 1) return 'She is your only ship. Build another before you let her go.';
+    if (expeditionForShip(state, ship.id)) return `${ship.name} is not in harbor. Collect her first.`;
+    return null;
+  }
+  function scrapShip(state, shipId) {
+    const ship = getShip(state, shipId), why = scrapBlock(state, ship);
+    if (why) return { ok: false, reason: why };
+    const coins = scrapValue(ship);
+    state.ships = state.ships.filter(x => x.id !== shipId);
+    if (coins) state.resources.coins += coins; // (a refund, not earnings: it doesn't count toward coin goals)
+    return { ok: true, ship, coins };
+  }
   function buildShip(state, cls) {
     if (!SHIP_CLASSES[cls]) return { ok: false, reason: 'Unknown ship.' };
     if (state.ships.length >= MAX_SHIPS) return { ok: false, reason: 'The harbor has room for 10 ships.' };
@@ -2837,7 +2855,7 @@ const TOF = (() => {
     MATERIAL_TIERS, MATERIAL_BASES, RAW_BASES, T2, TIER2, T3, T4, T2_RECIPES, recipesOf, REFINED2, REFINED2_PRICE, refinedPrice, WORLD_SHIFTS, WORLD_NEUTRAL, worldShift, startShift, endShift, settleWorld, emptyWorld,
     EXPANSION, LIGHTHOUSE_REPAIR, POST_KRAKEN_UPGRADES, expandVillage, repairLighthouse, buildMinY, krakenSlain, spendCoins, noteGathered, ghostBoost, ghostFinalHour, halloweenEndsAt, pumpkinStatus, harvestPumpkins, settlePumpkins, stowDecor, sellRefined, batchLimit, BATCH_PER_LEVEL,
     DECOR_COPIES, repaintDecor,
-    GAME_VERSION, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
+    GAME_VERSION, scrapShip, scrapBlock, scrapValue, SCRAP_REFUND, DECOR, DECOR_ORDER, DECOR_CAP, decorBonus, decorLock, ownsDecor, buyDecor, placeDecor, moveDecor, fitBuilding, sizeOf, defOf, buildMs, cropHours, cropYield, placedThings,
   };
 })();
 if (typeof module !== 'undefined') module.exports = TOF;
@@ -3441,6 +3459,19 @@ function runTofTests(TOF) {
     eq(b.gy, 33, 'kept row 33');
   });
 
+  test('1.9.5: a ship in harbor can be broken up to free her berth for a better one', () => {
+    const s = veteran(T0); s.resources.coins = 1e6;
+    ok(/only ship/.test(TOF.scrapShip(s, 'ship-1').reason), 'never the last ship');
+    for (let i = 0; i < 9; i++) ok(TOF.buildShip(s, 'sloop').ok, 'built');
+    ok(!TOF.buildShip(s, 'cog').ok, 'harbor full');
+    const old = s.ships[3], berth = old.berth, c0 = s.resources.coins;
+    ok(TOF.dispatch(s, old.id, 1, T0, 1, 'fishing').ok, 'out'); ok(/not in harbor/.test(TOF.scrapShip(s, old.id).reason), 'not while at sea');
+    ok(/not in harbor/.test(TOF.scrapShip(s, old.id).reason), 'nor while her haul waits'); TOF.claim(s, s.expeditions[0].id, T0 + 99 * H);
+    const r = TOF.scrapShip(s, old.id); ok(r.ok, r.reason); eq(s.ships.length, 9, 'gone'); eq(r.coins, 25, 'a quarter of her 100 coins'); eq(s.resources.coins, c0 + 25, 'paid');
+    s.buildings.push({ id: 'b-dy', type: 'dockyard', gx: 1, gy: 30, level: 3, pending: null, job: null }); s.resources.planks = 99; s.discovered.push('planks');
+    const b = TOF.buildShip(s, 'cog'); ok(b.ok, b.reason); eq(b.ship.berth, berth, 'the new hull takes her berth');
+    const st = memStorage(); TOF.saveGame(st, s, T0); ok(!TOF.loadGame(st, T0).state.ships.some(x => x.id === old.id), 'stays gone after a reload');
+  });
   test('berths fill jetties in order, two ships each', () => {
     const s = veteran(T0); town(s); s.resources.coins = 1e6;
     for (let i = 0; i < 9; i++) TOF.buildShip(s, 'skiff');
@@ -8677,7 +8708,11 @@ const World = (() => {
     const t = sk.tint.map((c, i) => Math.round(c + ([38, 26, 44][i] - c) * m * 0.88));
     return { ...sk, tint: t, lights: Math.max(sk.lights, Math.min(1, m * 1.15)), dark: Math.max(sk.dark, m) };
   }
-  function drawKraken(ctx) { // the creature itself, inside the depth-sorted world
+  function drawKraken(ctx) { // the creature itself, inside the depth-sorted world (the floating carcass is drawn earlier, under the jetties)
+    if (!krP || krP.corpse) return;
+    drawKrakenBody(ctx);
+  }
+  function drawKrakenBody(ctx) {
     if (!krP || !krP.show || KZ.dbg.skip.body) return;
     const order = KZ.ARMS.map((a, i) => i).sort((a, b) => KZ.ARMS[a].dy - KZ.ARMS[b].dy);
     for (const i of order) if (KZ.ARMS[i].dy < 0) KZ.drawArm(ctx, krP, i);
@@ -8711,6 +8746,9 @@ const World = (() => {
       ctx.drawImage(r.canvas, Math.round(o.x - r.ax), Math.round(o.y - r.ay + 1));
     }
     ctx.globalAlpha = 1;
+    // 1.9.4: what lies in the water (the red pool, shapes below the surface, and the floating carcass) goes under the jetties
+    if (krP) KZ.drawUnder(ctx, krP, krView);
+    if (krP && krP.corpse) drawKrakenBody(ctx);
     for (const L of dockLayers) if (L.active) ctx.drawImage(L.canvas, L.x, L.y);
     if (rings.length) {
       ctx.strokeStyle = '#d6efff'; ctx.lineWidth = 1;
@@ -8718,7 +8756,6 @@ const World = (() => {
       ctx.globalAlpha = 1;
     }
 
-    if (krP) KZ.drawUnder(ctx, krP, krView);
     // what part of the world is on screen, to skip off-screen scenery
     const view = { x0: cam.x - W / 2 / s - 40, x1: cam.x + W / 2 / s + 40, y0: cam.y - H / 2 / s - 10, y1: cam.y + H / 2 / s + 60 };
     const drawScenery = list => { for (const o of list) if (o.x > view.x0 && o.x < view.x1 && o.y > view.y0 && o.y < view.y1) { const t = TEX[o.tex]; ctx.drawImage(t.canvas, o.x - t.ax, o.y - t.ay); } };
@@ -9310,6 +9347,7 @@ const App = (() => {
     revealRegion(id) { return done(TOF.revealRegion(state, id), 'region'); },
     openChest(id) { return done(TOF.openChest(state, id), 'chest'); },
     craftCharm() { return done(TOF.craftCharm(state), 'charm'); },
+    scrapShip(id) { return done(TOF.scrapShip(state, id), 'scrapped'); },
     sendAllToPortal() { const r = TOF.sendAllToPortal(state, now()); if (r.ok) commit('dispatched', r); return r; },
     witchTrade(base, qty) { return done(TOF.witchTrade(state, base, qty), 'witchtrade'); },
     tideSeen() { state.kraken.tideSeen = true; commit('kraken'); },
@@ -9461,7 +9499,7 @@ const UI = (() => {
     unseen: { title: 'The Unseen', render: renderUnseen },
   };
   function openPanel(name, opts = {}) {
-    ui.panel = name; ui.resetArmed = false;
+    ui.panel = name; ui.resetArmed = false; ui.scrapArmed = null;
     if (name === 'fleet') ui.fleetShip = opts.ship || null;
     if (name === 'shipwright' && opts.tab) { ui.swTab = opts.tab; if (opts.ship) ui.swShip = opts.ship; }
     if (name === 'halloween') { ui.hwDecor = opts.decor || null; ui.hwFocus = opts.focus || null; }
@@ -9652,6 +9690,13 @@ const UI = (() => {
       ${ui.renaming === ship.id
         ? `<div class="rename"><label for="renameInput">New name</label><input id="renameInput" maxlength="24" value="${esc(ship.name)}" autocomplete="off"><div class="btn-row"><button class="btn primary" data-act="dorename" data-ship="${ship.id}">Save name</button><button class="btn" data-act="cancelrename">Cancel</button></div></div>`
         : `<div class="btn-row"><button class="btn" data-act="goupgrade" data-ship="${ship.id}">Upgrades</button><button class="btn" data-act="rename" data-ship="${ship.id}">Rename</button></div>`}`;
+    // 1.9.5: break her up to make room for a better hull
+    if (status === 'idle') {
+      const why = TOF.scrapBlock(state, ship), val = TOF.scrapValue(ship), armed = ui.scrapArmed === ship.id;
+      html += why ? `<p class="note">${esc(why)}</p>`
+        : `<button class="btn danger" data-act="scrap" data-ship="${ship.id}">${armed ? `Tap again to break up ${esc(ship.name)} for ${val} coins` : 'Remove from harbor'}</button>
+          <p class="note">${armed ? 'Her upgrades go with her. This can’t be undone.' : `The Shipwright breaks her up for ${val} coins and frees her berth for a new hull.`}</p>`;
+    }
     return html;
   }
 
@@ -10133,7 +10178,7 @@ const UI = (() => {
     return `${icon(TYPE_ICON[c.role], 'tiny')} ${also.length ? `Good at ${[c.role, ...also].map(nm).join(also.length > 1 ? ', ' : ' and ').replace(/, ([^,]*)$/, ' and $1')}` : `Best at ${nm(c.role)}`}`;
   }
   function renderBuild(state) {
-    let html = `<p class="note">${state.ships.length} of ${TOF.MAX_SHIPS} berths in use.</p>`;
+    let html = `<p class="note">${state.ships.length} of ${TOF.MAX_SHIPS} berths in use.${state.ships.length >= TOF.MAX_SHIPS ? ' To make room for a new hull, open a ship in the Fleet panel and remove her from the harbor.' : ''}</p>`;
     for (const cls of TOF.CLASS_ORDER) {
       const c = TOF.SHIP_CLASSES[cls], st = TOF.shipStats({ cls, upgrades: {} });
       const owned = state.ships.filter(s => s.cls === cls).length;
@@ -10366,6 +10411,14 @@ const UI = (() => {
       case 'claim': collect(b.dataset.exp); break;
       case 'claimall': collectAll(); break;
       case 'repair': { const r = App.repair(id); say(r, `${ship.name} is patched up (${r.cost} coins, ${r.planks} ${unit('planks', r.planks)}).`); break; }
+      case 'scrap': {
+        if (ui.scrapArmed !== id) { ui.scrapArmed = id; refreshPanel(); break; }
+        ui.scrapArmed = null; const r = App.scrapShip(id);
+        if (!r.ok) { toast(r.reason, 'bad'); break; }
+        delete ui.plan[id]; delete ui.supplies[id]; delete ui.charm[id]; ui.fleetShip = null;
+        Sound.play('splash'); toast(`${r.ship.name} was broken up${r.coins ? ` for ${r.coins} coins` : ''}. Her berth is free.`, 'good'); refreshPanel(true);
+        break;
+      }
       case 'rename': ui.renaming = id; refreshPanel(); { const i = document.getElementById('renameInput'); if (i) { i.focus(); i.select(); } } break;
       case 'dorename': { const i = document.getElementById('renameInput'); const r = App.rename(id, i ? i.value : ''); ui.renaming = null; say(r, 'Renamed.'); if (r.ok) refreshPanel(); break; }
       case 'cancelrename': ui.renaming = null; refreshPanel(); break;
